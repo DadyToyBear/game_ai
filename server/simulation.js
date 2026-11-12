@@ -1,3 +1,9 @@
+import { initialKingdoms, tickKingdoms } from './kingdoms.js';
+import { initialDefense, tickDefense } from './defense.js';
+import { initialImprovements, tickSpoilage } from './improvements.js';
+import { initialMarket, refreshMarket } from './market.js';
+import { startScheduledCrisis, applyCrisisAction, tickCrisis } from './crises.js';
+import { updateRelationships } from './relations.js';
 export const seasons = ['Весна', 'Лето', 'Осень', 'Зима'];
 export const season = day => seasons[Math.floor((day - 1) / 10) % 4];
 export const MAP = [
@@ -24,10 +30,11 @@ const traits = ['Трудолюбивый', 'Заботливая', 'Терпе�
 const clamp = n => Math.max(0, Math.min(100, n));
 const round = n => Math.round(n * 10) / 10;
 export function initialWorld() {
-  return { version: 4, map: MAP, day: 1, grain: 284, grainCapacity: 320, wood: 126, gold: 86, loyalty: 78, focus: 'balanced', ration: 'normal', playing: true, speed: 1,
+  return { version: 7, map: MAP, day: 1, grain: 284, grainCapacity: 320, wood: 126, gold: 86, loyalty: 78, focus: 'balanced', ration: 'normal', playing: true, speed: 1,
     field: { planted: 0, care: 0, harvestRemaining: 0, harvested: 0 },
     barn: { status: 'available', delivered: 0, progress: 0 },
     house: { status: 'available', delivered: 0, progress: 0 },
+    threat: null, weather: { droughtYear: null, irrigated: false }, relationships: [], market: initialMarket(), kingdoms: initialKingdoms(), defense: initialDefense(), improvements: initialImprovements(),
     reply: 'Мой лорд, земли Грейнхолда ждут вашего мудрого слова.',
     villagers: names.map((name, i) => ({ id: i + 1, name, age: 20 + (i * 7) % 35, trait: traits[i], farmingSkill: i % 3 === 2 ? 2 : 4 + i % 3, woodSkill: i % 3 === 2 ? 5 : 2, constructionSkill: 3 + (i * 3) % 6, homeId: i < 6 ? 'old' : null, mood: 75, role: i % 3 === 2 ? 'Дровосек' : 'Фермер', color: colors[i % colors.length], hunger: 12 + (i * 3) % 15, energy: 70 + (i * 5) % 25, task: 'resting', x: [4,5,6,7][i % 4], y: 2, carriedWood: 0, carriedLogs: 0 })),
     events: [ { id: 'start-1', day: 1, text: 'Поселенцы приступили к своим повседневным делам.', kind: 'info' }, { id: 'start-2', day: 1, text: 'Весна пришла: пора засеять поля.', kind: 'good' }, { id: 'start-3', day: 1, text: 'Начинается летопись Грейнхолда.', kind: 'info' } ] };
@@ -35,18 +42,21 @@ export function initialWorld() {
 // Preserve existing saves while introducing map positions and the new systems.
 export function migrateWorld(old) {
   const fresh = initialWorld();
-  if ((old.version === 2 || old.version === 3 || old.version === 4) && old.barn && old.field) {
+  if ((old.version === 2 || old.version === 3 || old.version === 4 || old.version === 5 || old.version === 6 || old.version === 7) && old.barn && old.field) {
     const villagers = fresh.villagers.map((v, i) => {
       const previous = old.villagers?.find(p => p.id === v.id) || old.villagers?.[i];
       return previous ? { ...v, ...previous } : v;
     });
-    return { ...fresh, ...old, version: 4, map: MAP, house: old.house || fresh.house, villagers };
+    const world = { ...fresh, ...old, version: 7, map: MAP, house: old.house || fresh.house, market: old.market || fresh.market, villagers };
+    if (!old.market) { world.market.history = []; refreshMarket(world); }
+    return world;
   }
   const villagers = fresh.villagers.map((v, i) => {
     const previous = old.villagers?.find(p => p.id === v.id) || old.villagers?.[i];
     return previous ? { ...v, name: previous.name || v.name, hunger: clamp(previous.hunger ?? v.hunger), energy: clamp(previous.energy ?? v.energy), role: previous.role || v.role, color: previous.color || v.color } : v;
   });
-  return { ...fresh, day: old.day || 1, grain: old.grain ?? fresh.grain, grainCapacity: Math.max(fresh.grainCapacity, Math.ceil(old.grain || 0)), wood: old.wood ?? fresh.wood, gold: old.gold ?? fresh.gold, loyalty: old.loyalty ?? fresh.loyalty, focus: old.focus || fresh.focus, ration: old.ration || fresh.ration, playing: old.playing ?? true, speed: old.speed || 1, reply: old.reply || fresh.reply, events: Array.isArray(old.events) ? old.events : fresh.events, villagers };
+  const world = { ...fresh, day: old.day || 1, grain: old.grain ?? fresh.grain, grainCapacity: Math.max(fresh.grainCapacity, Math.ceil(old.grain || 0)), wood: old.wood ?? fresh.wood, gold: old.gold ?? fresh.gold, loyalty: old.loyalty ?? fresh.loyalty, focus: old.focus || fresh.focus, ration: old.ration || fresh.ration, playing: old.playing ?? true, speed: old.speed || 1, reply: old.reply || fresh.reply, events: Array.isArray(old.events) ? old.events : fresh.events, villagers };
+  world.market.history = []; refreshMarket(world); return world;
 }
 export function addEvent(w, text, kind = 'info') { w.events.unshift({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, day: w.day, text, kind }); w.events = w.events.slice(0, 30); }
 export function isWalkable(x, y) { return y >= 0 && y < MAP.length && x >= 0 && x < MAP[0].length && !'THB'.includes(MAP[y][x]); }
@@ -129,11 +139,12 @@ export function advance(w) {
   const s = season(w.day);
   if (s !== oldSeason) {
     if (s === 'Весна') w.field = { planted: 0, care: 0, harvestRemaining: 0, harvested: 0 };
-    if (s === 'Осень') { w.field.harvestRemaining = round(w.field.planted * 12 + w.field.care); w.field.harvested = 0; }
+    if (s === 'Осень') { const drought = w.weather.droughtYear === Math.floor((w.day - 1) / 40); const yieldFactor = drought ? (w.weather.irrigated ? 0.85 : 0.55) : 1; w.field.harvestRemaining = round((w.field.planted * 12 + w.field.care) * yieldFactor); w.field.harvested = 0; }
     if (s === 'Зима' && w.field.harvestRemaining > 0) { addEvent(w, `Наступили холода: несобранный урожай (${w.field.harvestRemaining} мешков) потерян.`, 'warn'); w.field.harvestRemaining = 0; }
     const info = { 'Весна':'Пора сеять: каждый посев расходует зерно.', 'Лето':'Крестьяне ухаживают за полями.', 'Осень':`Урожай готов к сбору: ${w.field.harvestRemaining} мешков.`, 'Зима':'Поля отдыхают до весны.' };
     addEvent(w, `Смена сезона: ${s.toLowerCase()}. ${info[s]}`, 'info');
   }
+  startScheduledCrisis(w, addEvent);
   let hungry = 0;
   for (const v of w.villagers) {
     v.hunger = clamp(v.hunger + (w.ration === 'half' ? 8 : 6)); v.energy = clamp(v.energy - 3);
@@ -143,7 +154,11 @@ export function advance(w) {
       v.task = 'eating';
       if (moveTo(v, LOCATIONS.pantry)) { w.grain = round(w.grain - (w.ration === 'half' ? 0.5 : 1)); v.hunger = clamp(v.hunger - (w.ration === 'half' ? 35 : 65)); }
     } else if (restNeed) {
-      v.task = 'resting'; if (moveTo(v, v.homeId === 'new' ? LOCATIONS.houseSite : LOCATIONS.home)) v.energy = clamp(v.energy + (v.homeId ? 55 : 25));
+      v.task = 'resting'; if (moveTo(v, v.homeId === 'new' ? LOCATIONS.houseSite : LOCATIONS.home)) v.energy = clamp(v.energy + (v.homeId ? 55 : 25) + (w.improvements.infirmary ? 10 : 0));
+    } else if (w.threat?.kind === 'fire' && w.threat.mitigated && w.threat.progress < 4 && (v.id === 4 || v.id === 5)) {
+      v.task = 'firefighting';
+      if (moveTo(v, LOCATIONS.pantry)) w.threat.progress++;
+      v.energy = clamp(v.energy - 1);
     } else if (v.carriedLogs > 0) {
       v.task = 'deliveringLogs';
       if (moveTo(v, LOCATIONS.stockpile)) { w.wood = round(w.wood + v.carriedLogs); v.carriedLogs = 0; }
@@ -158,6 +173,12 @@ export function advance(w) {
     }
     if (v.hunger >= 75) hungry++;
   }
+  tickCrisis(w, addEvent);
+  tickSpoilage(w, addEvent);
+  tickKingdoms(w);
+  tickDefense(w, addEvent);
+  updateRelationships(w, addEvent);
+  refreshMarket(w, true);
   const unhoused = w.villagers.filter(v => !v.homeId).length;
   w.loyalty = clamp(w.loyalty + (hungry >= 6 ? -3 : w.ration === 'half' || unhoused >= 4 ? -1 : w.loyalty < 78 ? 1 : 0));
   if (unhoused >= 4 && w.day % 10 === 0) addEvent(w, `${unhoused} жителей без жилья. Их настроение и верность королевству снижаются.`, 'warn');
@@ -168,10 +189,11 @@ export function advance(w) {
 export function applyOrders(w, orders, reply) {
   if (orders.focus !== 'unchanged') w.focus = orders.focus;
   if (orders.ration !== 'unchanged') w.ration = orders.ration;
+  const crisis = orders.crisisAction && orders.crisisAction !== 'none' ? applyCrisisAction(w, orders.crisisAction, addEvent) : null;
   const requested = orders.buildBarn ? 'barn' : orders.buildHouse ? 'house' : null;
   const result = requested ? startProject(w, requested) : null;
   const label = requested === 'house' ? 'дом' : 'амбар';
-  w.reply = result === 'busy' ? 'Мой лорд, сначала нужно завершить уже начатую стройку.' : result === 'already' ? `Мой лорд, ${label} уже построен или строительство уже началось.` : reply;
-  const description = [orders.focus === 'farming' ? 'приоритет — поля' : orders.focus === 'logging' ? 'приоритет — лес' : orders.focus === 'balanced' ? 'сбалансированные работы' : '', orders.ration === 'half' ? 'половинный паёк' : orders.ration === 'normal' ? 'обычный паёк' : '', result === 'started' ? `построить ${label}` : ''].filter(Boolean).join(', ');
+  w.reply = crisis && !crisis.ok ? crisis.message : result === 'busy' ? 'Мой лорд, сначала нужно завершить уже начатую стройку.' : result === 'already' ? `Мой лорд, ${label} уже построен или строительство уже началось.` : crisis?.ok ? crisis.message : reply;
+  const description = [crisis?.ok ? 'ответ на бедствие' : '', orders.focus === 'farming' ? 'приоритет — поля' : orders.focus === 'logging' ? 'приоритет — лес' : orders.focus === 'balanced' ? 'сбалансированные работы' : '', orders.ration === 'half' ? 'половинный паёк' : orders.ration === 'normal' ? 'обычный паёк' : '', result === 'started' ? `построить ${label}` : ''].filter(Boolean).join(', ');
   addEvent(w, description ? `Указ принят: ${description}.` : 'Лорд рассмотрел указ, но не изменил распоряжения.', description ? 'good' : 'info');
 }

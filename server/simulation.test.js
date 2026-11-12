@@ -82,5 +82,87 @@ test('logs reach stockpile only on delivery even after a focus change', () => {
 test('version 2 saves preserve ongoing construction, cargo, and field on migration', () => {
   const w=initialWorld(); w.version=2;delete w.house;delete w.villagers[0].carriedLogs; delete w.villagers[0].homeId;
   w.barn.status='building'; w.barn.delivered=12; w.villagers[0].carriedWood=6;w.field.planted=7;w.wood=40;
-  const migrated=migrateWorld(w);assert.equal(migrated.version,4);assert.equal(migrated.barn.delivered,12);assert.equal(migrated.villagers[0].carriedWood,6);assert.equal(migrated.field.planted,7);assert.equal(migrated.wood,40);assert.equal(migrated.house.status,'available');assert.equal(migrated.villagers[0].homeId,'old');
+  const migrated=migrateWorld(w);assert.equal(migrated.version,7);assert.equal(migrated.barn.delivered,12);assert.equal(migrated.villagers[0].carriedWood,6);assert.equal(migrated.field.planted,7);assert.equal(migrated.wood,40);assert.equal(migrated.house.status,'available');assert.equal(migrated.villagers[0].homeId,'old');
+});
+
+test('drought has a finite response window and irrigation improves autumn yield once', () => {
+  const dry = initialWorld(); dry.day=13; dry.field.planted=10; dry.field.care=0; dry.focus='logging';
+  for (const v of dry.villagers) {v.hunger=0;v.energy=100;}
+  const wet=structuredClone(dry);advance(dry);advance(wet);
+  assert.equal(wet.threat.kind,'drought');const before=wet.wood;
+  applyOrders(wet,templates.irrigate,templates.irrigate.reply);assert.equal(wet.wood,before-10);assert.equal(wet.weather.irrigated,true);
+  applyOrders(wet,templates.irrigate,templates.irrigate.reply);assert.equal(wet.wood,before-10);assert.match(wet.reply,/уже/);
+  while(dry.day<21)advance(dry);while(wet.day<21)advance(wet);
+  assert.equal(dry.threat,null);assert.equal(wet.threat,null);assert.equal(dry.field.harvestRemaining,66);assert.equal(wet.field.harvestRemaining,102);
+});
+test('rats lose real grain each day and protection reduces losses, without negative wood', () => {
+  const base=initialWorld();base.day=45;for(const v of base.villagers){v.hunger=0;v.energy=100;}
+  const protectedWorld=structuredClone(base);advance(base);advance(protectedWorld);assert.equal(base.threat.kind,'rats');assert.equal(base.threat.lost,10);
+  const before=protectedWorld.wood;applyOrders(protectedWorld,templates.protect,templates.protect.reply);assert.equal(protectedWorld.wood,before-8);
+  advance(base);advance(protectedWorld);assert.equal(base.threat.lost,20);assert.equal(protectedWorld.threat.lost,12);
+  const poor=initialWorld();poor.day=45;poor.wood=0;advance(poor);applyOrders(poor,templates.protect,templates.protect.reply);assert.equal(poor.wood,0);assert.equal(poor.threat.mitigated,false);assert.match(poor.reply,/Недостаточно/);
+});
+test('firefighters reach the granary, extinguish fire and avoid later losses', () => {
+  const w=initialWorld();w.day=93;for(const v of w.villagers){v.hunger=0;v.energy=100;} for(const v of w.villagers.filter(v=>v.id===4||v.id===5)){v.x=4;v.y=4;}
+  advance(w);assert.equal(w.threat.kind,'fire');assert.equal(w.threat.lost,6);
+  applyOrders(w,templates.fight,templates.fight.reply);advance(w);assert.equal(w.threat.progress,2);advance(w);
+  assert.equal(w.threat,null);assert.ok(w.events.some(e=>e.text.includes('Пожар потушен')));
+  const grain=w.grain;applyOrders(w,templates.fight,templates.fight.reply);assert.match(w.reply,/нет бедствия/);assert.equal(w.grain,grain);
+});
+test('fire burns out after the deadline and never loses more grain than exists', () => {
+  const w=initialWorld();w.day=93;w.grain=5;advance(w);assert.equal(w.grain,0);assert.equal(w.threat.lost,5);
+  while(w.threat)advance(w);assert.ok(w.grain>=0);assert.ok(w.events.some(e=>e.text.includes('Пожар погас')));
+});
+test('friendships grow symmetrically only from sharing a task and tile', async () => {
+  const {updateRelationships}=await import('./relations.js');const w=initialWorld();w.villagers=w.villagers.slice(0,3);
+  const [a,b,c]=w.villagers;a.x=b.x=c.x=4;a.y=b.y=c.y=2;a.task=b.task='resting';c.task='farming';a.mood=b.mood=50;
+  for(const day of [3,6,9,12]){w.day=day;updateRelationships(w,()=>{});}
+  assert.equal(w.relationships.length,1);assert.deepEqual(w.relationships[0],{a:a.id,b:b.id,score:8});assert.equal(a.mood,51);assert.equal(b.mood,51);
+  b.x=3;w.day=15;updateRelationships(w,()=>{});assert.equal(w.relationships[0].score,8);
+});
+test('version 4 migration preserves active projects and starts new systems safely', () => {
+  const old=initialWorld();old.version=4;delete old.relationships;delete old.threat;delete old.weather;old.barn.status='building';old.barn.delivered=12;old.grain=220;
+  const w=migrateWorld(old);assert.equal(w.version,7);assert.equal(w.barn.delivered,12);assert.equal(w.grain,220);assert.equal(w.threat,null);assert.deepEqual(w.relationships,[]);assert.equal(w.weather.droughtYear,null);advance(w);
+});
+
+test('active crisis and friendships survive save migration without replaying losses', () => {
+  const w=initialWorld();w.day=45;advance(w);applyOrders(w,templates.protect,templates.protect.reply);w.relationships=[{a:1,b:2,score:8}];
+  const saved=JSON.parse(JSON.stringify(w));const restored=migrateWorld(saved);
+  assert.equal(restored.threat.kind,'rats');assert.equal(restored.threat.lost,10);assert.equal(restored.threat.mitigated,true);assert.deepEqual(restored.relationships,[{a:1,b:2,score:8}]);
+  advance(restored);assert.equal(restored.threat.lost,12);
+});
+
+test('market purchase checks affordability, capacity and merchant stock atomically', async () => {
+  const {trade}=await import('./market.js');const w=initialWorld();w.grain=100;w.gold=86;
+  const log=()=>{};let r=trade(w,'buy_grain',10,w.market.grainPrice,log);
+  assert.equal(r.ok,true);assert.equal(w.gold,66);assert.equal(w.grain,110);assert.equal(w.market.grainStock,90);assert.equal(w.market.trades[0].total,20);
+  const before=structuredClone(w);r=trade(w,'buy_grain',100,w.market.grainPrice,log);assert.equal(r.ok,false);assert.deepEqual(w,before);
+  w.grain=w.grainCapacity-5;const beforeFull=structuredClone(w);r=trade(w,'buy_grain',10,w.market.grainPrice,log);assert.equal(r.code,'capacity');assert.deepEqual(w,beforeFull);
+  w.grain=0;w.gold=0;const broke=structuredClone(w);r=trade(w,'buy_grain',10,w.market.grainPrice,log);assert.equal(r.code,'funds');assert.deepEqual(w,broke);
+});
+test('wood sale pays treasury once, respects demand and does not sell carried logs', async () => {
+  const {trade}=await import('./market.js');const w=initialWorld();w.wood=20;w.villagers[0].carriedLogs=50;
+  const r=trade(w,'sell_wood',10,2,()=>{});assert.equal(r.ok,true);assert.equal(w.wood,10);assert.equal(w.gold,106);assert.equal(w.market.woodDemand,90);assert.equal(w.villagers[0].carriedLogs,50);
+  const snapshot=structuredClone(w);assert.equal(trade(w,'sell_wood',11,2,()=>{}).code,'stock');assert.deepEqual(w,snapshot);
+  w.wood=200;w.market.woodDemand=5;const snapshot2=structuredClone(w);assert.equal(trade(w,'sell_wood',6,2,()=>{}).code,'demand');assert.deepEqual(w,snapshot2);
+});
+test('market rejects invalid quantities and stale prices without mutation', async () => {
+  const {trade}=await import('./market.js');const w=initialWorld(), snapshot=structuredClone(w);
+  for(const amount of [-1,0,101,1.5,'10',null,NaN,Infinity]) assert.equal(trade(w,'buy_grain',amount,2,()=>{}).ok,false);
+  assert.equal(trade(w,'buy_grain',10,999,()=>{}).code,'stale');assert.equal(trade(w,'not_real',10,2,()=>{}).code,'invalid');assert.deepEqual(w,snapshot);
+});
+test('market quotes respond to drought, scarcity and seasonal supply, restock and history are bounded', async () => {
+  const {refreshMarket,trade}=await import('./market.js');const w=initialWorld();w.day=14;w.weather.droughtYear=0;w.grain=40;w.market.grainStock=20;refreshMarket(w);
+  assert.equal(w.market.grainPrice,5);w.day=31;refreshMarket(w);assert.equal(w.market.grainPrice,6);
+  w.market.woodDemand=10;refreshMarket(w);assert.equal(w.market.woodPrice,1);w.day=35;refreshMarket(w,true);assert.equal(w.market.woodDemand,35);assert.equal(w.market.grainStock,40);
+  for(let i=0;i<35;i++){w.day++;refreshMarket(w);}assert.equal(w.market.history.length,30);
+  const current=w.market.grainPrice;assert.equal(trade(w,'buy_grain',1,current-1,()=>{}).code,'stale');
+});
+test('treasurer advice reacts to low grain, empty treasury and full storage', async () => {
+  const {treasurerAdvice}=await import('./market.js');const w=initialWorld();w.grain=25;assert.match(treasurerAdvice(w).text,/Зерна мало/);
+  w.gold=0;assert.match(treasurerAdvice(w).text,/продать древесину/);w.grain=w.grainCapacity;assert.match(treasurerAdvice(w).text,/полон/);
+});
+test('version 5 migration adds market without changing active threat or previous state', () => {
+  const old=initialWorld();old.version=5;delete old.market;old.grain=10;old.day=14;old.weather.droughtYear=0;old.threat={kind:'drought',startDay:14,expiresDay:21,mitigated:false,progress:0,lost:0};old.relationships=[{a:1,b:2,score:8}];
+  const w=migrateWorld(JSON.parse(JSON.stringify(old)));assert.equal(w.version,7);assert.equal(w.grain,10);assert.equal(w.market.grainPrice,4);assert.equal(w.market.history[0].day,14);assert.equal(w.threat.kind,'drought');assert.equal(w.relationships[0].score,8);
 });

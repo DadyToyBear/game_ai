@@ -2,8 +2,13 @@ import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from 'node:fs';
 import { resolve, extname, join } from 'node:path';
-import { initialWorld, migrateWorld, advance, applyOrders } from './simulation.js';
+import { initialWorld, migrateWorld, advance, applyOrders, addEvent } from './simulation.js';
 import { askLord, templates } from './ai.js';
+import { trade, treasurerAdvice, refreshMarket } from './market.js';
+import { diplomacy } from './kingdoms.js';
+import { hireGuard, marshalAdvice } from './defense.js';
+import { improve, elderAdvice } from './improvements.js';
+const worldView = world => ({ ...world, treasurer: treasurerAdvice(world), marshal: marshalAdvice(world), elder: elderAdvice(world) });
 
 const port = Number(process.env.PORT || 5173);
 const dataDir = resolve(process.env.DATA_DIR || '.game-data');
@@ -30,7 +35,7 @@ async function api(req, res) {
   }
   const [id, session] = getSession(req, res);
   const path = new URL(req.url, 'http://localhost').pathname;
-  if (req.method === 'GET' && path === '/api/world') return json(res, 200, { world: session.world, aiConfigured: !!process.env.OPENROUTER_API_KEY });
+  if (req.method === 'GET' && path === '/api/world') return json(res, 200, { world: worldView(session.world), aiConfigured: !!process.env.OPENROUTER_API_KEY });
   if (req.method !== 'POST') return json(res, 404, { error: 'Не найдено.' });
   let data; try { data = await readBody(req); } catch { return json(res, 400, { error: 'Некорректный запрос.' }); }
   if (path === '/api/control') {
@@ -39,7 +44,18 @@ async function api(req, res) {
     else if (data.action === 'next') advance(session.world);
     else if (data.action === 'reset') { session.epoch++; session.world = initialWorld(); }
     else return json(res, 400, { error: 'Неизвестное действие.' });
-    session.lastTick = Date.now(); persist(id, session); return json(res, 200, { world: session.world });
+    session.lastTick = Date.now(); persist(id, session); return json(res, 200, { world: worldView(session.world) });
+  }
+  if (path === '/api/diplomacy' || path === '/api/guard' || path === '/api/improvement') {
+    const outcome = path === '/api/diplomacy' ? diplomacy(session.world, data.target, data.action, addEvent) : path === '/api/guard' ? hireGuard(session.world, addEvent) : improve(session.world, data.kind, addEvent);
+    if (!outcome.ok) return json(res, 400, { error:outcome.message, world:worldView(session.world) });
+    if (path === '/api/diplomacy') refreshMarket(session.world);
+    persist(id, session); return json(res, 200, { world:worldView(session.world), result:outcome });
+  }
+  if (path === '/api/trade') {
+    const outcome = trade(session.world, data.direction, data.amount, data.expectedPrice, addEvent);
+    if (!outcome.ok) return json(res, outcome.code === 'stale' ? 409 : 400, { error:outcome.message, world:worldView(session.world) });
+    persist(id, session); return json(res, 200, { world:worldView(session.world), trade:outcome.record });
   }
   if (path === '/api/decrees') {
     let decision;
@@ -53,7 +69,7 @@ async function api(req, res) {
       finally { session.busy = false; }
       if (epoch !== session.epoch) return json(res, 409, { error: 'Мир был сброшен, пока лорд рассматривал указ.' });
     }
-    applyOrders(session.world, decision, decision.reply); persist(id, session); return json(res, 200, { world: session.world });
+    applyOrders(session.world, decision, decision.reply); persist(id, session); return json(res, 200, { world: worldView(session.world) });
   }
   return json(res, 404, { error: 'Не найдено.' });
 }
