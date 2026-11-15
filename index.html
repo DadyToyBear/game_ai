@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Игровой атлас рыб — 27 видов</title>
+<style>
+  :root {
+    --bg: #08121e;
+    --panel: #0f1e30;
+    --border: #203954;
+    --text: #e8f1fa;
+    --muted: #93acc4;
+    --gold: #f5c542;
+    --aqua: #38bdf8;
+    --pred: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(circle at top, #10263d 0%, var(--bg) 65%);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 28px 20px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  h1 {
+    margin: 0;
+    font-size: 1.65rem;
+    letter-spacing: 0.02em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.92rem;
+    margin-top: 4px;
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  input[type="search"] {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 14px;
+    font-size: 0.92rem;
+    min-width: 220px;
+  }
+  .btn-group {
+    display: inline-flex;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    padding: 9px 13px;
+    cursor: pointer;
+    font-size: 0.86rem;
+    font-weight: 600;
+  }
+  button.active {
+    background: #1c3a57;
+    color: #fff;
+  }
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 22px 20px 48px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.16s ease, border-color 0.16s ease;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--aqua);
+  }
+  .card.pred:hover { border-color: var(--pred); }
+  .thumb-wrap {
+    background: #07101b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+    padding: 10px;
+  }
+  .thumb-wrap.sprite-bg {
+    background: repeating-conic-gradient(#132234 0% 25%, #0e1a28 0% 50%) 50% / 20px 20px;
+  }
+  .thumb-wrap img {
+    max-width: 100%;
+    max-height: 390px;
+    object-fit: contain;
+    border-radius: 8px;
+    display: block;
+  }
+  .meta {
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .title {
+    font-weight: 800;
+    font-size: 1.08rem;
+  }
+  .badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  .badge.peace { background: rgba(56,189,248,0.16); color: #7dd3fc; border: 1px solid rgba(56,189,248,0.45); }
+  .badge.pred { background: rgba(239,68,68,0.16); color: #fca5a5; border: 1px solid rgba(239,68,68,0.45); }
+  .latin {
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    margin-top: 4px;
+  }
+  td {
+    padding: 4px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  td:last-child { text-align: right; color: var(--gold); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Игровой атлас рыб — 27 видов</h1>
+    <div class="subtitle">Карточки (игровая рамка / без рамки), прозрачные спрайты и проверенные референсы</div>
+  </div>
+  <div class="controls">
+    <input type="search" id="search" placeholder="Поиск по названию..." />
+    <div class="btn-group" id="typeFilter">
+      <button class="active" data-val="all">Все (27)</button>
+      <button data-val="peace">Мирная (белая)</button>
+      <button data-val="pred">Хищная</button>
+    </div>
+    <div class="btn-group" id="viewMode">
+      <button class="active" data-mode="game">Игровая</button>
+      <button data-mode="clean">Без рамки</button>
+      <button data-mode="art">Спрайт PNG</button>
+      <button data-mode="ref">Референс</button>
+    </div>
+  </div>
+</header>
+<main id="grid"></main>
+<script>
+const FISH = [{"num": 1, "slug": "01_plotva", "name_ru": "Плотва", "latin": "Rutilus rutilus", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Стайная всеядная", "habitat": "Реки, озёра, водохранилища", "traits": "Красная радужина глаз, рот на конце морды, спинной плавник точно над брюшными", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 230, "w_label": "70 – 230 г", "l_min_cm": 13, "l_max_cm": 19}, "srednyaya": {"w_min_g": 250, "w_max_g": 900, "w_label": "250 – 800 г (до 900 г)", "l_min_cm": 20, "l_max_cm": 32}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 33, "l_max_cm": 64}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 12.0, "w_label": "7.0 – 12.0 кг", "l_min_cm": 65, "l_max_cm": 78}}}, {"num": 2, "slug": "02_okun", "name_ru": "Окунь", "latin": "Perca fluviatilis", "family_ru": "Окунёвые", "category": "Хищная", "is_predator": true, "subcategory": "Стайный хищник", "habitat": "Чистые реки, озёра, пруды", "traits": "Тёмные поперечные полосы, чёрное пятно на колючем спинном плавнике, алые нижние плавники", "flip_raw": true, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 230, "w_label": "70 – 230 г", "l_min_cm": 13, "l_max_cm": 19}, "srednyaya": {"w_min_g": 250, "w_max_g": 900, "w_label": "250 – 800 г (до 900 г)", "l_min_cm": 20, "l_max_cm": 33}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 34, "l_max_cm": 66}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 14.0, "w_label": "7.0 – 14.0 кг", "l_min_cm": 67, "l_max_cm": 84}}}, {"num": 3, "slug": "03_ukleika", "name_ru": "Уклейка", "latin": "Alburnus alburnus", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Поверхностная стайная", "habitat": "Верхние слои рек и озёр", "traits": "Прогонистое ярко-серебристое тело, верхний рот, длинный анальный плавник", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 200, "w_label": "70 – 200 г", "l_min_cm": 15, "l_max_cm": 21}, "srednyaya": {"w_min_g": 250, "w_max_g": 800, "w_label": "250 – 800 г", "l_min_cm": 22, "l_max_cm": 34}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.5, "w_label": "1.0 – 6.5 кг", "l_min_cm": 35, "l_max_cm": 65}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 9.0, "w_label": "7.0 – 9.0 кг", "l_min_cm": 66, "l_max_cm": 76}}}, {"num": 4, "slug": "04_ersh", "name_ru": "Ёрш", "latin": "Gymnocephalus cernua", "family_ru": "Окунёвые", "category": "Хищная", "is_predator": true, "subcategory": "Донный хищник-бентофаг", "habitat": "Придонные участки рек и озёр", "traits": "Слитный колючий спинной плавник в крапинку, шипы на жаберных крышках, крупные глаза", "flip_raw": true, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 200, "w_label": "70 – 200 г", "l_min_cm": 12, "l_max_cm": 18}, "srednyaya": {"w_min_g": 250, "w_max_g": 800, "w_label": "250 – 800 г", "l_min_cm": 19, "l_max_cm": 30}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.5, "w_label": "1.0 – 6.5 кг", "l_min_cm": 31, "l_max_cm": 58}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 10.0, "w_label": "7.0 – 10.0 кг", "l_min_cm": 59, "l_max_cm": 70}}}, {"num": 5, "slug": "05_leshch", "name_ru": "Лещ", "latin": "Abramis brama", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Донная стайная", "habitat": "Тихие плёсы, ямы, водохранилища", "traits": "Высокое сжатое тело с бронзовым отливом, тёмные плавники, длинный анальный плавник", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 240, "w_label": "70 – 240 г", "l_min_cm": 14, "l_max_cm": 21}, "srednyaya": {"w_min_g": 250, "w_max_g": 950, "w_label": "250 – 800 г (до 950 г)", "l_min_cm": 22, "l_max_cm": 36}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 37, "l_max_cm": 72}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 18.0, "w_label": "7.0 – 18.0 кг", "l_min_cm": 73, "l_max_cm": 98}}}, {"num": 6, "slug": "06_krasnoperka", "name_ru": "Краснопёрка", "latin": "Scardinius erythrophthalmus", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Травяная стайная", "habitat": "Заросли камыша, тихие заливы", "traits": "Золотистая радужина глаз, рот направлен вверх, ярко-алые плавники, спинной смещён назад", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 220, "w_label": "70 – 220 г", "l_min_cm": 13, "l_max_cm": 19}, "srednyaya": {"w_min_g": 250, "w_max_g": 880, "w_label": "250 – 800 г (до 880 г)", "l_min_cm": 20, "l_max_cm": 32}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 33, "l_max_cm": 64}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 12.0, "w_label": "7.0 – 12.0 кг", "l_min_cm": 65, "l_max_cm": 78}}}, {"num": 7, "slug": "07_karp", "name_ru": "Карп", "latin": "Cyprinus carpio (зеркальный)", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Культурная прудовая форма", "habitat": "Пруды, озёра, тёплые заливы", "traits": "Массивное тело с крупной зеркальной чешуёй по бокам, две пары усов, длинный спинной плавник", "flip_raw": true, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 245, "w_label": "70 – 245 г", "l_min_cm": 13, "l_max_cm": 20}, "srednyaya": {"w_min_g": 250, "w_max_g": 980, "w_label": "250 – 800 г (до 980 г)", "l_min_cm": 21, "l_max_cm": 35}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 36, "l_max_cm": 70}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 24.0, "w_label": "7.0 – 24.0 кг", "l_min_cm": 71, "l_max_cm": 112}}}, {"num": 8, "slug": "08_sazan", "name_ru": "Сазан", "latin": "Cyprinus carpio (дикий)", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Дикий речной великан", "habitat": "Крупные реки, коряжники, протоки", "traits": "Прогонистое сильное тело в сплошной золотисто-бронзовой чешуе, две пары усов, медно-красные нижние плавники", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 245, "w_label": "70 – 245 г", "l_min_cm": 15, "l_max_cm": 22}, "srednyaya": {"w_min_g": 250, "w_max_g": 980, "w_label": "250 – 800 г (до 980 г)", "l_min_cm": 23, "l_max_cm": 38}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 39, "l_max_cm": 76}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 25.0, "w_label": "7.0 – 25.0 кг", "l_min_cm": 77, "l_max_cm": 120}}}, {"num": 9, "slug": "09_lin", "name_ru": "Линь", "latin": "Tinca tinca", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Донная травяная", "habitat": "Илистые озёра, старицы, заросли", "traits": "Оливково-золотистая гладкая кожа с мелкой чешуёй, толстый хвостовой стебель, алые глаза, закруглённые плавники", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 235, "w_label": "70 – 235 г", "l_min_cm": 13, "l_max_cm": 19}, "srednyaya": {"w_min_g": 250, "w_max_g": 920, "w_label": "250 – 800 г (до 920 г)", "l_min_cm": 20, "l_max_cm": 34}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 35, "l_max_cm": 68}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 15.0, "w_label": "7.0 – 15.0 кг", "l_min_cm": 69, "l_max_cm": 88}}}, {"num": 10, "slug": "10_golavl", "name_ru": "Голавль", "latin": "Squalius cephalus", "family_ru": "Карповые", "category": "Хищная", "is_predator": true, "subcategory": "Всеядный полухищник", "habitat": "Быстрые реки, перекаты, нависшие ветви", "traits": "Широкий плоский лоб, крупная чешуя с тёмной окантовкой, закруглённый оранжевый анальный плавник, чёрный край хвоста", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 235, "w_label": "70 – 235 г", "l_min_cm": 15, "l_max_cm": 22}, "srednyaya": {"w_min_g": 250, "w_max_g": 950, "w_label": "250 – 800 г (до 950 г)", "l_min_cm": 23, "l_max_cm": 37}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 38, "l_max_cm": 74}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 16.0, "w_label": "7.0 – 16.0 кг", "l_min_cm": 75, "l_max_cm": 96}}}, {"num": 11, "slug": "11_yaz", "name_ru": "Язь", "latin": "Leuciscus idus", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Всеядная речная", "habitat": "Глубокие реки, протоки, ямы", "traits": "Плотная мелкая серебристо-золотистая чешуя, жёлтые глаза, ярко-оранжевые брюшные и вогнутый анальный плавник", "flip_raw": true, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 235, "w_label": "70 – 235 г", "l_min_cm": 14, "l_max_cm": 21}, "srednyaya": {"w_min_g": 250, "w_max_g": 950, "w_label": "250 – 800 г (до 950 г)", "l_min_cm": 22, "l_max_cm": 36}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 37, "l_max_cm": 72}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 16.0, "w_label": "7.0 – 16.0 кг", "l_min_cm": 73, "l_max_cm": 94}}}, {"num": 12, "slug": "12_elets", "name_ru": "Елец", "latin": "Leuciscus leuciscus", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Быстроводная стайная", "habitat": "Чистые реки с песчаным дном", "traits": "Стройное вальковатое серебристое тело, синевато-серая спина, полунижний рот, бледно-желтоватые плавники", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 210, "w_label": "70 – 210 г", "l_min_cm": 14, "l_max_cm": 20}, "srednyaya": {"w_min_g": 250, "w_max_g": 820, "w_label": "250 – 800 г (до 820 г)", "l_min_cm": 21, "l_max_cm": 33}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.6, "w_label": "1.0 – 6.6 кг", "l_min_cm": 34, "l_max_cm": 64}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 10.0, "w_label": "7.0 – 10.0 кг", "l_min_cm": 65, "l_max_cm": 76}}}, {"num": 13, "slug": "13_vyun", "name_ru": "Вьюн", "latin": "Misgurnus fossilis", "family_ru": "Вьюновые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Донная иловая", "habitat": "Заиленные протоки, старицы, болотистые озёра", "traits": "Длинное угревидное тело с продольной кремово-жёлтой полосой, 10 усиков у рта, округлый пятнистый хвост", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 200, "w_label": "70 – 200 г", "l_min_cm": 18, "l_max_cm": 26}, "srednyaya": {"w_min_g": 250, "w_max_g": 800, "w_label": "250 – 800 г", "l_min_cm": 27, "l_max_cm": 44}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.5, "w_label": "1.0 – 6.5 кг", "l_min_cm": 45, "l_max_cm": 84}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 10.0, "w_label": "7.0 – 10.0 кг", "l_min_cm": 85, "l_max_cm": 108}}}, {"num": 14, "slug": "14_peskar", "name_ru": "Пескарь", "latin": "Gobio gobio", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Донная песчаная", "habitat": "Песчаные перекаты и мелководья", "traits": "Веретенообразное тело, нижний рот с парой усиков, ряд тёмно-синих пятен вдоль боков, крапчатые плавники", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 200, "w_label": "70 – 200 г", "l_min_cm": 13, "l_max_cm": 19}, "srednyaya": {"w_min_g": 250, "w_max_g": 800, "w_label": "250 – 800 г", "l_min_cm": 20, "l_max_cm": 32}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.5, "w_label": "1.0 – 6.5 кг", "l_min_cm": 33, "l_max_cm": 62}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 9.0, "w_label": "7.0 – 9.0 кг", "l_min_cm": 63, "l_max_cm": 74}}}, {"num": 15, "slug": "15_rotan", "name_ru": "Ротан", "latin": "Perccottus glenii", "family_ru": "Головешковые", "category": "Хищная", "is_predator": true, "subcategory": "Засадный хищник", "habitat": "Стоячие пруды, заросшие озёра", "traits": "Крупная широкая голова с выдвинутой нижней челюстью, тёмно-пятнистый бурый окрас, два закруглённых спинных плавника", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 215, "w_label": "70 – 215 г", "l_min_cm": 12, "l_max_cm": 18}, "srednyaya": {"w_min_g": 250, "w_max_g": 840, "w_label": "250 – 800 г (до 840 г)", "l_min_cm": 19, "l_max_cm": 30}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.8, "w_label": "1.0 – 6.8 кг", "l_min_cm": 31, "l_max_cm": 60}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 11.0, "w_label": "7.0 – 11.0 кг", "l_min_cm": 61, "l_max_cm": 74}}}, {"num": 16, "slug": "16_chekhon", "name_ru": "Чехонь", "latin": "Pelecus cultratus", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Пелагическая стайная", "habitat": "Открытые плёсы крупных рек", "traits": "Саблевидное серебристое тело с килем на брюхе, прямая спина, огромные крыловидные грудные плавники, волнистая боковая линия", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 225, "w_label": "70 – 225 г", "l_min_cm": 18, "l_max_cm": 26}, "srednyaya": {"w_min_g": 250, "w_max_g": 880, "w_label": "250 – 800 г (до 880 г)", "l_min_cm": 27, "l_max_cm": 43}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 44, "l_max_cm": 82}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 13.0, "w_label": "7.0 – 13.0 кг", "l_min_cm": 83, "l_max_cm": 102}}}, {"num": 17, "slug": "17_shchuka", "name_ru": "Щука", "latin": "Esox lucius", "family_ru": "Щуковые", "category": "Хищная", "is_predator": true, "subcategory": "Засадный хищник", "habitat": "Камышовые бровки, коряжник, ямы", "traits": "Вытянутая плоская зубастая пасть, торпедообразное пятнистое оливковое тело, спинной и анальный плавники у хвоста", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 245, "w_label": "70 – 245 г", "l_min_cm": 20, "l_max_cm": 30}, "srednyaya": {"w_min_g": 250, "w_max_g": 980, "w_label": "250 – 800 г (до 980 г)", "l_min_cm": 31, "l_max_cm": 50}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 51, "l_max_cm": 98}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 24.0, "w_label": "7.0 – 24.0 кг", "l_min_cm": 99, "l_max_cm": 148}}}, {"num": 18, "slug": "18_sudak", "name_ru": "Судак", "latin": "Sander lucioperca", "family_ru": "Окунёвые", "category": "Хищная", "is_predator": true, "subcategory": "Глубинный хищник", "habitat": "Русловые бровки, твёрдое дно, глубины", "traits": "Удлинённое тело, заострённая пасть с клыками, стеклянные глаза, 2 пятнистых спинных плавника, тёмные полосы", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 245, "w_label": "70 – 245 г", "l_min_cm": 18, "l_max_cm": 27}, "srednyaya": {"w_min_g": 250, "w_max_g": 980, "w_label": "250 – 800 г (до 980 г)", "l_min_cm": 28, "l_max_cm": 45}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 46, "l_max_cm": 88}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 20.0, "w_label": "7.0 – 20.0 кг", "l_min_cm": 89, "l_max_cm": 126}}}, {"num": 19, "slug": "19_zherekh", "name_ru": "Жерех", "latin": "Leuciscus aspius", "family_ru": "Карповые", "category": "Хищная", "is_predator": true, "subcategory": "Поверхностный хищник", "habitat": "Струи, перекаты, буруны крупных рек", "traits": "Мощное серебристо-стальное тело, выступающая нижняя челюсть, широкие серые плавники и мощный вилообразный хвост", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 240, "w_label": "70 – 240 г", "l_min_cm": 17, "l_max_cm": 25}, "srednyaya": {"w_min_g": 250, "w_max_g": 960, "w_label": "250 – 800 г (до 960 г)", "l_min_cm": 26, "l_max_cm": 42}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 43, "l_max_cm": 82}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 18.0, "w_label": "7.0 – 18.0 кг", "l_min_cm": 83, "l_max_cm": 114}}}, {"num": 20, "slug": "20_nalim", "name_ru": "Налим", "latin": "Lota lota", "family_ru": "Налимовые", "category": "Хищная", "is_predator": true, "subcategory": "Ночной донный хищник", "habitat": "Холодные русла, каменистое дно", "traits": "Мраморная буро-оливковая кожа, одиночный ус на подбородке, очень длинные второй спинной и анальный плавники", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 240, "w_label": "70 – 240 г", "l_min_cm": 19, "l_max_cm": 28}, "srednyaya": {"w_min_g": 250, "w_max_g": 950, "w_label": "250 – 800 г (до 950 г)", "l_min_cm": 29, "l_max_cm": 46}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 47, "l_max_cm": 90}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 18.0, "w_label": "7.0 – 18.0 кг", "l_min_cm": 91, "l_max_cm": 125}}}, {"num": 21, "slug": "21_tolstolobik", "name_ru": "Толстолобик", "latin": "Hypophthalmichthys molitrix", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Фильтратор планктона", "habitat": "Толща воды тёплых рек и озёр", "traits": "Крупная голова с глазами ниже линии рта, высокий выпуклый лоб, верхний рот, серебристые бока с мелкой чешуёй", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 245, "w_label": "70 – 245 г", "l_min_cm": 15, "l_max_cm": 22}, "srednyaya": {"w_min_g": 250, "w_max_g": 990, "w_label": "250 – 800 г (до 990 г)", "l_min_cm": 23, "l_max_cm": 38}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 39, "l_max_cm": 76}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 25.0, "w_label": "7.0 – 25.0 кг", "l_min_cm": 77, "l_max_cm": 122}}}, {"num": 22, "slug": "22_bely_amur", "name_ru": "Белый амур", "latin": "Ctenopharyngodon idella", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Растительноядная", "habitat": "Заросшие водоёмы и протоки", "traits": "Удлинённое мускулистое тело, тупая округлая голова, крупная светло-оливковая чешуя с тёмной сеткой", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 245, "w_label": "70 – 245 г", "l_min_cm": 16, "l_max_cm": 24}, "srednyaya": {"w_min_g": 250, "w_max_g": 990, "w_label": "250 – 800 г (до 990 г)", "l_min_cm": 25, "l_max_cm": 40}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 41, "l_max_cm": 80}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 24.0, "w_label": "7.0 – 24.0 кг", "l_min_cm": 81, "l_max_cm": 124}}}, {"num": 23, "slug": "23_cherny_amur", "name_ru": "Чёрный амур", "latin": "Mylopharyngodon piceus", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Донная моллюскоядная", "habitat": "Глубокие участки рек с ракушечником", "traits": "Мощное тёмно-графитовое или почти чёрное тело, крупная тёмноокаймлённая чешуя, тёмные плавники", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 245, "w_label": "70 – 245 г", "l_min_cm": 16, "l_max_cm": 24}, "srednyaya": {"w_min_g": 250, "w_max_g": 990, "w_label": "250 – 800 г (до 990 г)", "l_min_cm": 25, "l_max_cm": 41}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 42, "l_max_cm": 82}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 26.0, "w_label": "7.0 – 26.0 кг", "l_min_cm": 83, "l_max_cm": 128}}}, {"num": 24, "slug": "24_som", "name_ru": "Сом", "latin": "Silurus glanis", "family_ru": "Сомовые", "category": "Хищная", "is_predator": true, "subcategory": "Крупный донный хищник", "habitat": "Глубокие омуты, ямы, коряжники", "traits": "Огромная приплюснутая голова, 2 длинных и 4 коротких уса, голая мраморная кожа, крошечный спинной и длиннейший анальный плавник", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 245, "w_label": "70 – 245 г", "l_min_cm": 22, "l_max_cm": 32}, "srednyaya": {"w_min_g": 250, "w_max_g": 990, "w_label": "250 – 800 г (до 990 г)", "l_min_cm": 33, "l_max_cm": 52}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 53, "l_max_cm": 104}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 27.0, "w_label": "7.0 – 27.0 кг", "l_min_cm": 105, "l_max_cm": 165}}}, {"num": 25, "slug": "25_karas_zolotoy", "name_ru": "Карась золотой", "latin": "Carassius carassius", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Прудовая донная", "habitat": "Тихие пруды, заросшие озёра", "traits": "Округлое высокое золотисто-бронзовое тело, выпуклый округлый спинной плавник, без усиков, скруглённый хвост", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 230, "w_label": "70 – 230 г", "l_min_cm": 11, "l_max_cm": 16}, "srednyaya": {"w_min_g": 250, "w_max_g": 900, "w_label": "250 – 800 г (до 900 г)", "l_min_cm": 17, "l_max_cm": 28}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 29, "l_max_cm": 55}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 13.0, "w_label": "7.0 – 13.0 кг", "l_min_cm": 56, "l_max_cm": 74}}}, {"num": 26, "slug": "26_karas_serebryany", "name_ru": "Карась серебряный", "latin": "Carassius gibelio", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Озёрно-речная", "habitat": "Озёра, водохранилища, тихие реки", "traits": "Крупная серебристо-стальная чешуя, высокий прямой или чуть вогнутый спинной плавник, более глубокая выемка хвоста", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 230, "w_label": "70 – 230 г", "l_min_cm": 12, "l_max_cm": 17}, "srednyaya": {"w_min_g": 250, "w_max_g": 900, "w_label": "250 – 800 г (до 900 г)", "l_min_cm": 18, "l_max_cm": 29}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.9, "w_label": "1.0 – 6.9 кг", "l_min_cm": 30, "l_max_cm": 57}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 13.0, "w_label": "7.0 – 13.0 кг", "l_min_cm": 58, "l_max_cm": 76}}}, {"num": 27, "slug": "27_podust", "name_ru": "Подуст", "latin": "Chondrostoma nasus", "family_ru": "Карповые", "category": "Мирная (белая)", "is_predator": false, "subcategory": "Донная быстроводная", "habitat": "Речное течение, перекаты, каменистое дно", "traits": "Выступающий хрящевой нос над прямым нижним ртом-скребком, серебристые бока, красноватые нижние плавники", "flip_raw": false, "tiers": {"meloch": {"w_min_g": 70, "w_max_g": 225, "w_label": "70 – 225 г", "l_min_cm": 15, "l_max_cm": 21}, "srednyaya": {"w_min_g": 250, "w_max_g": 880, "w_label": "250 – 800 г (до 880 г)", "l_min_cm": 22, "l_max_cm": 35}, "krupnaya": {"w_min_kg": 1.0, "w_max_kg": 6.8, "w_label": "1.0 – 6.8 кг", "l_min_cm": 36, "l_max_cm": 68}, "trofey": {"w_min_kg": 7.0, "w_max_kg": 12.0, "w_label": "7.0 – 12.0 кг", "l_min_cm": 69, "l_max_cm": 82}}}];
+const REFS = {"01_plotva": "references/01_plotva.jpg", "02_okun": "references/02_okun.jpg", "03_ukleika": "references/03_ukleika.jpg", "04_ersh": "references/04_ersh.jpg", "05_leshch": "references/05_leshch.jpg", "06_krasnoperka": "references/06_krasnoperka.jpg", "07_karp": "references/07_karp.jpg", "08_sazan": "references/08_sazan.jpg", "09_lin": "references/09_lin.jpg", "10_golavl": "references/10_golavl.jpg", "11_yaz": "references/11_yaz.jpg", "12_elets": "references/12_elets.jpg", "13_vyun": "references/13_vyun.jpg", "14_peskar": "references/14_peskar.jpg", "15_rotan": "references/15_rotan.jpg", "16_chekhon": "references/16_chekhon.jpg", "17_shchuka": "references/17_shchuka.jpg", "18_sudak": "references/18_sudak.jpg", "19_zherekh": "references/19_zherekh.jpg", "20_nalim": "references/20_nalim.jpg", "21_tolstolobik": "references/21_tolstolobik.jpg", "22_bely_amur": "references/22_bely_amur.jpg", "23_cherny_amur": "references/23_cherny_amur.jpg", "24_som": "references/24_som.jpg", "25_karas_zolotoy": "references/25_karas_zolotoy.jpg", "26_karas_serebryany": "references/26_karas_serebryany.jpg", "27_podust": "references/27_podust.jpg"};
+let filterType = 'all';
+let viewMode = 'game';
+let query = '';
+
+function imgSrc(sp) {
+  if (viewMode === 'game') return 'cards_game/' + sp.slug + '.png';
+  if (viewMode === 'clean') return 'cards_clean/' + sp.slug + '.png';
+  if (viewMode === 'art') return 'fish_art/' + sp.slug + '.png';
+  return REFS[sp.slug];
+}
+
+function render() {
+  const grid = document.getElementById('grid');
+  const q = query.trim().toLowerCase();
+  const list = FISH.filter(sp => {
+    if (filterType === 'peace' && sp.is_predator) return false;
+    if (filterType === 'pred' && !sp.is_predator) return false;
+    if (q && !(sp.name_ru.toLowerCase().includes(q) || sp.latin.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  grid.innerHTML = list.map(sp => {
+    const t = sp.tiers;
+    const isPred = sp.is_predator;
+    return `
+      <article class="card ${isPred ? 'pred' : ''}">
+        <div class="thumb-wrap ${viewMode === 'art' ? 'sprite-bg' : ''}">
+          <a href="${imgSrc(sp)}" target="_blank" rel="noopener">
+            <img loading="lazy" src="${imgSrc(sp)}" alt="${sp.name_ru}" />
+          </a>
+        </div>
+        <div class="meta">
+          <div class="row-top">
+            <span class="title">#${String(sp.num).padStart(2,'0')} ${sp.name_ru}</span>
+            <span class="badge ${isPred ? 'pred' : 'peace'}">${sp.category}</span>
+          </div>
+          <div class="latin">${sp.latin} · ${sp.subcategory}</div>
+          <table>
+            <tr><td>Мелочь</td><td>${t.meloch.w_label}</td><td>${t.meloch.l_min_cm}–${t.meloch.l_max_cm} см</td></tr>
+            <tr><td>Средняя</td><td>${t.srednyaya.w_label}</td><td>${t.srednyaya.l_min_cm}–${t.srednyaya.l_max_cm} см</td></tr>
+            <tr><td>Крупная</td><td>${t.krupnaya.w_label}</td><td>${t.krupnaya.l_min_cm}–${t.krupnaya.l_max_cm} см</td></tr>
+            <tr><td>Трофей</td><td>${t.trofey.w_label}</td><td>${t.trofey.l_min_cm}–${t.trofey.l_max_cm} см</td></tr>
+          </table>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+document.getElementById('search').addEventListener('input', e => { query = e.target.value; render(); });
+document.querySelectorAll('#typeFilter button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#typeFilter button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  filterType = b.dataset.val;
+  render();
+}));
+document.querySelectorAll('#viewMode button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#viewMode button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  viewMode = b.dataset.mode;
+  render();
+}));
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+raw_art/
+image-search/
+README_PACK.txt
