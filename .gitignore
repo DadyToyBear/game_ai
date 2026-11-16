@@ -4,5 +4,6 @@ __pycache__/
 *.pyo
 .DS_Store
 raw_art/
+rods_raw/
 image-search/
 README_PACK.txt

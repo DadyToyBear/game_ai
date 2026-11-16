@@ -5,7 +5,8 @@
 ## Скачать готовый архив и автономный справочник
 
 - **Автономный HTML-справочник (работает в любом браузере без интернета, все карточки и GIF вшиты внутрь):** [`spravochnik_ryb_worldofvikingcraft.html`](./spravochnik_ryb_worldofvikingcraft.html) (~15.7 МБ)
-- **Полный ZIP-архив со всеми исходниками и автономным справочником:** [`fish_cards_pack_27.zip`](./fish_cards_pack_27.zip) (146 файлов, ~56 МБ)
+- **Полный ZIP-архив со всеми исходниками и автономным справочником:** [`fish_cards_pack_27.zip`](./fish_cards_pack_27.zip) (147 файлов, ~56 МБ)
+- **Средневековые маховые удилища без катушек и лески (бамбук и орешник 2.5м, 4м, 6м, 8м, прозрачный фон RGBA):** [`rods_medieval_pack.zip`](./rods_medieval_pack.zip) (2 сводных листа `1600×2400` + 8 отдельных спрайтов, ~2.4 МБ)
 
 ## Состав набора
 
@@ -27,7 +28,8 @@
     - **Трофей**: от `7.0 кг` до `9.0–27.0 кг` в зависимости от вида + длина в см
   - ключевые внешние признаки и среда обитания.
 - **`index.html`** — интерактивный веб-каталог с поиском, фильтрацией и переключением режимов (`Игровая`, `Без рамки`, `Спрайт PNG`, `Референс`).
-- **`scripts/`** — воспроизводимый пайплайн (`build_database.py`, `build_full_handbook_db.py`, `build_weather_and_calendar.py`, `extract_sprites.py`, `render_cards.py`, `generate_bite_gifs.py`, `build_standalone_handbook.py`).
+- **`scripts/`** — воспроизводимый пайплайн (`build_database.py`, `build_full_handbook_db.py`, `build_weather_and_calendar.py`, `extract_sprites.py`, `render_cards.py`, `generate_bite_gifs.py`, `build_standalone_handbook.py`, `process_rods.py`).
+- **`rods_sheets/` и `rods_individual/`** — средневековые маховые удилища без катушек и лески (`2.5 м`, `4 м`, `6 м`, `8 м`) из бамбука и орешника в стиле полуреалистичного мультяшного 2D-арта на прозрачном фоне `RGBA`.
 - **`assets/fonts/`** — шрифты `Exo 2` и `Montserrat` (Latin + Cyrillic).
 
 ## Список 27 видов
