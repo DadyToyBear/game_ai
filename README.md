@@ -7,7 +7,8 @@
 - **Автономный HTML-справочник (работает в любом браузере без интернета, все карточки и GIF вшиты внутрь):** [`spravochnik_ryb_worldofvikingcraft.html`](./spravochnik_ryb_worldofvikingcraft.html) (~15.7 МБ)
 - **Полный ZIP-архив со всеми исходниками и автономным справочником:** [`fish_cards_pack_27.zip`](./fish_cards_pack_27.zip) (147 файлов, ~56 МБ)
 - **Средневековые маховые удилища без катушек и лески (бамбук и орешник 2.5м, 4м, 6м, 8м, прозрачный фон RGBA):** [`rods_medieval_pack.zip`](./rods_medieval_pack.zip) (включает комплекты без катушки и с катушкой: 4 сводных листа `1600×2400` + 16 отдельных спрайтов, ~5.8 МБ)
-- **Только комплект удилищ с катушкой (бамбук и орешник 2.5м, 4м, 6м, 8м, прозрачный фон RGBA):** [`rods_medieval_reel_pack.zip`](./rods_medieval_reel_pack.zip) (2 сводных листа `1600×2400` + 8 отдельных спрайтов, ~3.4 МБ)
+- **Только комплект удилищ с катушкой (бамбук и орешник 2.5м, 4м, 6м, 8м, прозрачный фон RGBA):** [`rods_medieval_reel_pack.zip`](./rods_medieval_reel_pack.zip) (2 сводных листа `1600×2400` + 8 отдельных спрайтов, ~3.9 МБ)
+- **Персонажи-рыбаки гильдии WorldOfVikingCraft (8 персонажей без предметов в руках, прозрачный фон RGBA):** [`fishermen_medieval_pack.zip`](./fishermen_medieval_pack.zip) (общий лист `2480×2160` + 8 отдельных спрайтов + 2 листа круговых ракурсов)
 
 ## Состав набора
 
@@ -32,6 +33,7 @@
 - **`scripts/`** — воспроизводимый пайплайн (`build_database.py`, `build_full_handbook_db.py`, `build_weather_and_calendar.py`, `extract_sprites.py`, `render_cards.py`, `generate_bite_gifs.py`, `build_standalone_handbook.py`, `process_rods.py`).
 - **`rods_sheets/` и `rods_individual/`** — средневековые маховые удилища без катушек и лески (`2.5 м`, `4 м`, `6 м`, `8 м`) из бамбука и орешника на прозрачном фоне `RGBA`.
 - **`rods_reel_sheets/` и `rods_reel_individual/`** — те же 8 средневековых удилищ (`2.5 м`, `4 м`, `6 м`, `8 м`, бамбук и орешник), оснащённые деревянно-латунными инерционными катушками и пропускными кольцами на прозрачном фоне `RGBA`.
+- **`fishermen_sheets/`, `fishermen_art/`, `fishermen_turnarounds/`** — 8 средневековых рыбаков и рыбачек для игры (в полный рост, в одном стиле, с пустыми руками без предметов, прозрачный фон `RGBA`).
 - **`assets/fonts/`** — шрифты `Exo 2` и `Montserrat` (Latin + Cyrillic).
 
 ## Список 27 видов
