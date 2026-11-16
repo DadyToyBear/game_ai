@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+raw_art/
+rods_raw/
+rods_reel_raw/
+fishermen_raw/
+fishermen_v2_raw/
+fishermen_a_raw/
+fishermen_v2_a_raw/
+image-search/
+README_PACK.txt
