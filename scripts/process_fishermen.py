@@ -15,7 +15,6 @@ def extract_character_rgba(arr_rgb: np.ndarray) -> Image.Image:
     chroma = rgb.max(axis=2) - rgb.min(axis=2)
     is_bg_cand = (dw < 42.0) & (chroma < 20)
 
-    # Flood-fill strictly from outer borders
     visited = np.zeros((h, w), dtype=bool)
     q = deque()
     for x in range(w):
@@ -40,7 +39,6 @@ def extract_character_rgba(arr_rgb: np.ndarray) -> Image.Image:
                 visited[ny, nx] = True
                 q.append((ny, nx))
 
-    # Only punch out enclosed holes that are truly pure #FFFFFF white (keeps cream shirts/fur 100% solid!)
     pure_white_hole = (rgb.min(axis=2) >= 250) & (chroma <= 6)
     bg = visited | pure_white_hole
 
@@ -86,7 +84,6 @@ def extract_character_rgba(arr_rgb: np.ndarray) -> Image.Image:
 
 
 def split_horizontal_figures(rgba: Image.Image) -> list[Image.Image]:
-    """Split turnaround sheets horizontally by empty transparent columns."""
     arr = np.array(rgba)
     col_has_fg = (arr[:, :, 3] > 32).any(axis=0)
     w = len(col_has_fg)
@@ -113,51 +110,80 @@ def split_horizontal_figures(rgba: Image.Image) -> list[Image.Image]:
     return figs
 
 
-def main():
-    os.makedirs("fishermen_art", exist_ok=True)
-    os.makedirs("fishermen_sheets", exist_ok=True)
-    os.makedirs("fishermen_turnarounds", exist_ok=True)
+def process_pack(
+    raw_dir: str,
+    art_dir: str,
+    sheet_path: str,
+    turn_dir: str,
+    height_map: dict[str, int] | None = None,
+):
+    if not os.path.isdir(raw_dir):
+        return
+    os.makedirs(art_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(sheet_path), exist_ok=True)
+    os.makedirs(turn_dir, exist_ok=True)
 
     processed = []
-    for fn in sorted(os.listdir("fishermen_raw")):
+    for fn in sorted(os.listdir(raw_dir)):
         if not fn.endswith(".png"):
             continue
-        im = Image.open(os.path.join("fishermen_raw", fn)).convert("RGB")
+        im = Image.open(os.path.join(raw_dir, fn)).convert("RGB")
         rgba = extract_character_rgba(np.array(im))
         figs = split_horizontal_figures(rgba)
         if len(figs) > 1:
-            # Save full turnaround sheet cleanly too, and pick leftmost 3/4 front pose as primary sprite
             bb_full = rgba.getbbox()
             if bb_full:
-                rgba.crop(bb_full).save(os.path.join("fishermen_turnarounds", fn), "PNG")
+                rgba.crop(bb_full).save(os.path.join(turn_dir, fn), "PNG")
             primary = figs[0]
-            print(f"{fn}: found {len(figs)} turnaround poses -> saved primary leftmost pose {primary.size} + turnaround")
+            print(f"[{raw_dir}] {fn}: {len(figs)} turnaround poses -> primary {primary.size}")
         else:
             primary = figs[0] if figs else rgba.crop(rgba.getbbox())
-            print(f"{fn}: single character -> {primary.size}")
+            print(f"[{raw_dir}] {fn}: single -> {primary.size}")
 
-        # Scale neatly so all characters have consistent ~960px height (or keep crisp high-res padded)
-        target_h = 960
+        target_h = height_map.get(fn, 960) if height_map else 960
         nw = int(round(primary.width * (target_h / primary.height)))
         primary_scaled = primary.resize((nw, target_h), Image.Resampling.LANCZOS)
-        out_p = os.path.join("fishermen_art", fn)
-        primary_scaled.save(out_p, "PNG")
+        primary_scaled.save(os.path.join(art_dir, fn), "PNG")
         processed.append((fn, primary_scaled))
 
-    # Build a clean 2x4 transparent guild sheet (RGBA) of all 8 fishermen
     cols, rows = 4, 2
     cell_w, cell_h = 620, 1080
     sheet = Image.new("RGBA", (cols * cell_w, rows * cell_h), (0, 0, 0, 0))
     for i, (fn, fig) in enumerate(processed[:8]):
         r, c = divmod(i, cols)
-        # Fit inside cell aligned to bottom baseline
         px = c * cell_w + (cell_w - fig.width) // 2
-        py = r * cell_h + (cell_h - 50) - fig.height
+        py = r * cell_h + (cell_h - 45) - fig.height
         sheet.alpha_composite(fig, (px, py))
 
-    sheet_path = "fishermen_sheets/fishermen_8_guild_transparent.png"
     sheet.save(sheet_path, "PNG")
-    print(f"Saved guild sheet: {sheet_path} ({sheet.size})")
+    print(f"Saved sheet: {sheet_path} ({sheet.size})")
+
+
+def main():
+    process_pack(
+        "fishermen_raw",
+        "fishermen_art",
+        "fishermen_sheets/fishermen_8_guild_transparent.png",
+        "fishermen_turnarounds",
+    )
+    # Realistic relative heights for the 8 distinct age/build archetypes
+    v2_heights = {
+        "01_lean_man_35.png": 950,
+        "02_plump_elder_68.png": 910,
+        "03_young_husky_guy_20.png": 990,
+        "04_longlegged_blonde.png": 975,
+        "05_thin_elder_woman.png": 865,
+        "06_stout_redhead_woman.png": 900,
+        "07_young_brunette_22.png": 910,
+        "08_stocky_middle_fisherman.png": 905,
+    }
+    process_pack(
+        "fishermen_v2_raw",
+        "fishermen_v2_art",
+        "fishermen_v2_sheets/fishermen_8_archetypes_transparent.png",
+        "fishermen_v2_turnarounds",
+        height_map=v2_heights,
+    )
 
 
 if __name__ == "__main__":
