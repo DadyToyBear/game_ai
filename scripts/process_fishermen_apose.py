@@ -28,12 +28,39 @@ def process_folder(raw_dir: str, out_dir: str, height_map: dict[str, int] | None
     return res
 
 
+def build_sheet(art_dir: str, out_path: str, cell_w: int = 920, cell_h: int = 1100):
+    files = [fn for fn in sorted(os.listdir(art_dir)) if fn.endswith(".png")]
+    cols, rows = 4, 2
+    sheet = Image.new("RGBA", (cols * cell_w, rows * cell_h), (0, 0, 0, 0))
+    for i, fn in enumerate(files[:8]):
+        fig = Image.open(os.path.join(art_dir, fn)).convert("RGBA")
+        r, c = divmod(i, cols)
+        x = c * cell_w + (cell_w - fig.width) // 2
+        y = r * cell_h + (cell_h - 40) - fig.height
+        sheet.alpha_composite(fig, (x, y))
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    sheet.save(out_path, "PNG")
+    print(f"Sheet saved: {out_path} -> {sheet.size}")
+    return sheet
+
+
+def make_checker_preview(rgba_img: Image.Image, out_path: str, sq: int = 40):
+    bg = Image.new("RGBA", rgba_img.size, (38, 46, 56, 255))
+    d = ImageDraw.Draw(bg)
+    w, h = rgba_img.size
+    for y in range(0, h, sq):
+        for x in range(0, w, sq):
+            if ((x // sq) + (y // sq)) % 2 == 0:
+                d.rectangle([x, y, x + sq - 1, y + sq - 1], fill=(54, 66, 80, 255))
+    bg.alpha_composite(rgba_img)
+    bg.convert("RGB").save(out_path, "PNG")
+
+
 def main():
     os.makedirs("fishermen_a_art", exist_ok=True)
-    # Keep 01_novice_peasant from set 1 (already reference A-pose)
-    if os.path.exists("fishermen_art/01_novice_peasant.png"):
-        shutil.copy2("fishermen_art/01_novice_peasant.png", "fishermen_a_art/01_novice_peasant.png")
+    os.makedirs("fishermen_v2_a_art", exist_ok=True)
 
+    # Extract all newly generated A-pose PNGs into fishermen_a_art and fishermen_v2_a_art
     process_folder("fishermen_a_raw", "fishermen_a_art")
 
     v2_heights = {
@@ -46,42 +73,57 @@ def main():
         "07_young_brunette_22.png": 910,
         "08_stocky_middle_fisherman.png": 905,
     }
-    v2_items = process_folder("fishermen_v2_a_raw", "fishermen_v2_a_art", height_map=v2_heights)
+    process_folder("fishermen_v2_a_raw", "fishermen_v2_a_art", height_map=v2_heights)
 
-    # Preview strip of all ready A-pose characters for visual QA
-    all_ready = []
-    for folder in ["fishermen_a_art", "fishermen_v2_a_art"]:
-        if os.path.isdir(folder):
-            for fn in sorted(os.listdir(folder)):
+    # Sync updated A-pose PNGs to primary art directories as well so all packs stay consistent
+    for fn in sorted(os.listdir("fishermen_a_art")):
+        if fn.endswith(".png"):
+            shutil.copy2(os.path.join("fishermen_a_art", fn), os.path.join("fishermen_art", fn))
+    for fn in sorted(os.listdir("fishermen_v2_a_art")):
+        if fn.endswith(".png"):
+            shutil.copy2(os.path.join("fishermen_v2_a_art", fn), os.path.join("fishermen_v2_art", fn))
+
+    # Build spacious 4x2 transparent sheets (wide enough for open A-pose arms)
+    s1 = build_sheet("fishermen_a_art", "fishermen_sheets/fishermen_8_guild_transparent.png", cell_w=920, cell_h=1100)
+    s2 = build_sheet("fishermen_v2_a_art", "fishermen_v2_sheets/fishermen_8_archetypes_transparent.png", cell_w=920, cell_h=1100)
+
+    make_checker_preview(s1, "/tmp/apose_sheet1_preview.png")
+    make_checker_preview(s2, "/tmp/apose_sheet2_preview.png")
+
+    # Package updated fishermen_medieval_pack.zip
+    with zipfile.ZipFile("fishermen_medieval_pack.zip", "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        zf.write("fishermen_sheets/fishermen_8_guild_transparent.png", "sheets/fishermen_8_guild_transparent.png")
+        for fn in sorted(os.listdir("fishermen_art")):
+            if fn.endswith(".png"):
+                zf.write(os.path.join("fishermen_art", fn), f"characters/{fn}")
+        if os.path.isdir("fishermen_turnarounds"):
+            for fn in sorted(os.listdir("fishermen_turnarounds")):
                 if fn.endswith(".png"):
-                    all_ready.append((folder + "/" + fn, Image.open(folder + "/" + fn).convert("RGBA")))
+                    zf.write(os.path.join("fishermen_turnarounds", fn), f"turnarounds/{fn}")
 
-    if all_ready:
-        cols = 5
-        rows = (len(all_ready) + cols - 1) // cols
-        cw, ch = 720, 1060
-        prev = Image.new("RGBA", (cols * cw, rows * ch), (38, 46, 56, 255))
-        d = ImageDraw.Draw(prev)
-        sq = 32
-        for y in range(0, rows * ch, sq):
-            for x in range(0, cols * cw, sq):
-                if ((x // sq) + (y // sq)) % 2 == 0:
-                    d.rectangle([x, y, x + sq - 1, y + sq - 1], fill=(54, 66, 80, 255))
-        for i, (_, fig) in enumerate(all_ready):
-            r, c = divmod(i, cols)
-            px = c * cw + (cw - fig.width) // 2
-            py = r * ch + (ch - 35) - fig.height
-            prev.alpha_composite(fig, (px, py))
-        prev.convert("RGB").save("/tmp/apose_preview.png", "PNG")
+    # Package updated fishermen_8_archetypes_pack.zip
+    with zipfile.ZipFile("fishermen_8_archetypes_pack.zip", "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        zf.write("fishermen_v2_sheets/fishermen_8_archetypes_transparent.png", "sheets/fishermen_8_archetypes_transparent.png")
+        for fn in sorted(os.listdir("fishermen_v2_art")):
+            if fn.endswith(".png"):
+                zf.write(os.path.join("fishermen_v2_art", fn), f"characters/{fn}")
+        if os.path.isdir("fishermen_v2_turnarounds"):
+            for fn in sorted(os.listdir("fishermen_v2_turnarounds")):
+                if fn.endswith(".png"):
+                    zf.write(os.path.join("fishermen_v2_turnarounds", fn), f"turnarounds/{fn}")
 
-    # Package ready 3D A-pose pack
+    # Package combined 16-character 3D-ready A-pose ZIP
     with zipfile.ZipFile("fishermen_apose_3d_ready_pack.zip", "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-        for folder in ["fishermen_a_art", "fishermen_v2_a_art"]:
-            if os.path.isdir(folder):
-                for fn in sorted(os.listdir(folder)):
-                    if fn.endswith(".png"):
-                        zf.write(os.path.join(folder, fn), f"{folder}/{fn}")
-    print("Packed fishermen_apose_3d_ready_pack.zip with", len(all_ready), "characters.")
+        zf.write("fishermen_sheets/fishermen_8_guild_transparent.png", "sheets/fishermen_8_guild_transparent.png")
+        zf.write("fishermen_v2_sheets/fishermen_8_archetypes_transparent.png", "sheets/fishermen_8_archetypes_transparent.png")
+        for fn in sorted(os.listdir("fishermen_a_art")):
+            if fn.endswith(".png"):
+                zf.write(os.path.join("fishermen_a_art", fn), f"set1_guild_8/{fn}")
+        for fn in sorted(os.listdir("fishermen_v2_a_art")):
+            if fn.endswith(".png"):
+                zf.write(os.path.join("fishermen_v2_a_art", fn), f"set2_archetypes_8/{fn}")
+
+    print("All 3 ZIP archives rebuilt cleanly.")
 
 
 if __name__ == "__main__":
