@@ -49,6 +49,27 @@ static func build(plugin_dir: String, source_path: String, out_path: String, ext
 	return {"ok": code == 0, "output": text, "exit_code": code}
 
 
+## Запускает сборку в отдельном процессе, не блокируя интерфейс редактора.
+## Возвращает {"ok": bool, "pid": int, "status_file": String, "message": String}.
+static func start_build(plugin_dir: String, source_path: String, out_path: String, extra_args: PackedStringArray = PackedStringArray()) -> Dictionary:
+	if source_path.is_empty() or not DirAccess.dir_exists_absolute(source_path):
+		return {"ok": false, "pid": -1, "message": "каталог исходников не найден: " + source_path}
+	if out_path.is_empty():
+		return {"ok": false, "pid": -1, "message": "не выбран каталог для проекта Redot"}
+	var script_path: String = plugin_dir.path_join("tools/build_async.mjs")
+	if not FileAccess.file_exists(script_path):
+		return {"ok": false, "pid": -1, "message": "не найден асинхронный сборщик: " + script_path}
+	var status_file := OS.get_user_data_dir().path_join(
+		"webport-build-%s-%s.json" % [str(OS.get_process_id()), str(Time.get_ticks_usec())])
+	var args := PackedStringArray([script_path, "--source", source_path, "--out", out_path])
+	args.append_array(extra_args)
+	args.append_array(PackedStringArray(["--status-file", status_file]))
+	var pid := OS.create_process(NODE_BINARY, args)
+	if pid <= 0:
+		return {"ok": false, "pid": -1, "message": "не удалось запустить Node.js"}
+	return {"ok": true, "pid": pid, "status_file": status_file, "message": "сборка запущена"}
+
+
 ## Открывает машиночитаемый отчёт после сборки.
 static func open_report(out_path: String) -> void:
 	var report: String = out_path.path_join("webport/report.json")

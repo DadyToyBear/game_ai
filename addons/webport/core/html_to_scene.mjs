@@ -266,11 +266,33 @@ function convertElement(el, ctx, htmlPath) {
     const width = /^[1-9]\d*$/.test(widthAttr) ? Number(widthAttr) : 300;
     const height = /^[1-9]\d*$/.test(heightAttr) ? Number(heightAttr) : 150;
     node.props.push(["stretch", true]);
+    const viewportChildren = [];
+    const canvasBackground = el.attrs?.["data-background-image"];
+    if (canvasBackground) {
+      viewportChildren.push({
+        name: "StaticCanvasBackground",
+        type: "TextureRect",
+        props: [
+          ["__texture_src", canvasBackground],
+          ["anchors_preset", 15],
+          ["anchor_right", 1.0],
+          ["anchor_bottom", 1.0],
+          ["grow_horizontal", 2],
+          ["grow_vertical", 2],
+          ["mouse_filter", 2],
+          ["expand_mode", 0],
+          ["stretch_mode", 6],
+        ],
+        children: [],
+        htmlPath: `${htmlNodePath}/CanvasViewport/StaticCanvasBackground`,
+        htmlTag: "texture_rect",
+      });
+    }
     node.children.push({
       name: "CanvasViewport",
       type: "SubViewport",
       props: [["size", `Vector2i(${width}, ${height})`]],
-      children: [],
+      children: viewportChildren,
       htmlPath: `${htmlNodePath}/CanvasViewport`,
       htmlTag: "subviewport",
     });
@@ -283,6 +305,27 @@ function convertElement(el, ctx, htmlPath) {
   for (const child of el.children) {
     const childNode = convertElement(child, ctx, htmlNodePath);
     if (childNode) node.children.push(childNode);
+  }
+  if (node.backgroundImage) {
+    node.children.unshift({
+      name: "BackgroundTexture",
+      type: "TextureRect",
+      props: [
+        ["__texture_src", node.backgroundImage],
+        ["anchors_preset", 15],
+        ["anchor_right", 1.0],
+        ["anchor_bottom", 1.0],
+        ["grow_horizontal", 2],
+        ["grow_vertical", 2],
+        ["mouse_filter", 2],
+        ["expand_mode", 0],
+        ["stretch_mode", 6],
+      ],
+      children: [],
+      htmlPath: `${htmlNodePath}/BackgroundTexture`,
+      htmlTag: "texture_rect",
+    });
+    node.backgroundImage = null;
   }
 
   // <li> — в нашем отображении Label внутри VBoxContainer

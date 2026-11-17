@@ -8,7 +8,7 @@
 | `viewer/game.html` (разметка + CSS + JS) | `scenes/Game.tscn` и `scripts/Game.gd`, GDScript подключён к корневому узлу сцены |
 | стили из `<style>` | `StyleBoxFlat`, размеры, цвета, `HBoxContainer`/`VBoxContainer`/`GridContainer` |
 | `src/battle_simulation.mjs`, `battle_contract.mjs` | `webport/src/battle_simulation.gd` — GDScript-модуль с теми же функциями |
-| `<canvas>` | `SubViewportContainer` + `SubViewport`; JS-рисование и ввод остаются ручным TODO |
+| `<canvas>` | `SubViewportContainer` + `SubViewport`; у `data-background-image` создаётся статический `TextureRect`, JS-рисование, анимация и ввод остаются ручным TODO |
 | `data/*.json` | `data/*.json` без изменений (`JSON.parse_string`) |
 | `assets/**` | `assets/**` (пути сохраняются, `url('/assets/…')` становится `res://assets/…`) |
 | `id="resourceBar"` | `webport/dom_links.json`: `resourceBar → ResourceBar`, доступ через `WebportLinks.ui("resourceBar")` |
@@ -45,9 +45,9 @@
    - *HTML-экраны* — необязательный фильтр, например `viewer/game.html`, чтобы собирать только экран игры.
 2. Выключите «копировать ассеты», если хотите сначала проверить структуру
    (в этой игре около 358 МБ ресурсов копируются вместе с остальным).
-3. Нажмите **Собрать проект**. В логе будет вывод сборщика, а в сводке —
-   сколько экранов, модулей и что требует внимания.
-4. Кнопка **Отчёт** открывает `webport/report.json`, кнопка **Проверка** —
+3. Нажмите **Собрать проект**. Сборка выполняется в отдельном процессе, редактор остаётся отзывчивым; панель покажет итог и сводку по экранам, модулям и замечаниям.
+4. Для Canvas можно явно задать `<canvas data-background-image="/assets/map.png">`: изображение попадёт в сцену как статический фон внутри `SubViewport`. Это только основа отрисовки — динамические объекты, территории, анимация, камера и взаимодействие требуют отдельной нативной реализации.
+5. Кнопка **Отчёт** открывает `webport/report.json`, кнопка **Проверка** —
    локальную страницу со структурой сцен.
 
 То же самое из терминала:
@@ -133,10 +133,11 @@ addons/webport/
 │   ├── dom_bindings.mjs          генерирует таблицу id → узел
 │   └── gd_lint.mjs               проверка синтаксиса GDScript (gdtoolkit)
 ├── tools/
-│   ├── build_project.mjs         сборка проекта (CLI + панель)
+│   ├── build_project.mjs         CLI-сборка проекта
+│   ├── build_async.mjs           сборка для панели редактора без блокировки UI
 │   ├── serve.mjs                 локальная страница проверки
 │   └── pack_zip.mjs              упаковка плагина в ZIP
-├── tests/run_tests.mjs           27 проверок без движка
+├── tests/run_tests.mjs           36 проверок без движка
 └── vendor/acorn.mjs              парсер JS (MIT)
 ```
 

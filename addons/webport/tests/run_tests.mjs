@@ -194,12 +194,16 @@ check("теги → узлы с путями", () => {
   eq(res.nodePaths.get("ok"), "Ok", "путь по id");
 });
 
-check("canvas получает контейнер и SubViewport, а JS-рисование — TODO", () => {
-  const res = convertHtml('<html><body><canvas id="world" width="640" height="360"></canvas></body></html>', {});
+check("canvas получает SubViewport, статическую текстуру и TODO о JS-рисовании", () => {
+  const res = convertHtml('<html><body><canvas id="world" width="640" height="360" data-background-image="/assets/worldmap/overland_map.png"></canvas></body></html>', {
+    assetExists: (path) => path === "assets/worldmap/overland_map.png",
+  });
   includes(res.scene, '[node name="World" type="SubViewportContainer"');
   includes(res.scene, 'stretch = true');
   includes(res.scene, '[node name="CanvasViewport" type="SubViewport" parent="GameRoot/World"]');
   includes(res.scene, "size = Vector2i(640, 360)");
+  includes(res.scene, 'path="res://assets/worldmap/overland_map.png"');
+  includes(res.scene, '[node name="StaticCanvasBackground" type="TextureRect" parent="GameRoot/World/CanvasViewport"]');
   eq(res.todo.some((item) => item.message.includes("#world") && item.message.includes("JavaScript-рисование")), true);
 });
 
@@ -228,6 +232,18 @@ check("CSS: размеры, цвет, фон, скругление", () => {
   includes(res.scene, "StyleBoxFlat");
   includes(res.scene, "bg_color = Color(0.125, 0.125, 0.125, 1)");
   includes(res.scene, "theme_override_font_sizes/font_size = 18");
+});
+
+check("CSS background-image превращается в дочерний TextureRect", () => {
+  const html = '<html><head><style>#world{width:640px;height:360px;background-image:url("/assets/worldmap/overland_map.png")}</style></head>' +
+    '<body><div id="world"><canvas id="map" width="640" height="360"></canvas></div></body></html>';
+  const res = convertHtml(html, { assetExists: (p) => p === "assets/worldmap/overland_map.png" });
+  includes(res.scene, 'path="res://assets/worldmap/overland_map.png"');
+  includes(res.scene, 'node name="BackgroundTexture" type="TextureRect" parent="GameRoot/World"');
+  includes(res.scene, 'node name="CanvasViewport" type="SubViewport" parent="GameRoot/World/Map"');
+  if (res.scene.indexOf('node name="BackgroundTexture"') > res.scene.indexOf('node name="Map"')) {
+    throw new Error("фоновая текстура должна идти раньше содержимого контейнера");
+  }
 });
 
 check("CSS: flex и grid превращаются в контейнеры", () => {

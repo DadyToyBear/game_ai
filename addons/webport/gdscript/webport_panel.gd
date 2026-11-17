@@ -21,6 +21,12 @@ var _copy_assets: CheckBox
 var _log: RichTextLabel
 var _summary: RichTextLabel
 var _status: Label
+var _build_timer: Timer
+var _build_pid := -1
+var _build_status_file := ""
+var _build_out_path := ""
+var _build_source_path := ""
+var _build_extra_args := PackedStringArray()
 
 var _plugin_dir := ""
 
@@ -39,6 +45,10 @@ func setup(plugin_dir: String) -> void:
 
 func _build_ui() -> void:
 	add_theme_constant_override("separation", 6)
+	_build_timer = Timer.new()
+	_build_timer.wait_time = 0.25
+	_build_timer.timeout.connect(_poll_build_status)
+	add_child(_build_timer)
 
 	var title := Label.new()
 	title.text = "WebPort — перенос браузерной игры в Redot"
@@ -171,20 +181,66 @@ func _on_build_pressed() -> void:
 	if not _copy_assets.button_pressed:
 		extra.append("--no-copy-assets")
 	_build_button.disabled = true
-	_set_status("Сборка… редактор ожидает завершения Node.js", Color(0.8, 0.75, 0.55))
+	_set_status("Сборка запущена в фоне…", Color(0.8, 0.75, 0.55))
 	_log.clear()
-	var result: Dictionary = load("res://addons/webport/gdscript/webport_cli.gd").build(
+	var cli = load("res://addons/webport/gdscript/webport_cli.gd")
+	var result: Dictionary = cli.start_build(
 		_plugin_dir, _source_edit.text.strip_edges(), out_path, extra)
-	_log.append_text(_colorize(str(result["output"])))
+	if not result["ok"]:
+		_build_button.disabled = false
+		_set_status(str(result.get("message", "Не удалось запустить сборку")), Color(0.9, 0.45, 0.4))
+		_log.append_text(_colorize(str(result.get("message", "Ошибка запуска сборки"))))
+		build_requested.emit(_source_edit.text.strip_edges(), out_path, extra)
+		return
+	_build_pid = int(result["pid"])
+	_build_status_file = str(result["status_file"])
+	_build_out_path = out_path
+	_build_source_path = _source_edit.text.strip_edges()
+	_build_extra_args = extra.duplicate()
+	_build_timer.start()
+
+
+func _poll_build_status() -> void:
+	if _build_status_file.is_empty():
+		return
+	if not FileAccess.file_exists(_build_status_file):
+		if _build_pid > 0 and not OS.is_process_running(_build_pid):
+			_build_timer.stop()
+			_build_button.disabled = false
+			_set_status("Сборщик завершился без отчёта о результате", Color(0.9, 0.45, 0.4))
+			_log.append_text(_colorize("Фоновый процесс завершился до записи status-файла"))
+			_build_pid = -1
+			_build_status_file = ""
+		return
+	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(_build_status_file))
+	if not (data is Dictionary):
+		if _build_pid > 0 and not OS.is_process_running(_build_pid):
+			_build_timer.stop()
+			_build_button.disabled = false
+			_set_status("Не удалось прочитать результат сборки", Color(0.9, 0.45, 0.4))
+			_build_pid = -1
+			_build_status_file = ""
+		return
+	var state := str(data.get("state", "running"))
+	if state == "running":
+		return
+	_build_timer.stop()
 	_build_button.disabled = false
-	if result["ok"]:
+	_log.append_text(_colorize(str(data.get("output", ""))))
+	if state == "done":
 		_set_status("Готово: проект собран", Color(0.62, 0.78, 0.45))
-		_refresh_summary(out_path.path_join("webport/report.json"))
+		_refresh_summary(_build_out_path.path_join("webport/report.json"))
 		if ProjectSettings.get_setting("webport/reload_after_build", true):
 			EditorInterface.get_resource_filesystem().scan()
 	else:
-		_set_status("Сборка завершилась с ошибкой (код %s)" % str(result.get("exit_code", "?")), Color(0.9, 0.45, 0.4))
-	build_requested.emit(_source_edit.text.strip_edges(), out_path, extra)
+		_set_status("Сборка завершилась с ошибкой", Color(0.9, 0.45, 0.4))
+	DirAccess.remove_absolute(_build_status_file)
+	build_requested.emit(_build_source_path, _build_out_path, _build_extra_args)
+	_build_pid = -1
+	_build_status_file = ""
+	_build_out_path = ""
+	_build_source_path = ""
+	_build_extra_args = PackedStringArray()
 
 
 func _on_report_pressed() -> void:
