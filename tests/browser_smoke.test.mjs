@@ -25,7 +25,7 @@ function makeCanvasContext() {
   });
 }
 
-async function launchGame(saveData) {
+async function launchGame(saveData, { touchInput = false } = {}) {
   const window = new Window({
     url: 'http://localhost/game',
     settings: { disableCSSFileLoading: true, disableJavaScriptFileLoading: true },
@@ -33,6 +33,7 @@ async function launchGame(saveData) {
   const errors = [];
   const canvasContexts = new Map();
   window.document.write(html.replace(/<script>[\s\S]*?<\/script>/, '<script></script>'));
+  if (touchInput) Object.defineProperty(window.navigator, 'maxTouchPoints', { configurable: true, value: 1 });
   window.addEventListener('error', (event) => errors.push(event.error || event.message));
   window.addEventListener('unhandledrejection', (event) => errors.push(event.reason));
   window.HTMLCanvasElement.prototype.getContext = function getContext() {
@@ -1061,6 +1062,23 @@ test('browser DOM smoke: onboarding follows real controls and advances responsiv
   assert.equal(window.document.querySelector('#tutorialSpotlight').hidden, false);
   assert.match(window.document.querySelector('#tutorialModal').textContent, /5 из 6/);
   assert.deepEqual(errors, []);
+
+  const touchSave = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  touchSave.tutorialStep = 0;
+  touchSave.tutorialComplete = false;
+  const touchSession = await launchGame(touchSave, { touchInput: true });
+  t.after(() => touchSession.window.happyDOM.abort());
+  const touchWindow = touchSession.window;
+  touchWindow.document.querySelector('#continueGame').click();
+  assert.match(touchWindow.document.querySelector('#tutorialModal').textContent, /1 из 7/);
+  for (let i = 0; i < 6; i += 1) touchWindow.document.querySelector('[data-tutorial-next]').click();
+  assert.match(touchWindow.document.querySelector('#tutorialModal').textContent, /7 из 7/);
+  assert.match(touchWindow.document.querySelector('#tutorialModal h2').textContent, /Сенсорное управление/);
+  assert.match(touchWindow.document.querySelector('#tutorialModal p').textContent, /щипок двумя пальцами/);
+  touchWindow.document.querySelector('[data-tutorial-next]').click();
+  assert.equal(touchWindow.document.querySelector('#tutorialOverlay').classList.contains('show'), false,
+    'the touch-specific tutorial completes and closes normally');
+  assert.deepEqual(touchSession.errors, []);
 });
 
 test('browser DOM smoke: sustained starvation ends in a persisted settlement revolt', async (t) => {
