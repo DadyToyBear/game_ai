@@ -375,6 +375,18 @@ test('browser DOM smoke: minimap click and drag move the world camera', async (t
   const renderFrame = () => window.__frameCallback(window.performance.now() + 16);
   renderFrame();
   const before = viewportRects.at(-1);
+  const zoomIn = window.document.querySelector('#zoomIn');
+  const zoomOut = window.document.querySelector('#zoomOut');
+  assert.equal(zoomIn.getAttribute('aria-label'), 'Увеличить масштаб карты');
+  assert.equal(zoomOut.getAttribute('aria-label'), 'Уменьшить масштаб карты');
+  zoomIn.click();
+  renderFrame();
+  const zoomed = viewportRects.at(-1);
+  assert.ok(zoomed[2] < before[2], 'the on-screen zoom-in control enlarges the map view');
+  zoomOut.click();
+  renderFrame();
+  assert.ok(Math.abs(viewportRects.at(-1)[2] - before[2]) < 0.01,
+    'the zoom-out control reverses the matching zoom-in step');
 
   const pointer = (type, x, y, pointerId = 7) => {
     const event = new window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
@@ -489,7 +501,8 @@ test('browser DOM smoke: touch drag pans the map and two-finger pinch zooms', as
   assert.ok(zoomed[2] < panned[2], 'pinching outward zooms into the map');
   pointer('pointerup', 3, 300, 150);
   pointer('pointerup', 2, 140, 150);
-  assert.match(html, /перетаскивание — обзор · двумя пальцами — масштаб/);
+  assert.ok(html.includes('перетаскивание — обзор · щипок или +/− — масштаб'),
+    'map help explains a single-finger-friendly zoom alternative');
   assert.match(html, /min-height:44px/);
   assert.deepEqual(errors, []);
 });
