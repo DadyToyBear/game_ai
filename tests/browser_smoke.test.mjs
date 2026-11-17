@@ -170,6 +170,9 @@ test('browser DOM smoke: tactical battle renders and resolves a player turn', as
     'each regiment is labeled as front rank or reserve');
   assert.ok(window.document.querySelector('#battleTacticalPreview'), 'selected regiment gets a range and damage preview panel');
   assert.ok(window.document.querySelector('#battleModal .sim-in-range'), 'selected regiment range is highlighted on the battlefield');
+  const field = window.document.querySelector('#battleModal .tactical-field[data-scenario]');
+  assert.ok(field.style.getPropertyValue('--battle-map').includes('assets/battle_scenarios/'), 'the tactical board uses one continuous scenario landscape behind its grid');
+  assert.ok(window.document.querySelector('#battleModal .battle-cell .token.token-defender'), 'enemy regiments have distinct red tactical markers');
   const holdPosition = window.document.querySelector('#battleModal [data-action="hold-position"]');
   assert.equal(holdPosition.disabled, false, 'selected archers can receive a hold-position order');
   holdPosition.click();
@@ -198,6 +201,12 @@ test('browser DOM smoke: tactical battle renders and resolves a player turn', as
   window.document.querySelector('#battleModal [data-action="pause"]').click();
   assert.match(window.document.querySelector('#battleModal [data-action="pause"]').textContent, /Пауза/);
   assert.match(window.document.querySelector('#battleModal .feed').textContent, /Симуляция продолжена/);
+  window.document.querySelector('#battleModal [data-action="pause"]').click();
+  assert.match(window.document.querySelector('#battleModal [data-action="pause"]').textContent, /Продолжить/);
+  window.document.querySelector('#battleModal [data-action="attack"]').click();
+  assert.match(window.document.querySelector('#battleModal [data-action="pause"]').textContent, /Пауза/,
+    'issuing an attack order resumes a paused fight instead of silently doing nothing');
+  assert.match(window.document.querySelector('#battleModal .feed').textContent, /симуляция возобновлена/);
   window.document.querySelector('#battleModal [aria-label*="ваш отряд"]')?.click();
   window.document.querySelector('#battleModal [data-cell-x="4"][data-cell-y="4"]')?.click();
   assert.match(window.document.querySelector('#battleModal .feed').textContent, /приказ двигаться к выбранной клетке/);
@@ -246,15 +255,19 @@ test('browser DOM smoke: a long tactical battle resolves and saves its campaign 
   assert.match(window.document.querySelector('#battleModal .unit-morale').textContent, /резерв/,
     'ranged regiments start behind the front rank');
   window.document.querySelector('#battleModal [data-action="attack"]').click();
+  assert.match(window.document.querySelector('#battleModal .feed').textContent, /наступают на ближайшего противника/);
   window.document.querySelector('#battleModal [data-action="speed"]').click();
 
+  let sawVisibleCasualty = false;
   let frameTime = window.performance.now();
   for (let frame = 0; frame < 1200 && !window.document.querySelector('#battleOutcome').classList.contains('show'); frame += 1) {
     const callback = window.__frameCallback;
     assert.equal(typeof callback, 'function', 'battle keeps scheduling simulation/render frames');
     callback(frameTime += 50);
+    sawVisibleCasualty ||= /потерял \d+ бойцов/.test(window.document.querySelector('#battleModal .feed')?.textContent || '');
   }
 
+  assert.equal(sawVisibleCasualty, true, 'live simulation reports casualty ticks while the battle is still being played');
   assert.equal(window.document.querySelector('#battleOverlay').classList.contains('show'), false, 'battle closes when the simulation produces a result');
   const outcome = window.document.querySelector('#battleOutcome');
   assert.equal(outcome.classList.contains('show'), true, 'a battle result is presented to the player');
