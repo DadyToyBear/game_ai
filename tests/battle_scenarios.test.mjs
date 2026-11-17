@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createBattleRequest, resolveBattleRequest } from '../src/battle_contract.mjs';
 import {
   advanceBattle,
   battleTerrainAt,
@@ -19,6 +20,7 @@ const scenarios = [
 function encounter(scenario) {
   const initial = createBattle({
     seed: 123,
+    scenarioId: scenario,
     map: { width: 9, height: 5, terrain: createScenarioTerrain(scenario) },
     attacker: { regiments: [{
       id: 'attacker', class: '03_sword_and_shield', count: 100, morale: 70,
@@ -44,6 +46,49 @@ for (const [scenario, landmark] of scenarios) {
     assert.ok(terrain.every((cell) => cell.x >= 0 && cell.x < 9 && cell.y >= 0 && cell.y < 5));
   });
 }
+
+test('siege gate assault has integrity, a breach state, counterplay time, and exact headless parity', () => {
+  const request = createBattleRequest({
+    battleId: 'siege-gate-breach-201',
+    seed: 201,
+    scenarioId: 'fortress_siege',
+    map: { width: 9, height: 5, terrain: createScenarioTerrain('fortress_siege') },
+    attacker: { regiments: [{
+      id: 'assault-infantry', class: '03_sword_and_shield', count: 80, position: { x: 5.45, y: 2.5 },
+      order: { type: 'attack_gate' }, stats: { attack: 70, defense: 40, range: 1.2, speed: 3 },
+    }] },
+    defender: { regiments: [{
+      id: 'gate-guard', class: '06_spearman_shield', count: 40, position: { x: 7.5, y: 2.5 },
+      order: { type: 'hold' }, stats: { attack: 0, defense: 48, range: 1.2, speed: 0 },
+    }] },
+  });
+  let manual = setBattlePaused(createBattle(request), false);
+  manual = advanceBattle(manual, 150);
+  const automatic = resolveBattleRequest(request, { maxTicks: 150 });
+  assert.equal(automatic.status, 'limit_reached', 'the comparison stops at the same fixed tick while both armies remain alive');
+  assert.equal(manual.tick, 150);
+  assert.equal(manual.siege.gate.status, 'breached');
+  assert.equal(manual.siege.gate.integrity, 0);
+  assert.deepEqual(automatic.siege, manual.siege, 'headless returns the same gate state as manual play');
+  assert.deepEqual(automatic.regiments.map(unit => [unit.id, unit.count, unit.morale, unit.state]),
+    manual.regiments.map(unit => [unit.id, unit.count, unit.morale, unit.state]));
+  assert.throws(() => issueOrder(manual, 'gate-guard', { type: 'attack_gate' }), /Only attackers/);
+  assert.throws(() => issueOrder(createBattle({ attacker: { regiments: [{ id: 'field', count: 5 }] } }), 'field', { type: 'attack_gate' }), /Only attackers/);
+
+  let intact = createBattle({
+    scenarioId: 'fortress_siege', map: { width: 9, height: 5, terrain: createScenarioTerrain('fortress_siege') },
+    attacker: { regiments: [{ id: 'approach', count: 30, position: { x: 1.5, y: 2.5 }, order: { type: 'move', x: 7.5, y: 2.5 }, stats: { speed: 3 } }] },
+    defender: { regiments: [{ id: 'inside-guard', count: 1, position: { x: 8.25, y: 4 }, order: { type: 'hold' }, stats: { attack: 0, speed: 0 } }] },
+  });
+  intact = advanceBattle(setBattlePaused(intact, false), 120);
+  assert.ok(intact.regiments.find(unit => unit.id === 'approach').position.x < 6.5,
+    'an intact wall stops attackers from crossing outside the gate approach');
+
+  manual = issueOrder(manual, 'assault-infantry', { type: 'move', x: 7.5, y: 2.5 });
+  manual = advanceBattle(setBattlePaused(manual, false), 20);
+  assert.ok(manual.regiments.find(unit => unit.id === 'assault-infantry').position.x > 6.5,
+    'breaching opens the gate passage through the fortress wall');
+});
 
 test('same-seed duels resolve reproducibly on all four battlefield layouts', () => {
   const metrics = [];

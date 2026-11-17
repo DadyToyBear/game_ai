@@ -154,48 +154,51 @@ test('manual tactical orders and headless auto match 2v2 with a delayed reserve 
   }
 });
 
-test('headless and stepwise manual resolution match for move, retreat, and two delayed reserve waves', () => {
-  const request = createBattleRequest({
-    battleId: 'parity-orders-waves-117',
-    seed: 117,
-    scenarioId: 'bridge_defense',
-    map: { width: 9, height: 5, terrain: createScenarioTerrain('bridge_defense') },
-    attacker: { regiments: [
-      { id: 'a-withdraw', class: '03_sword_and_shield', count: 24, position: { x: 1.25, y: 0.75 }, order: { type: 'retreat' }, stats: { attack: 60, defense: 42, range: 1.2, speed: 3.2 } },
-      { id: 'a-march', class: '03_sword_and_shield', count: 30, position: { x: 1.25, y: 3 }, order: { type: 'move', x: 1.6, y: 4 }, stats: { attack: 62, defense: 44, range: 1.2, speed: 3.2 } },
-    ] },
-    defender: { regiments: [
-      { id: 'd-swords', class: '03_sword_and_shield', count: 50, position: { x: 7.75, y: 0.75 }, stats: { attack: 65, defense: 42, range: 1.2, speed: 3.2 } },
-      { id: 'd-archers', class: '01_archer', count: 40, position: { x: 7.75, y: 4 }, rank: 'rear', stats: { attack: 55, defense: 28, range: 3.2, speed: 2.8 } },
-    ] },
-    reinforcements: [
-      { side: 'attacker', arrivalTick: 12, regiment: { id: 'a-wave-one', class: '06_spearman_shield', count: 42, position: { x: 0.5, y: 1.5 }, stats: { attack: 64, defense: 44, range: 1.2, speed: 3 } } },
-      { side: 'attacker', arrivalTick: 28, regiment: { id: 'a-wave-two', class: '08_cavalryman', count: 26, position: { x: 0.5, y: 3.5 }, stats: { attack: 70, defense: 36, range: 1.2, speed: 3.6, charge: 1 } } },
-    ],
-  });
-  let manual = setBattlePaused(createBattle(request), false);
-  for (let tick = 0; tick < 15 * 60 * 10 && !manual.result; tick += 1) {
-    for (const unit of manual.regiments) {
-      if (unit.count <= 0 || ['routed', 'withdrawn'].includes(unit.state)) continue;
-      if (unit.order?.type === 'retreat' || unit.order?.type === 'move' || unit.order?.type === 'hold' && !unit.order.targetId) continue;
-      const targetId = unit.order?.targetId;
-      const existing = manual.regiments.find(candidate => candidate.id === targetId && candidate.side !== unit.side && candidate.count > 0 && !['routed', 'withdrawn'].includes(candidate.state));
-      if ((unit.order?.type === 'attack' || unit.order?.type === 'hold') && existing) continue;
-      const target = manual.regiments.filter(candidate => candidate.side !== unit.side && candidate.count > 0 && !['routed', 'withdrawn'].includes(candidate.state))
-        .sort((a, b) => Math.hypot(a.position.x - unit.position.x, a.position.y - unit.position.y) - Math.hypot(b.position.x - unit.position.x, b.position.y - unit.position.y) || a.id.localeCompare(b.id))[0];
-      if (target) manual = issueOrder(manual, unit.id, { type: 'attack', targetId: target.id });
+test('manual/headless parity covers movement, retreat, mixed regiments, and two reserve waves on every battlefield', () => {
+  for (const [scenarioIndex, scenarioId] of ['river_crossing', 'forest_ambush', 'bridge_defense', 'fortress_siege'].entries()) {
+    const cavalry = scenarioIndex % 2 === 0;
+    const request = createBattleRequest({
+      battleId: `parity-orders-waves-${scenarioId}-117`,
+      seed: 117 + scenarioIndex,
+      scenarioId,
+      map: { width: 9, height: 5, terrain: createScenarioTerrain(scenarioId) },
+      attacker: { regiments: [
+        { id: 'a-withdraw', class: '03_sword_and_shield', count: 24 + scenarioIndex, position: { x: 1.25, y: 0.75 }, order: { type: 'retreat' }, stats: { attack: 60, defense: 42, range: 1.2, speed: 3.2 } },
+        { id: 'a-march', class: '03_sword_and_shield', count: 30, position: { x: 1.25, y: 3 }, order: { type: 'move', x: 1.6, y: 4 }, stats: { attack: 62, defense: 44, range: 1.2, speed: 3.2 } },
+        { id: 'a-front', class: cavalry ? '08_cavalryman' : '03_sword_and_shield', count: 54, position: { x: 1.25, y: 2 }, formation: cavalry ? 'wedge' : 'shieldwall', order: { type: 'attack', targetId: 'd-swords', flank: cavalry }, stats: { attack: 66, defense: 40, range: 1.2, speed: cavalry ? 3.6 : 3.2, charge: cavalry ? 1 : 0 } },
+      ] },
+      defender: { regiments: [
+        { id: 'd-swords', class: '03_sword_and_shield', count: 50, position: { x: 7.75, y: 0.75 }, order: { type: 'attack', targetId: 'a-front' }, stats: { attack: 65, defense: 42, range: 1.2, speed: 3.2 } },
+        { id: 'd-archers', class: '01_archer', count: 40, position: { x: 7.75, y: 4 }, rank: 'rear', order: { type: 'hold', targetId: 'a-front' }, stats: { attack: 55, defense: 28, range: 3.2, speed: 2.8 } },
+      ] },
+      reinforcements: [
+        { side: 'attacker', arrivalTick: 12, regiment: { id: 'a-wave-one', class: '06_spearman_shield', count: 42, position: { x: 0.5, y: 1.5 }, stats: { attack: 64, defense: 44, range: 1.2, speed: 3 } } },
+        { side: 'defender', arrivalTick: 28, regiment: { id: 'd-wave-two', class: cavalry ? '01_archer' : '08_cavalryman', count: 26, position: { x: 8.5, y: 3.5 }, rank: cavalry ? 'rear' : 'front', stats: { attack: 70, defense: 36, range: cavalry ? 3.2 : 1.2, speed: cavalry ? 2.8 : 3.6, charge: cavalry ? 0 : 1 } } },
+      ],
+    });
+    let manual = setBattlePaused(createBattle(request), false);
+    for (let tick = 0; tick < 15 * 60 * 10 && !manual.result; tick += 1) {
+      for (const unit of manual.regiments) {
+        if (unit.count <= 0 || ['routed', 'withdrawn'].includes(unit.state)) continue;
+        if (unit.order?.type === 'retreat' || unit.order?.type === 'move' || unit.order?.type === 'hold' && !unit.order.targetId) continue;
+        const existing = manual.regiments.find(candidate => candidate.id === unit.order?.targetId && candidate.side !== unit.side && candidate.count > 0 && !['routed', 'withdrawn'].includes(candidate.state));
+        if ((unit.order?.type === 'attack' || unit.order?.type === 'hold') && existing) continue;
+        const target = manual.regiments.filter(candidate => candidate.side !== unit.side && candidate.count > 0 && !['routed', 'withdrawn'].includes(candidate.state))
+          .sort((a, b) => Math.hypot(a.position.x - unit.position.x, a.position.y - unit.position.y) - Math.hypot(b.position.x - unit.position.x, b.position.y - unit.position.y) || a.id.localeCompare(b.id))[0];
+        if (target) manual = issueOrder(manual, unit.id, { type: 'attack', targetId: target.id });
+      }
+      manual = advanceBattle(manual, 1);
     }
-    manual = advanceBattle(manual, 1);
+    const automatic = resolveBattleRequest(request);
+    assert.ok(manual.result, `${scenarioId}: the manual state machine resolves the engagement`);
+    assert.equal(automatic.status, 'resolved', `${scenarioId}: headless engagement resolves`);
+    assert.equal(automatic.winner, manual.result.winner, `${scenarioId}: winner matches`);
+    assert.equal(automatic.durationTicks, manual.result.durationTicks, `${scenarioId}: duration matches`);
+    assert.deepEqual(automatic.regiments.map(unit => [unit.id, unit.count, unit.morale, unit.state]),
+      manual.regiments.map(unit => [unit.id, unit.count, unit.morale, unit.state]), `${scenarioId}: all regiment outcomes match`);
+    assert.ok(automatic.regiments.some(unit => unit.id === 'a-wave-one'), `${scenarioId}: attacker reserve arrived`);
+    assert.ok(automatic.regiments.some(unit => unit.id === 'd-wave-two'), `${scenarioId}: defender reserve arrived`);
   }
-  const automatic = resolveBattleRequest(request);
-  assert.ok(manual.result, 'the manual state machine resolves the engagement');
-  assert.equal(automatic.status, 'resolved');
-  assert.equal(automatic.winner, manual.result.winner);
-  assert.equal(automatic.durationTicks, manual.result.durationTicks);
-  assert.deepEqual(automatic.regiments.map(unit => [unit.id, unit.count, unit.morale, unit.state]),
-    manual.regiments.map(unit => [unit.id, unit.count, unit.morale, unit.state]));
-  assert.ok(automatic.regiments.some(unit => unit.id === 'a-wave-one'));
-  assert.ok(automatic.regiments.some(unit => unit.id === 'a-wave-two'));
 });
 
 test('signalled reinforcements remain off-field until their travel tick, then join the deterministic battle', () => {

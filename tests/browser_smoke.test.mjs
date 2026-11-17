@@ -204,6 +204,34 @@ test('browser DOM smoke: tactical battle renders and resolves a player turn', as
   assert.deepEqual(errors, []);
 });
 
+test('browser DOM smoke: siege gate integrity is shown and a selected attacker can order an assault', async (t) => {
+  const seedSession = await launchGame();
+  t.after(() => seedSession.window.happyDOM.abort());
+  seedSession.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seedSession.window.localStorage.getItem('crown-banner-save-v2'));
+  const keep = save.structures.find(structure => structure.id === 'eastkeep');
+  assert.ok(keep, 'campaign includes the hostile fortress');
+  save.diplomacy[keep.faction] = { ...(save.diplomacy[keep.faction] || {}), war: true };
+  for (const enemy of save.units.filter(unit => unit.enemy)) {
+    enemy.x = (keep.x + 0.5) * 64;
+    enemy.y = (keep.y + 0.5) * 64;
+    enemy.faction = keep.faction;
+  }
+
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  const friendly = window.document.querySelector('#armyRoster [data-roster]');
+  assert.ok(friendly);
+  friendly.click();
+  window.document.querySelector('#battleBtn').click();
+  assert.match(window.document.querySelector('#battleModal .battle-scenario-scene b').textContent, /Осада Восточной крепости/);
+  const gate = window.document.querySelector('#battleModal [data-cell-x="6"][data-cell-y="2"]');
+  assert.match(gate.getAttribute('aria-label'), /Ворота · 100%/);
+  gate.click();
+  assert.match(window.document.querySelector('#battleModal .feed').textContent, /приказ штурмовать ворота/);
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: a long tactical battle resolves and saves its campaign outcome', async (t) => {
   const { window, errors } = await launchGame();
   t.after(() => window.happyDOM.abort());

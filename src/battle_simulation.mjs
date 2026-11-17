@@ -110,12 +110,15 @@ export function createBattle(input = {}) {
     ids.add(item.regiment.id);
   }
 
+  const scenarioId = String(input.scenarioId ?? 'bridge_defense');
   const seed = Math.floor(finite(input.seed, 1)) >>> 0;
   let state = {
     seed,
     rng_state: seed || 0x6d2b79f5,
     tick: 0,
     tick_hz: BATTLE_TICK_HZ,
+    scenarioId,
+    siege: scenarioId === 'fortress_siege' ? { gate: { x: 6, y: 2, integrity: 100, maxIntegrity: 100, status: 'intact' } } : null,
     paused: true,
     speed: 1,
     map,
@@ -179,7 +182,7 @@ export function issueOrder(state, regimentId, order) {
   const next = clone(state);
   const regiment = next.regiments.find((unit) => unit.id === String(regimentId));
   if (!regiment || regiment.count <= 0 || ['routed', 'withdrawn'].includes(regiment.state)) throw new Error(`Unknown or defeated regiment: ${regimentId}`);
-  if (!order || !['move', 'attack', 'hold', 'retreat'].includes(order.type)) {
+  if (!order || !['move', 'attack', 'hold', 'retreat', 'attack_gate'].includes(order.type)) {
     throw new Error(`Unsupported order: ${order?.type ?? 'none'}`);
   }
 
@@ -209,6 +212,11 @@ export function issueOrder(state, regimentId, order) {
     } else {
       regiment.target_id = null;
     }
+  } else if (order.type === 'attack_gate') {
+    if (regiment.side !== 'attacker' || !next.siege?.gate) throw new Error('Only attackers can assault a siege gate');
+    if (next.siege.gate.status === 'breached') throw new Error('The siege gate is already breached');
+    normalizedOrder = { type: 'attack_gate' };
+    regiment.target_id = null;
   } else {
     normalizedOrder = { type: order.type };
     regiment.target_id = null;
@@ -235,7 +243,17 @@ function distance(a, b) {
 function terrainAt(state, x, y) {
   const cellX = Math.floor(x);
   const cellY = Math.floor(y);
+  if (state.siege?.gate?.status === 'breached' && cellX === state.siege.gate.x && cellY === state.siege.gate.y) return 'road';
   return state.map.terrain.find((cell) => cell.x === cellX && cell.y === cellY)?.type ?? '';
+}
+
+function gatePosition(state) {
+  return { x: state.siege.gate.x + 0.5, y: state.siege.gate.y + 0.5 };
+}
+
+function gateApproachPosition(state) {
+  const gate = gatePosition(state);
+  return { x: gate.x - 1.05, y: gate.y };
 }
 
 function movementMultiplier(type) {
@@ -314,6 +332,10 @@ function cellKey(x, y) {
 function canOccupy(state, unit, x, y) {
   const cellX = Math.floor(x);
   const cellY = Math.floor(y);
+  if (state.scenarioId === 'fortress_siege' && unit.side === 'attacker') {
+    const terrain = terrainAt(state, x, y);
+    if (terrain === 'rampart' || terrain === 'gate' && state.siege?.gate?.status !== 'breached') return false;
+  }
   if (cellX < 0 || cellY < 0 || cellX >= state.map.width || cellY >= state.map.height) return false;
   if (state.map.obstacles.some((cell) => cell.x === cellX && cell.y === cellY)) return false;
   return !state.regiments.some((other) => other.id !== unit.id && other.count > 0 &&
@@ -333,8 +355,13 @@ function flankWaypoint(state, unit, target) {
 }
 
 function moveToward(state, unit, target, maxDistance) {
-  const dx = target.x - unit.position.x;
-  const dy = target.y - unit.position.y;
+  let movementTarget = target;
+  const gate = state.siege?.gate;
+  if (gate && unit.side === 'attacker' && target.x > gate.x + 1 && unit.position.x < gate.x + 0.5) {
+    movementTarget = gate.status === 'breached' ? gatePosition(state) : gateApproachPosition(state);
+  }
+  const dx = movementTarget.x - unit.position.x;
+  const dy = movementTarget.y - unit.position.y;
   const remaining = Math.hypot(dx, dy);
   if (remaining < 1e-9) return;
   unit.facing = Math.atan2(dy, dx);
@@ -381,6 +408,7 @@ function finishResult(state) {
     casualties: Object.fromEntries(state.regiments.map((unit) => [unit.id, unit.max_count - unit.count])),
     routed: state.regiments.filter((unit) => unit.state === 'routed').map((unit) => unit.id),
     withdrawn: state.regiments.filter((unit) => unit.state === 'withdrawn').map((unit) => unit.id),
+    siege: state.siege ? clone(state.siege) : null,
     durationTicks: state.tick,
     durationSeconds: state.tick / BATTLE_TICK_HZ,
   };
@@ -411,6 +439,36 @@ export function stepBattle(state) {
     if (order.type === 'move') {
       moveToward(next, unit, order, unit.stats.speed * BATTLE_FIXED_DT);
       unit.state = distance(unit.position, order) < 0.08 ? 'ready' : 'moving';
+      continue;
+    }
+    if (order.type === 'attack_gate') {
+      const gate = next.siege?.gate;
+      if (!gate) {
+        unit.state = 'ready';
+        continue;
+      }
+      if (gate.status === 'breached') {
+        const target = units.filter(candidate => candidate.side !== unit.side && candidate.count > 0 && !['routed', 'withdrawn'].includes(candidate.state))
+          .sort((a, b) => distance(unit.position, a.position) - distance(unit.position, b.position) || a.id.localeCompare(b.id))[0];
+        if (target) {
+          unit.order = { type: 'attack', targetId: target.id };
+          unit.target_id = target.id;
+          unit.facing = Math.atan2(target.position.y - unit.position.y, target.position.x - unit.position.x);
+          unit.state = 'moving';
+          next.orders.push({ tick: next.tick, regimentId: unit.id, ...unit.order, gateBreached: true });
+        } else unit.state = 'ready';
+        continue;
+      }
+      const target = gatePosition(next);
+      if (distance(unit.position, target) > 1.1) {
+        moveToward(next, unit, gateApproachPosition(next), unit.stats.speed * BATTLE_FIXED_DT);
+        unit.state = 'moving';
+      } else {
+        const damage = Math.max(0.01, unit.count * unit.stats.attack * DAMAGE_SCALE * (0.5 + unit.morale / 200));
+        gate.integrity = Math.max(0, gate.integrity - damage);
+        if (gate.integrity === 0) gate.status = 'breached';
+        unit.state = 'engaged';
+      }
       continue;
     }
     if (order.type !== 'attack' && !holdingPosition) continue;
@@ -493,7 +551,7 @@ export function resolveHeadlessBattle(state, maxTicks = BATTLE_TICK_HZ * 60 * 10
   for (let tick = 0; tick < limit && !current.result; tick += 1) {
     for (const unit of current.regiments) {
       if (unit.count <= 0 || ['routed', 'withdrawn'].includes(unit.state)) continue;
-      if (unit.order?.type === 'retreat' || unit.order?.type === 'move' || unit.order?.type === 'hold' && !unit.order.targetId) continue;
+      if (unit.order?.type === 'retreat' || unit.order?.type === 'move' || unit.order?.type === 'attack_gate' || unit.order?.type === 'hold' && !unit.order.targetId) continue;
       const existingTarget = current.regiments.find((candidate) => candidate.id === unit.order?.targetId &&
         candidate.side !== unit.side && candidate.count > 0 && !['routed', 'withdrawn'].includes(candidate.state));
       if ((unit.order?.type === 'attack' || unit.order?.type === 'hold') && existingTarget) continue;

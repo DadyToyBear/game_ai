@@ -70,6 +70,7 @@ export function resolveBattleRequest(input, { maxTicks = DEFAULT_MAX_TICKS } = {
     routed,
     routedSurvivors: Object.fromEntries(regiments.filter((unit) => routed.includes(unit.id)).map((unit) => [unit.id, unit.count])),
     withdrawn,
+    siege: finalState.siege ? clone(finalState.siege) : null,
     regiments,
     durationTicks: finalState.tick,
     durationSeconds: finalState.tick / finalState.tick_hz,
