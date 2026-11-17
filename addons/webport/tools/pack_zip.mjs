@@ -137,10 +137,15 @@ export function packAddon({ out, includeExamples = true } = {}) {
       }
     }
   }
-  entries.push({
-    rel: "WEBPORT_README.md",
-    data: readFileSync(join(ADDON_ROOT, "README.md")),
-  });
+  // верхнеуровневые копии инструкций: их видно сразу после распаковки
+  for (const doc of ["БЫСТРЫЙ_СТАРТ.md", "УСТАНОВКА.md", "РАБОТА_С_ПЛАГИНОМ.md", "README.md"]) {
+    const path = join(ADDON_ROOT, doc);
+    if (!existsSync(path)) continue;
+    entries.push({
+      rel: doc === "README.md" ? "WEBPORT_README.md" : doc,
+      data: readFileSync(path),
+    });
+  }
 
   const zip = buildZip(entries);
   if (out) {
