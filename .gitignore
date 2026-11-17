@@ -3,3 +3,9 @@
 assets/units/cards/_raw/
 assets/**/_raw/
 __pycache__/
+
+# артефакты сборки плагина (архив ставится отдельно)
+# dist/webport-addon.zip намеренно версионируется — это готовый плагин
+dist/*.zip
+!dist/webport-addon.zip
+!dist/crown_and_banner_assets.zip
