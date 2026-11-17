@@ -41,7 +41,7 @@ var _dialog: AcceptDialog
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
-	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	mouse_default_cursor_shape = Control.CURSOR_ARROW
 	if world_data_path.is_empty() or not FileAccess.file_exists(world_data_path):
 		return
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(world_data_path))
@@ -50,14 +50,18 @@ func _ready() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		if _show_landmark(event.position):
+	if event is InputEventMouseMotion:
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if not _landmark_at(event.position).is_empty() else Control.CURSOR_ARROW
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var selected := _landmark_at(event.position)
+		if not selected.is_empty():
+			_show_landmark(selected)
 			accept_event()
 
 
-func _show_landmark(local_position: Vector2) -> bool:
+func _landmark_at(local_position: Vector2) -> Dictionary:
 	if _world_data.is_empty() or size.x <= 0.0 or size.y <= 0.0:
-		return false
+		return {}
 	var art_size: Array = _world_data.get("art_size", [1264, 848])
 	var grid: Dictionary = _world_data.get("grid", {})
 	var cols := max(1, int(grid.get("cols", 45)))
@@ -75,8 +79,10 @@ func _show_landmark(local_position: Vector2) -> bool:
 		if distance <= best_distance:
 			best_distance = distance
 			selected = value
-	if selected.is_empty():
-		return false
+	return selected
+
+
+func _show_landmark(selected: Dictionary) -> void:
 	if is_instance_valid(_dialog):
 		_dialog.queue_free()
 	var kinds := {"castle": "Замок", "keep": "Крепость", "town": "Город", "village": "Посёлок", "mine": "Рудник", "field": "Поля", "bridge": "Мост"}
@@ -91,7 +97,6 @@ func _show_landmark(local_position: Vector2) -> bool:
 	_dialog.close_requested.connect(_dialog.queue_free)
 	get_tree().root.add_child(_dialog)
 	_dialog.popup_centered(Vector2i(420, 150))
-	return true
 `;
 
 export function parseArgs(argv) {

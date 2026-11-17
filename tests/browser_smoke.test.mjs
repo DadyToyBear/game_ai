@@ -150,6 +150,36 @@ test('browser DOM smoke: tax and harvest are once-per-day actions that persist a
   assert.deepEqual([...errors, ...resumed.errors], []);
 });
 
+test('browser DOM smoke: local settlement loyalty changes its daily production', async (t) => {
+  const seedSession = await launchGame();
+  seedSession.window.document.querySelector('#saveBtn').click();
+  const template = JSON.parse(seedSession.window.localStorage.getItem('crown-banner-save-v2'));
+  seedSession.window.happyDOM.abort();
+
+  const dailyGoldAtLoyalty = async (loyalty) => {
+    const save = structuredClone(template);
+    save.structures.push({ id: 'loyalty-test-town', type: 'town', name: 'Опытный город', x: 21, y: 12,
+      level: 3, owner: 'player', faction: save.faction });
+    save.settlementDevelopment = { ...(save.settlementDevelopment || {}),
+      'loyalty-test-town': { loyalty, specialty: 'none', governor: null } };
+    const { window, errors } = await launchGame(save);
+    const before = JSON.parse(window.localStorage.getItem('crown-banner-save-v2')).gold;
+    window.document.querySelector('#endTurn').click();
+    const after = JSON.parse(window.localStorage.getItem('crown-banner-save-v2')).gold;
+    window.happyDOM.abort();
+    assert.deepEqual(errors, []);
+    return after - before;
+  };
+
+  const loyalIncome = await dailyGoldAtLoyalty(70);
+  const middlingIncome = await dailyGoldAtLoyalty(35);
+  const disloyalIncome = await dailyGoldAtLoyalty(10);
+  assert.equal(loyalIncome - middlingIncome, 1,
+    'positive settlement production is reduced by one quarter at 35% loyalty');
+  assert.equal(middlingIncome - disloyalIncome, 1,
+    'positive settlement production is halved below 20% loyalty');
+});
+
 test('browser DOM smoke: campaign loads, tabs work, and a daily turn is saved', async (t) => {
   const { window, errors } = await launchGame();
   t.after(() => window.happyDOM.abort());
