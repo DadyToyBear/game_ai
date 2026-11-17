@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/06_spearman_shield",
+  "clip": "quest",
+  "fps": 7,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 113,
+  "frame_h": 210,
+  "anchor_x": 53,
+  "anchor_y": 205,
+  "sheet": "quest.png",
+  "character_px": 200
+}

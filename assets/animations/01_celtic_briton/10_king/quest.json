@@ -1,0 +1,13 @@
+{
+  "unit": "01_celtic_briton/10_king",
+  "clip": "quest",
+  "fps": 7,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 134,
+  "frame_h": 212,
+  "anchor_x": 66,
+  "anchor_y": 207,
+  "sheet": "quest.png",
+  "character_px": 200
+}

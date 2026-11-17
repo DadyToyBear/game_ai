@@ -1,0 +1,13 @@
+{
+  "unit": "01_celtic_briton/10_king",
+  "clip": "walk",
+  "fps": 12,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 140,
+  "frame_h": 215,
+  "anchor_x": 70,
+  "anchor_y": 208,
+  "sheet": "walk.png",
+  "character_px": 200
+}

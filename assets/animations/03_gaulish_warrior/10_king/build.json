@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/10_king",
+  "clip": "build",
+  "fps": 9,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 130,
+  "frame_h": 236,
+  "anchor_x": 71,
+  "anchor_y": 225,
+  "sheet": "build.png",
+  "character_px": 200
+}

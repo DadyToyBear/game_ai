@@ -1,0 +1,13 @@
+{
+  "unit": "04_slavic/04_two_handed_swordsman",
+  "clip": "build",
+  "fps": 9,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 118,
+  "frame_h": 218,
+  "anchor_x": 45,
+  "anchor_y": 208,
+  "sheet": "build.png",
+  "character_px": 200
+}

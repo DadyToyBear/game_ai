@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/06_spearman_shield",
+  "clip": "combat",
+  "fps": 14,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 133,
+  "frame_h": 224,
+  "anchor_x": 66,
+  "anchor_y": 214,
+  "sheet": "combat.png",
+  "character_px": 200
+}

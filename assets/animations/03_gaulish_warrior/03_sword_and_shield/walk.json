@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/03_sword_and_shield",
+  "clip": "walk",
+  "fps": 12,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 128,
+  "frame_h": 212,
+  "anchor_x": 65,
+  "anchor_y": 205,
+  "sheet": "walk.png",
+  "character_px": 200
+}

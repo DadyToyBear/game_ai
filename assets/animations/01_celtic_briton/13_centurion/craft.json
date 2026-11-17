@@ -1,0 +1,13 @@
+{
+  "unit": "01_celtic_briton/13_centurion",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 118,
+  "frame_h": 195,
+  "anchor_x": 47,
+  "anchor_y": 187,
+  "sheet": "craft.png",
+  "character_px": 200
+}

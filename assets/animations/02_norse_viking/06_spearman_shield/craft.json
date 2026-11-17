@@ -1,0 +1,13 @@
+{
+  "unit": "02_norse_viking/06_spearman_shield",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 126,
+  "frame_h": 179,
+  "anchor_x": 68,
+  "anchor_y": 169,
+  "sheet": "craft.png",
+  "character_px": 200
+}

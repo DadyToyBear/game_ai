@@ -1,0 +1,13 @@
+{
+  "unit": "04_slavic/04_two_handed_swordsman",
+  "clip": "walk",
+  "fps": 12,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 98,
+  "frame_h": 227,
+  "anchor_x": 47,
+  "anchor_y": 219,
+  "sheet": "walk.png",
+  "character_px": 200
+}

@@ -1,0 +1,13 @@
+{
+  "unit": "01_celtic_briton/11_prince",
+  "clip": "walk",
+  "fps": 12,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 108,
+  "frame_h": 215,
+  "anchor_x": 57,
+  "anchor_y": 205,
+  "sheet": "walk.png",
+  "character_px": 200
+}

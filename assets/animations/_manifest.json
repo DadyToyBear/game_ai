@@ -1,0 +1,4808 @@
+{
+ "version": 1,
+ "line": "armed",
+ "frames_per_clip": 8,
+ "character_px": 200,
+ "units": [
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "01_archer",
+   "class_ru": "Лучник",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/01_archer/walk.png",
+     "meta": "01_celtic_briton/01_archer/walk.json",
+     "gif": "01_celtic_briton/01_archer/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 119,
+     "frame_h": 209,
+     "anchor_x": 45,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/01_archer/combat.png",
+     "meta": "01_celtic_briton/01_archer/combat.json",
+     "gif": "01_celtic_briton/01_archer/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 125,
+     "frame_h": 209,
+     "anchor_x": 47,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/01_archer/craft.png",
+     "meta": "01_celtic_briton/01_archer/craft.json",
+     "gif": "01_celtic_briton/01_archer/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 114,
+     "frame_h": 180,
+     "anchor_x": 43,
+     "anchor_y": 173
+    },
+    "build": {
+     "sheet": "01_celtic_briton/01_archer/build.png",
+     "meta": "01_celtic_briton/01_archer/build.json",
+     "gif": "01_celtic_briton/01_archer/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 118,
+     "frame_h": 206,
+     "anchor_x": 44,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/01_archer/quest.png",
+     "meta": "01_celtic_briton/01_archer/quest.json",
+     "gif": "01_celtic_briton/01_archer/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 114,
+     "frame_h": 203,
+     "anchor_x": 43,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "02_two_handed_axeman",
+   "class_ru": "Топор 2р",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/02_two_handed_axeman/walk.png",
+     "meta": "01_celtic_briton/02_two_handed_axeman/walk.json",
+     "gif": "01_celtic_briton/02_two_handed_axeman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 114,
+     "frame_h": 210,
+     "anchor_x": 49,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/02_two_handed_axeman/combat.png",
+     "meta": "01_celtic_briton/02_two_handed_axeman/combat.json",
+     "gif": "01_celtic_briton/02_two_handed_axeman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 120,
+     "frame_h": 209,
+     "anchor_x": 53,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/02_two_handed_axeman/craft.png",
+     "meta": "01_celtic_briton/02_two_handed_axeman/craft.json",
+     "gif": "01_celtic_briton/02_two_handed_axeman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 106,
+     "frame_h": 180,
+     "anchor_x": 48,
+     "anchor_y": 173
+    },
+    "build": {
+     "sheet": "01_celtic_briton/02_two_handed_axeman/build.png",
+     "meta": "01_celtic_briton/02_two_handed_axeman/build.json",
+     "gif": "01_celtic_briton/02_two_handed_axeman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 127,
+     "frame_h": 206,
+     "anchor_x": 48,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/02_two_handed_axeman/quest.png",
+     "meta": "01_celtic_briton/02_two_handed_axeman/quest.json",
+     "gif": "01_celtic_briton/02_two_handed_axeman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 114,
+     "frame_h": 204,
+     "anchor_x": 48,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "03_sword_and_shield",
+   "class_ru": "Меч+щит",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/03_sword_and_shield/walk.png",
+     "meta": "01_celtic_briton/03_sword_and_shield/walk.json",
+     "gif": "01_celtic_briton/03_sword_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 133,
+     "frame_h": 212,
+     "anchor_x": 67,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/03_sword_and_shield/combat.png",
+     "meta": "01_celtic_briton/03_sword_and_shield/combat.json",
+     "gif": "01_celtic_briton/03_sword_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 144,
+     "frame_h": 219,
+     "anchor_x": 74,
+     "anchor_y": 208
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/03_sword_and_shield/craft.png",
+     "meta": "01_celtic_briton/03_sword_and_shield/craft.json",
+     "gif": "01_celtic_briton/03_sword_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 131,
+     "frame_h": 178,
+     "anchor_x": 68,
+     "anchor_y": 168
+    },
+    "build": {
+     "sheet": "01_celtic_briton/03_sword_and_shield/build.png",
+     "meta": "01_celtic_briton/03_sword_and_shield/build.json",
+     "gif": "01_celtic_briton/03_sword_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 132,
+     "frame_h": 216,
+     "anchor_x": 68,
+     "anchor_y": 207
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/03_sword_and_shield/quest.png",
+     "meta": "01_celtic_briton/03_sword_and_shield/quest.json",
+     "gif": "01_celtic_briton/03_sword_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 124,
+     "frame_h": 207,
+     "anchor_x": 61,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "04_two_handed_swordsman",
+   "class_ru": "Меч 2р",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/04_two_handed_swordsman/walk.png",
+     "meta": "01_celtic_briton/04_two_handed_swordsman/walk.json",
+     "gif": "01_celtic_briton/04_two_handed_swordsman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 108,
+     "frame_h": 209,
+     "anchor_x": 47,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/04_two_handed_swordsman/combat.png",
+     "meta": "01_celtic_briton/04_two_handed_swordsman/combat.json",
+     "gif": "01_celtic_briton/04_two_handed_swordsman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 120,
+     "frame_h": 210,
+     "anchor_x": 50,
+     "anchor_y": 203
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/04_two_handed_swordsman/craft.png",
+     "meta": "01_celtic_briton/04_two_handed_swordsman/craft.json",
+     "gif": "01_celtic_briton/04_two_handed_swordsman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 94,
+     "frame_h": 187,
+     "anchor_x": 45,
+     "anchor_y": 180
+    },
+    "build": {
+     "sheet": "01_celtic_briton/04_two_handed_swordsman/build.png",
+     "meta": "01_celtic_briton/04_two_handed_swordsman/build.json",
+     "gif": "01_celtic_briton/04_two_handed_swordsman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 126,
+     "frame_h": 206,
+     "anchor_x": 46,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/04_two_handed_swordsman/quest.png",
+     "meta": "01_celtic_briton/04_two_handed_swordsman/quest.json",
+     "gif": "01_celtic_briton/04_two_handed_swordsman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 110,
+     "frame_h": 204,
+     "anchor_x": 46,
+     "anchor_y": 203
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "05_mace_and_shield",
+   "class_ru": "Булава+щит",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/05_mace_and_shield/walk.png",
+     "meta": "01_celtic_briton/05_mace_and_shield/walk.json",
+     "gif": "01_celtic_briton/05_mace_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 142,
+     "frame_h": 211,
+     "anchor_x": 68,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/05_mace_and_shield/combat.png",
+     "meta": "01_celtic_briton/05_mace_and_shield/combat.json",
+     "gif": "01_celtic_briton/05_mace_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 147,
+     "frame_h": 212,
+     "anchor_x": 70,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/05_mace_and_shield/craft.png",
+     "meta": "01_celtic_briton/05_mace_and_shield/craft.json",
+     "gif": "01_celtic_briton/05_mace_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 138,
+     "frame_h": 176,
+     "anchor_x": 67,
+     "anchor_y": 168
+    },
+    "build": {
+     "sheet": "01_celtic_briton/05_mace_and_shield/build.png",
+     "meta": "01_celtic_briton/05_mace_and_shield/build.json",
+     "gif": "01_celtic_briton/05_mace_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 137,
+     "frame_h": 208,
+     "anchor_x": 67,
+     "anchor_y": 201
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/05_mace_and_shield/quest.png",
+     "meta": "01_celtic_briton/05_mace_and_shield/quest.json",
+     "gif": "01_celtic_briton/05_mace_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 137,
+     "frame_h": 206,
+     "anchor_x": 66,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "06_spearman_shield",
+   "class_ru": "Копьё+щит",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/06_spearman_shield/walk.png",
+     "meta": "01_celtic_briton/06_spearman_shield/walk.json",
+     "gif": "01_celtic_briton/06_spearman_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 137,
+     "frame_h": 214,
+     "anchor_x": 63,
+     "anchor_y": 210
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/06_spearman_shield/combat.png",
+     "meta": "01_celtic_briton/06_spearman_shield/combat.json",
+     "gif": "01_celtic_briton/06_spearman_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 152,
+     "frame_h": 223,
+     "anchor_x": 70,
+     "anchor_y": 216
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/06_spearman_shield/craft.png",
+     "meta": "01_celtic_briton/06_spearman_shield/craft.json",
+     "gif": "01_celtic_briton/06_spearman_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 137,
+     "frame_h": 192,
+     "anchor_x": 64,
+     "anchor_y": 185
+    },
+    "build": {
+     "sheet": "01_celtic_briton/06_spearman_shield/build.png",
+     "meta": "01_celtic_briton/06_spearman_shield/build.json",
+     "gif": "01_celtic_briton/06_spearman_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 156,
+     "frame_h": 222,
+     "anchor_x": 64,
+     "anchor_y": 216
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/06_spearman_shield/quest.png",
+     "meta": "01_celtic_briton/06_spearman_shield/quest.json",
+     "gif": "01_celtic_briton/06_spearman_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 131,
+     "frame_h": 210,
+     "anchor_x": 57,
+     "anchor_y": 208
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "07_stone_slinger",
+   "class_ru": "Пращник",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/07_stone_slinger/walk.png",
+     "meta": "01_celtic_briton/07_stone_slinger/walk.json",
+     "gif": "01_celtic_briton/07_stone_slinger/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 135,
+     "frame_h": 210,
+     "anchor_x": 62,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/07_stone_slinger/combat.png",
+     "meta": "01_celtic_briton/07_stone_slinger/combat.json",
+     "gif": "01_celtic_briton/07_stone_slinger/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 142,
+     "frame_h": 210,
+     "anchor_x": 65,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/07_stone_slinger/craft.png",
+     "meta": "01_celtic_briton/07_stone_slinger/craft.json",
+     "gif": "01_celtic_briton/07_stone_slinger/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 131,
+     "frame_h": 177,
+     "anchor_x": 61,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "01_celtic_briton/07_stone_slinger/build.png",
+     "meta": "01_celtic_briton/07_stone_slinger/build.json",
+     "gif": "01_celtic_briton/07_stone_slinger/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 131,
+     "frame_h": 207,
+     "anchor_x": 61,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/07_stone_slinger/quest.png",
+     "meta": "01_celtic_briton/07_stone_slinger/quest.json",
+     "gif": "01_celtic_briton/07_stone_slinger/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 131,
+     "frame_h": 205,
+     "anchor_x": 61,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "08_cavalryman",
+   "class_ru": "Кавалерист",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/08_cavalryman/walk.png",
+     "meta": "01_celtic_briton/08_cavalryman/walk.json",
+     "gif": "01_celtic_briton/08_cavalryman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 134,
+     "frame_h": 210,
+     "anchor_x": 75,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/08_cavalryman/combat.png",
+     "meta": "01_celtic_briton/08_cavalryman/combat.json",
+     "gif": "01_celtic_briton/08_cavalryman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 140,
+     "frame_h": 210,
+     "anchor_x": 78,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/08_cavalryman/craft.png",
+     "meta": "01_celtic_briton/08_cavalryman/craft.json",
+     "gif": "01_celtic_briton/08_cavalryman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 130,
+     "frame_h": 177,
+     "anchor_x": 74,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "01_celtic_briton/08_cavalryman/build.png",
+     "meta": "01_celtic_briton/08_cavalryman/build.json",
+     "gif": "01_celtic_briton/08_cavalryman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 130,
+     "frame_h": 206,
+     "anchor_x": 74,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/08_cavalryman/quest.png",
+     "meta": "01_celtic_briton/08_cavalryman/quest.json",
+     "gif": "01_celtic_briton/08_cavalryman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 130,
+     "frame_h": 204,
+     "anchor_x": 74,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "09_lord",
+   "class_ru": "Лорд",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/09_lord/walk.png",
+     "meta": "01_celtic_briton/09_lord/walk.json",
+     "gif": "01_celtic_briton/09_lord/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 119,
+     "frame_h": 212,
+     "anchor_x": 60,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/09_lord/combat.png",
+     "meta": "01_celtic_briton/09_lord/combat.json",
+     "gif": "01_celtic_briton/09_lord/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 212,
+     "anchor_x": 61,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/09_lord/craft.png",
+     "meta": "01_celtic_briton/09_lord/craft.json",
+     "gif": "01_celtic_briton/09_lord/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 113,
+     "frame_h": 179,
+     "anchor_x": 57,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "01_celtic_briton/09_lord/build.png",
+     "meta": "01_celtic_briton/09_lord/build.json",
+     "gif": "01_celtic_briton/09_lord/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 115,
+     "frame_h": 209,
+     "anchor_x": 58,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/09_lord/quest.png",
+     "meta": "01_celtic_briton/09_lord/quest.json",
+     "gif": "01_celtic_briton/09_lord/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 114,
+     "frame_h": 207,
+     "anchor_x": 58,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "10_king",
+   "class_ru": "Король",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/10_king/walk.png",
+     "meta": "01_celtic_briton/10_king/walk.json",
+     "gif": "01_celtic_briton/10_king/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 140,
+     "frame_h": 215,
+     "anchor_x": 70,
+     "anchor_y": 208
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/10_king/combat.png",
+     "meta": "01_celtic_briton/10_king/combat.json",
+     "gif": "01_celtic_briton/10_king/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 152,
+     "frame_h": 229,
+     "anchor_x": 77,
+     "anchor_y": 218
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/10_king/craft.png",
+     "meta": "01_celtic_briton/10_king/craft.json",
+     "gif": "01_celtic_briton/10_king/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 140,
+     "frame_h": 178,
+     "anchor_x": 72,
+     "anchor_y": 168
+    },
+    "build": {
+     "sheet": "01_celtic_briton/10_king/build.png",
+     "meta": "01_celtic_briton/10_king/build.json",
+     "gif": "01_celtic_briton/10_king/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 140,
+     "frame_h": 226,
+     "anchor_x": 72,
+     "anchor_y": 218
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/10_king/quest.png",
+     "meta": "01_celtic_briton/10_king/quest.json",
+     "gif": "01_celtic_briton/10_king/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 134,
+     "frame_h": 212,
+     "anchor_x": 66,
+     "anchor_y": 207
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "11_prince",
+   "class_ru": "Принц",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/11_prince/walk.png",
+     "meta": "01_celtic_briton/11_prince/walk.json",
+     "gif": "01_celtic_briton/11_prince/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 108,
+     "frame_h": 215,
+     "anchor_x": 57,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/11_prince/combat.png",
+     "meta": "01_celtic_briton/11_prince/combat.json",
+     "gif": "01_celtic_briton/11_prince/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 108,
+     "frame_h": 213,
+     "anchor_x": 53,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/11_prince/craft.png",
+     "meta": "01_celtic_briton/11_prince/craft.json",
+     "gif": "01_celtic_briton/11_prince/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 101,
+     "frame_h": 181,
+     "anchor_x": 53,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "01_celtic_briton/11_prince/build.png",
+     "meta": "01_celtic_briton/11_prince/build.json",
+     "gif": "01_celtic_briton/11_prince/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 103,
+     "frame_h": 212,
+     "anchor_x": 54,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/11_prince/quest.png",
+     "meta": "01_celtic_briton/11_prince/quest.json",
+     "gif": "01_celtic_briton/11_prince/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 102,
+     "frame_h": 210,
+     "anchor_x": 54,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "12_noble_commander",
+   "class_ru": "Воевода",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/12_noble_commander/walk.png",
+     "meta": "01_celtic_briton/12_noble_commander/walk.json",
+     "gif": "01_celtic_briton/12_noble_commander/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 114,
+     "frame_h": 210,
+     "anchor_x": 52,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/12_noble_commander/combat.png",
+     "meta": "01_celtic_briton/12_noble_commander/combat.json",
+     "gif": "01_celtic_briton/12_noble_commander/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 118,
+     "frame_h": 211,
+     "anchor_x": 53,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/12_noble_commander/craft.png",
+     "meta": "01_celtic_briton/12_noble_commander/craft.json",
+     "gif": "01_celtic_briton/12_noble_commander/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 106,
+     "frame_h": 176,
+     "anchor_x": 48,
+     "anchor_y": 168
+    },
+    "build": {
+     "sheet": "01_celtic_briton/12_noble_commander/build.png",
+     "meta": "01_celtic_briton/12_noble_commander/build.json",
+     "gif": "01_celtic_briton/12_noble_commander/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 108,
+     "frame_h": 208,
+     "anchor_x": 49,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/12_noble_commander/quest.png",
+     "meta": "01_celtic_briton/12_noble_commander/quest.json",
+     "gif": "01_celtic_briton/12_noble_commander/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 107,
+     "frame_h": 205,
+     "anchor_x": 49,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "13_centurion",
+   "class_ru": "Центурион",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/13_centurion/walk.png",
+     "meta": "01_celtic_briton/13_centurion/walk.json",
+     "gif": "01_celtic_briton/13_centurion/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 125,
+     "frame_h": 216,
+     "anchor_x": 51,
+     "anchor_y": 211
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/13_centurion/combat.png",
+     "meta": "01_celtic_briton/13_centurion/combat.json",
+     "gif": "01_celtic_briton/13_centurion/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 126,
+     "frame_h": 219,
+     "anchor_x": 47,
+     "anchor_y": 211
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/13_centurion/craft.png",
+     "meta": "01_celtic_briton/13_centurion/craft.json",
+     "gif": "01_celtic_briton/13_centurion/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 118,
+     "frame_h": 195,
+     "anchor_x": 47,
+     "anchor_y": 187
+    },
+    "build": {
+     "sheet": "01_celtic_briton/13_centurion/build.png",
+     "meta": "01_celtic_briton/13_centurion/build.json",
+     "gif": "01_celtic_briton/13_centurion/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 137,
+     "frame_h": 207,
+     "anchor_x": 48,
+     "anchor_y": 201
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/13_centurion/quest.png",
+     "meta": "01_celtic_briton/13_centurion/quest.json",
+     "gif": "01_celtic_briton/13_centurion/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 120,
+     "frame_h": 212,
+     "anchor_x": 48,
+     "anchor_y": 210
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "14_prefect",
+   "class_ru": "Префект",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/14_prefect/walk.png",
+     "meta": "01_celtic_briton/14_prefect/walk.json",
+     "gif": "01_celtic_briton/14_prefect/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 120,
+     "frame_h": 213,
+     "anchor_x": 60,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/14_prefect/combat.png",
+     "meta": "01_celtic_briton/14_prefect/combat.json",
+     "gif": "01_celtic_briton/14_prefect/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 119,
+     "frame_h": 213,
+     "anchor_x": 58,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/14_prefect/craft.png",
+     "meta": "01_celtic_briton/14_prefect/craft.json",
+     "gif": "01_celtic_briton/14_prefect/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 113,
+     "frame_h": 180,
+     "anchor_x": 57,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "01_celtic_briton/14_prefect/build.png",
+     "meta": "01_celtic_briton/14_prefect/build.json",
+     "gif": "01_celtic_briton/14_prefect/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 118,
+     "frame_h": 209,
+     "anchor_x": 58,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/14_prefect/quest.png",
+     "meta": "01_celtic_briton/14_prefect/quest.json",
+     "gif": "01_celtic_briton/14_prefect/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 114,
+     "frame_h": 208,
+     "anchor_x": 58,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "01_celtic_briton",
+   "faction_ru": "Кельтские бритты",
+   "color": "#3F7A4A",
+   "class": "15_chieftain",
+   "class_ru": "Вождь",
+   "clips": {
+    "walk": {
+     "sheet": "01_celtic_briton/15_chieftain/walk.png",
+     "meta": "01_celtic_briton/15_chieftain/walk.json",
+     "gif": "01_celtic_briton/15_chieftain/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 128,
+     "frame_h": 212,
+     "anchor_x": 56,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "01_celtic_briton/15_chieftain/combat.png",
+     "meta": "01_celtic_briton/15_chieftain/combat.json",
+     "gif": "01_celtic_briton/15_chieftain/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 134,
+     "frame_h": 216,
+     "anchor_x": 58,
+     "anchor_y": 204
+    },
+    "craft": {
+     "sheet": "01_celtic_briton/15_chieftain/craft.png",
+     "meta": "01_celtic_briton/15_chieftain/craft.json",
+     "gif": "01_celtic_briton/15_chieftain/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 122,
+     "frame_h": 179,
+     "anchor_x": 53,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "01_celtic_briton/15_chieftain/build.png",
+     "meta": "01_celtic_briton/15_chieftain/build.json",
+     "gif": "01_celtic_briton/15_chieftain/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 124,
+     "frame_h": 212,
+     "anchor_x": 53,
+     "anchor_y": 202
+    },
+    "quest": {
+     "sheet": "01_celtic_briton/15_chieftain/quest.png",
+     "meta": "01_celtic_briton/15_chieftain/quest.json",
+     "gif": "01_celtic_briton/15_chieftain/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 123,
+     "frame_h": 208,
+     "anchor_x": 53,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "01_archer",
+   "class_ru": "Лучник",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/01_archer/walk.png",
+     "meta": "02_norse_viking/01_archer/walk.json",
+     "gif": "02_norse_viking/01_archer/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 122,
+     "frame_h": 213,
+     "anchor_x": 63,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/01_archer/combat.png",
+     "meta": "02_norse_viking/01_archer/combat.json",
+     "gif": "02_norse_viking/01_archer/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 127,
+     "frame_h": 212,
+     "anchor_x": 63,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/01_archer/craft.png",
+     "meta": "02_norse_viking/01_archer/craft.json",
+     "gif": "02_norse_viking/01_archer/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 116,
+     "frame_h": 182,
+     "anchor_x": 61,
+     "anchor_y": 173
+    },
+    "build": {
+     "sheet": "02_norse_viking/01_archer/build.png",
+     "meta": "02_norse_viking/01_archer/build.json",
+     "gif": "02_norse_viking/01_archer/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 135,
+     "frame_h": 208,
+     "anchor_x": 61,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "02_norse_viking/01_archer/quest.png",
+     "meta": "02_norse_viking/01_archer/quest.json",
+     "gif": "02_norse_viking/01_archer/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 121,
+     "frame_h": 208,
+     "anchor_x": 61,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "02_two_handed_axeman",
+   "class_ru": "Топор 2р",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/02_two_handed_axeman/walk.png",
+     "meta": "02_norse_viking/02_two_handed_axeman/walk.json",
+     "gif": "02_norse_viking/02_two_handed_axeman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 120,
+     "frame_h": 210,
+     "anchor_x": 53,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/02_two_handed_axeman/combat.png",
+     "meta": "02_norse_viking/02_two_handed_axeman/combat.json",
+     "gif": "02_norse_viking/02_two_handed_axeman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 208,
+     "anchor_x": 57,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/02_two_handed_axeman/craft.png",
+     "meta": "02_norse_viking/02_two_handed_axeman/craft.json",
+     "gif": "02_norse_viking/02_two_handed_axeman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 116,
+     "frame_h": 178,
+     "anchor_x": 53,
+     "anchor_y": 171
+    },
+    "build": {
+     "sheet": "02_norse_viking/02_two_handed_axeman/build.png",
+     "meta": "02_norse_viking/02_two_handed_axeman/build.json",
+     "gif": "02_norse_viking/02_two_handed_axeman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 128,
+     "frame_h": 204,
+     "anchor_x": 53,
+     "anchor_y": 197
+    },
+    "quest": {
+     "sheet": "02_norse_viking/02_two_handed_axeman/quest.png",
+     "meta": "02_norse_viking/02_two_handed_axeman/quest.json",
+     "gif": "02_norse_viking/02_two_handed_axeman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 121,
+     "frame_h": 204,
+     "anchor_x": 53,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "03_sword_and_shield",
+   "class_ru": "Меч+щит",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/03_sword_and_shield/walk.png",
+     "meta": "02_norse_viking/03_sword_and_shield/walk.json",
+     "gif": "02_norse_viking/03_sword_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 124,
+     "frame_h": 213,
+     "anchor_x": 61,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/03_sword_and_shield/combat.png",
+     "meta": "02_norse_viking/03_sword_and_shield/combat.json",
+     "gif": "02_norse_viking/03_sword_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 126,
+     "frame_h": 213,
+     "anchor_x": 59,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/03_sword_and_shield/craft.png",
+     "meta": "02_norse_viking/03_sword_and_shield/craft.json",
+     "gif": "02_norse_viking/03_sword_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 118,
+     "frame_h": 179,
+     "anchor_x": 58,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/03_sword_and_shield/build.png",
+     "meta": "02_norse_viking/03_sword_and_shield/build.json",
+     "gif": "02_norse_viking/03_sword_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 119,
+     "frame_h": 210,
+     "anchor_x": 59,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "02_norse_viking/03_sword_and_shield/quest.png",
+     "meta": "02_norse_viking/03_sword_and_shield/quest.json",
+     "gif": "02_norse_viking/03_sword_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 118,
+     "frame_h": 208,
+     "anchor_x": 58,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "04_two_handed_swordsman",
+   "class_ru": "Меч 2р",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/04_two_handed_swordsman/walk.png",
+     "meta": "02_norse_viking/04_two_handed_swordsman/walk.json",
+     "gif": "02_norse_viking/04_two_handed_swordsman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 107,
+     "frame_h": 212,
+     "anchor_x": 50,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/04_two_handed_swordsman/combat.png",
+     "meta": "02_norse_viking/04_two_handed_swordsman/combat.json",
+     "gif": "02_norse_viking/04_two_handed_swordsman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 118,
+     "frame_h": 211,
+     "anchor_x": 52,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/04_two_handed_swordsman/craft.png",
+     "meta": "02_norse_viking/04_two_handed_swordsman/craft.json",
+     "gif": "02_norse_viking/04_two_handed_swordsman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 94,
+     "frame_h": 186,
+     "anchor_x": 48,
+     "anchor_y": 176
+    },
+    "build": {
+     "sheet": "02_norse_viking/04_two_handed_swordsman/build.png",
+     "meta": "02_norse_viking/04_two_handed_swordsman/build.json",
+     "gif": "02_norse_viking/04_two_handed_swordsman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 123,
+     "frame_h": 208,
+     "anchor_x": 48,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "02_norse_viking/04_two_handed_swordsman/quest.png",
+     "meta": "02_norse_viking/04_two_handed_swordsman/quest.json",
+     "gif": "02_norse_viking/04_two_handed_swordsman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 108,
+     "frame_h": 207,
+     "anchor_x": 48,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "05_mace_and_shield",
+   "class_ru": "Булава+щит",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/05_mace_and_shield/walk.png",
+     "meta": "02_norse_viking/05_mace_and_shield/walk.json",
+     "gif": "02_norse_viking/05_mace_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 140,
+     "frame_h": 212,
+     "anchor_x": 73,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/05_mace_and_shield/combat.png",
+     "meta": "02_norse_viking/05_mace_and_shield/combat.json",
+     "gif": "02_norse_viking/05_mace_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 147,
+     "frame_h": 215,
+     "anchor_x": 76,
+     "anchor_y": 204
+    },
+    "craft": {
+     "sheet": "02_norse_viking/05_mace_and_shield/craft.png",
+     "meta": "02_norse_viking/05_mace_and_shield/craft.json",
+     "gif": "02_norse_viking/05_mace_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 135,
+     "frame_h": 176,
+     "anchor_x": 71,
+     "anchor_y": 167
+    },
+    "build": {
+     "sheet": "02_norse_viking/05_mace_and_shield/build.png",
+     "meta": "02_norse_viking/05_mace_and_shield/build.json",
+     "gif": "02_norse_viking/05_mace_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 135,
+     "frame_h": 212,
+     "anchor_x": 71,
+     "anchor_y": 203
+    },
+    "quest": {
+     "sheet": "02_norse_viking/05_mace_and_shield/quest.png",
+     "meta": "02_norse_viking/05_mace_and_shield/quest.json",
+     "gif": "02_norse_viking/05_mace_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 133,
+     "frame_h": 208,
+     "anchor_x": 69,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "06_spearman_shield",
+   "class_ru": "Копьё+щит",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/06_spearman_shield/walk.png",
+     "meta": "02_norse_viking/06_spearman_shield/walk.json",
+     "gif": "02_norse_viking/06_spearman_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 125,
+     "frame_h": 226,
+     "anchor_x": 64,
+     "anchor_y": 218
+    },
+    "combat": {
+     "sheet": "02_norse_viking/06_spearman_shield/combat.png",
+     "meta": "02_norse_viking/06_spearman_shield/combat.json",
+     "gif": "02_norse_viking/06_spearman_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 136,
+     "frame_h": 237,
+     "anchor_x": 72,
+     "anchor_y": 226
+    },
+    "craft": {
+     "sheet": "02_norse_viking/06_spearman_shield/craft.png",
+     "meta": "02_norse_viking/06_spearman_shield/craft.json",
+     "gif": "02_norse_viking/06_spearman_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 126,
+     "frame_h": 179,
+     "anchor_x": 68,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/06_spearman_shield/build.png",
+     "meta": "02_norse_viking/06_spearman_shield/build.json",
+     "gif": "02_norse_viking/06_spearman_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 128,
+     "frame_h": 235,
+     "anchor_x": 68,
+     "anchor_y": 225
+    },
+    "quest": {
+     "sheet": "02_norse_viking/06_spearman_shield/quest.png",
+     "meta": "02_norse_viking/06_spearman_shield/quest.json",
+     "gif": "02_norse_viking/06_spearman_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 116,
+     "frame_h": 223,
+     "anchor_x": 59,
+     "anchor_y": 217
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "07_stone_slinger",
+   "class_ru": "Пращник",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/07_stone_slinger/walk.png",
+     "meta": "02_norse_viking/07_stone_slinger/walk.json",
+     "gif": "02_norse_viking/07_stone_slinger/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 99,
+     "frame_h": 215,
+     "anchor_x": 49,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/07_stone_slinger/combat.png",
+     "meta": "02_norse_viking/07_stone_slinger/combat.json",
+     "gif": "02_norse_viking/07_stone_slinger/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 106,
+     "frame_h": 215,
+     "anchor_x": 52,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/07_stone_slinger/craft.png",
+     "meta": "02_norse_viking/07_stone_slinger/craft.json",
+     "gif": "02_norse_viking/07_stone_slinger/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 95,
+     "frame_h": 181,
+     "anchor_x": 48,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/07_stone_slinger/build.png",
+     "meta": "02_norse_viking/07_stone_slinger/build.json",
+     "gif": "02_norse_viking/07_stone_slinger/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 96,
+     "frame_h": 211,
+     "anchor_x": 48,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "02_norse_viking/07_stone_slinger/quest.png",
+     "meta": "02_norse_viking/07_stone_slinger/quest.json",
+     "gif": "02_norse_viking/07_stone_slinger/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 96,
+     "frame_h": 210,
+     "anchor_x": 48,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "08_cavalryman",
+   "class_ru": "Кавалерист",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/08_cavalryman/walk.png",
+     "meta": "02_norse_viking/08_cavalryman/walk.json",
+     "gif": "02_norse_viking/08_cavalryman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 112,
+     "frame_h": 212,
+     "anchor_x": 57,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/08_cavalryman/combat.png",
+     "meta": "02_norse_viking/08_cavalryman/combat.json",
+     "gif": "02_norse_viking/08_cavalryman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 114,
+     "frame_h": 212,
+     "anchor_x": 56,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/08_cavalryman/craft.png",
+     "meta": "02_norse_viking/08_cavalryman/craft.json",
+     "gif": "02_norse_viking/08_cavalryman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 106,
+     "frame_h": 178,
+     "anchor_x": 55,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/08_cavalryman/build.png",
+     "meta": "02_norse_viking/08_cavalryman/build.json",
+     "gif": "02_norse_viking/08_cavalryman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 108,
+     "frame_h": 209,
+     "anchor_x": 55,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "02_norse_viking/08_cavalryman/quest.png",
+     "meta": "02_norse_viking/08_cavalryman/quest.json",
+     "gif": "02_norse_viking/08_cavalryman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 106,
+     "frame_h": 207,
+     "anchor_x": 55,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "09_lord",
+   "class_ru": "Лорд",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/09_lord/walk.png",
+     "meta": "02_norse_viking/09_lord/walk.json",
+     "gif": "02_norse_viking/09_lord/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 124,
+     "frame_h": 213,
+     "anchor_x": 61,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/09_lord/combat.png",
+     "meta": "02_norse_viking/09_lord/combat.json",
+     "gif": "02_norse_viking/09_lord/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 125,
+     "frame_h": 214,
+     "anchor_x": 58,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/09_lord/craft.png",
+     "meta": "02_norse_viking/09_lord/craft.json",
+     "gif": "02_norse_viking/09_lord/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 118,
+     "frame_h": 179,
+     "anchor_x": 58,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/09_lord/build.png",
+     "meta": "02_norse_viking/09_lord/build.json",
+     "gif": "02_norse_viking/09_lord/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 120,
+     "frame_h": 210,
+     "anchor_x": 58,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "02_norse_viking/09_lord/quest.png",
+     "meta": "02_norse_viking/09_lord/quest.json",
+     "gif": "02_norse_viking/09_lord/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 118,
+     "frame_h": 208,
+     "anchor_x": 58,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "10_king",
+   "class_ru": "Король",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/10_king/walk.png",
+     "meta": "02_norse_viking/10_king/walk.json",
+     "gif": "02_norse_viking/10_king/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 124,
+     "frame_h": 212,
+     "anchor_x": 59,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/10_king/combat.png",
+     "meta": "02_norse_viking/10_king/combat.json",
+     "gif": "02_norse_viking/10_king/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 130,
+     "frame_h": 213,
+     "anchor_x": 61,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "02_norse_viking/10_king/craft.png",
+     "meta": "02_norse_viking/10_king/craft.json",
+     "gif": "02_norse_viking/10_king/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 119,
+     "frame_h": 178,
+     "anchor_x": 56,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/10_king/build.png",
+     "meta": "02_norse_viking/10_king/build.json",
+     "gif": "02_norse_viking/10_king/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 120,
+     "frame_h": 210,
+     "anchor_x": 56,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "02_norse_viking/10_king/quest.png",
+     "meta": "02_norse_viking/10_king/quest.json",
+     "gif": "02_norse_viking/10_king/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 119,
+     "frame_h": 207,
+     "anchor_x": 56,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "11_prince",
+   "class_ru": "Принц",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/11_prince/walk.png",
+     "meta": "02_norse_viking/11_prince/walk.json",
+     "gif": "02_norse_viking/11_prince/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 119,
+     "frame_h": 214,
+     "anchor_x": 59,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/11_prince/combat.png",
+     "meta": "02_norse_viking/11_prince/combat.json",
+     "gif": "02_norse_viking/11_prince/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 214,
+     "anchor_x": 61,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "02_norse_viking/11_prince/craft.png",
+     "meta": "02_norse_viking/11_prince/craft.json",
+     "gif": "02_norse_viking/11_prince/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 114,
+     "frame_h": 180,
+     "anchor_x": 56,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/11_prince/build.png",
+     "meta": "02_norse_viking/11_prince/build.json",
+     "gif": "02_norse_viking/11_prince/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 115,
+     "frame_h": 211,
+     "anchor_x": 56,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "02_norse_viking/11_prince/quest.png",
+     "meta": "02_norse_viking/11_prince/quest.json",
+     "gif": "02_norse_viking/11_prince/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 114,
+     "frame_h": 209,
+     "anchor_x": 56,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "12_noble_commander",
+   "class_ru": "Воевода",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/12_noble_commander/walk.png",
+     "meta": "02_norse_viking/12_noble_commander/walk.json",
+     "gif": "02_norse_viking/12_noble_commander/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 131,
+     "frame_h": 212,
+     "anchor_x": 66,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/12_noble_commander/combat.png",
+     "meta": "02_norse_viking/12_noble_commander/combat.json",
+     "gif": "02_norse_viking/12_noble_commander/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 131,
+     "frame_h": 212,
+     "anchor_x": 63,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/12_noble_commander/craft.png",
+     "meta": "02_norse_viking/12_noble_commander/craft.json",
+     "gif": "02_norse_viking/12_noble_commander/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 124,
+     "frame_h": 179,
+     "anchor_x": 63,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/12_noble_commander/build.png",
+     "meta": "02_norse_viking/12_noble_commander/build.json",
+     "gif": "02_norse_viking/12_noble_commander/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 126,
+     "frame_h": 209,
+     "anchor_x": 63,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "02_norse_viking/12_noble_commander/quest.png",
+     "meta": "02_norse_viking/12_noble_commander/quest.json",
+     "gif": "02_norse_viking/12_noble_commander/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 125,
+     "frame_h": 208,
+     "anchor_x": 63,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "13_centurion",
+   "class_ru": "Центурион",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/13_centurion/walk.png",
+     "meta": "02_norse_viking/13_centurion/walk.json",
+     "gif": "02_norse_viking/13_centurion/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 103,
+     "frame_h": 213,
+     "anchor_x": 51,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/13_centurion/combat.png",
+     "meta": "02_norse_viking/13_centurion/combat.json",
+     "gif": "02_norse_viking/13_centurion/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 104,
+     "frame_h": 213,
+     "anchor_x": 49,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/13_centurion/craft.png",
+     "meta": "02_norse_viking/13_centurion/craft.json",
+     "gif": "02_norse_viking/13_centurion/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 96,
+     "frame_h": 179,
+     "anchor_x": 47,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/13_centurion/build.png",
+     "meta": "02_norse_viking/13_centurion/build.json",
+     "gif": "02_norse_viking/13_centurion/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 100,
+     "frame_h": 210,
+     "anchor_x": 48,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "02_norse_viking/13_centurion/quest.png",
+     "meta": "02_norse_viking/13_centurion/quest.json",
+     "gif": "02_norse_viking/13_centurion/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 97,
+     "frame_h": 208,
+     "anchor_x": 48,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "14_prefect",
+   "class_ru": "Префект",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/14_prefect/walk.png",
+     "meta": "02_norse_viking/14_prefect/walk.json",
+     "gif": "02_norse_viking/14_prefect/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 108,
+     "frame_h": 212,
+     "anchor_x": 53,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/14_prefect/combat.png",
+     "meta": "02_norse_viking/14_prefect/combat.json",
+     "gif": "02_norse_viking/14_prefect/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 108,
+     "frame_h": 212,
+     "anchor_x": 51,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "02_norse_viking/14_prefect/craft.png",
+     "meta": "02_norse_viking/14_prefect/craft.json",
+     "gif": "02_norse_viking/14_prefect/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 101,
+     "frame_h": 179,
+     "anchor_x": 50,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "02_norse_viking/14_prefect/build.png",
+     "meta": "02_norse_viking/14_prefect/build.json",
+     "gif": "02_norse_viking/14_prefect/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 104,
+     "frame_h": 209,
+     "anchor_x": 50,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "02_norse_viking/14_prefect/quest.png",
+     "meta": "02_norse_viking/14_prefect/quest.json",
+     "gif": "02_norse_viking/14_prefect/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 102,
+     "frame_h": 208,
+     "anchor_x": 50,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "02_norse_viking",
+   "faction_ru": "Викинги",
+   "color": "#2E5FA3",
+   "class": "15_chieftain",
+   "class_ru": "Вождь",
+   "clips": {
+    "walk": {
+     "sheet": "02_norse_viking/15_chieftain/walk.png",
+     "meta": "02_norse_viking/15_chieftain/walk.json",
+     "gif": "02_norse_viking/15_chieftain/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 129,
+     "frame_h": 210,
+     "anchor_x": 66,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "02_norse_viking/15_chieftain/combat.png",
+     "meta": "02_norse_viking/15_chieftain/combat.json",
+     "gif": "02_norse_viking/15_chieftain/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 131,
+     "frame_h": 211,
+     "anchor_x": 64,
+     "anchor_y": 203
+    },
+    "craft": {
+     "sheet": "02_norse_viking/15_chieftain/craft.png",
+     "meta": "02_norse_viking/15_chieftain/craft.json",
+     "gif": "02_norse_viking/15_chieftain/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 123,
+     "frame_h": 178,
+     "anchor_x": 63,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "02_norse_viking/15_chieftain/build.png",
+     "meta": "02_norse_viking/15_chieftain/build.json",
+     "gif": "02_norse_viking/15_chieftain/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 125,
+     "frame_h": 208,
+     "anchor_x": 64,
+     "anchor_y": 201
+    },
+    "quest": {
+     "sheet": "02_norse_viking/15_chieftain/quest.png",
+     "meta": "02_norse_viking/15_chieftain/quest.json",
+     "gif": "02_norse_viking/15_chieftain/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 124,
+     "frame_h": 204,
+     "anchor_x": 63,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "01_archer",
+   "class_ru": "Лучник",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/01_archer/walk.png",
+     "meta": "03_gaulish_warrior/01_archer/walk.json",
+     "gif": "03_gaulish_warrior/01_archer/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 105,
+     "frame_h": 213,
+     "anchor_x": 49,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/01_archer/combat.png",
+     "meta": "03_gaulish_warrior/01_archer/combat.json",
+     "gif": "03_gaulish_warrior/01_archer/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 108,
+     "frame_h": 214,
+     "anchor_x": 49,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/01_archer/craft.png",
+     "meta": "03_gaulish_warrior/01_archer/craft.json",
+     "gif": "03_gaulish_warrior/01_archer/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 98,
+     "frame_h": 180,
+     "anchor_x": 45,
+     "anchor_y": 171
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/01_archer/build.png",
+     "meta": "03_gaulish_warrior/01_archer/build.json",
+     "gif": "03_gaulish_warrior/01_archer/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 108,
+     "frame_h": 210,
+     "anchor_x": 46,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/01_archer/quest.png",
+     "meta": "03_gaulish_warrior/01_archer/quest.json",
+     "gif": "03_gaulish_warrior/01_archer/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 99,
+     "frame_h": 208,
+     "anchor_x": 46,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "02_two_handed_axeman",
+   "class_ru": "Топор 2р",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/02_two_handed_axeman/walk.png",
+     "meta": "03_gaulish_warrior/02_two_handed_axeman/walk.json",
+     "gif": "03_gaulish_warrior/02_two_handed_axeman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 117,
+     "frame_h": 210,
+     "anchor_x": 53,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/02_two_handed_axeman/combat.png",
+     "meta": "03_gaulish_warrior/02_two_handed_axeman/combat.json",
+     "gif": "03_gaulish_warrior/02_two_handed_axeman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 210,
+     "anchor_x": 56,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/02_two_handed_axeman/craft.png",
+     "meta": "03_gaulish_warrior/02_two_handed_axeman/craft.json",
+     "gif": "03_gaulish_warrior/02_two_handed_axeman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 110,
+     "frame_h": 180,
+     "anchor_x": 52,
+     "anchor_y": 174
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/02_two_handed_axeman/build.png",
+     "meta": "03_gaulish_warrior/02_two_handed_axeman/build.json",
+     "gif": "03_gaulish_warrior/02_two_handed_axeman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 130,
+     "frame_h": 207,
+     "anchor_x": 52,
+     "anchor_y": 201
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/02_two_handed_axeman/quest.png",
+     "meta": "03_gaulish_warrior/02_two_handed_axeman/quest.json",
+     "gif": "03_gaulish_warrior/02_two_handed_axeman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 118,
+     "frame_h": 204,
+     "anchor_x": 52,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "03_sword_and_shield",
+   "class_ru": "Меч+щит",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/03_sword_and_shield/walk.png",
+     "meta": "03_gaulish_warrior/03_sword_and_shield/walk.json",
+     "gif": "03_gaulish_warrior/03_sword_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 128,
+     "frame_h": 212,
+     "anchor_x": 65,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/03_sword_and_shield/combat.png",
+     "meta": "03_gaulish_warrior/03_sword_and_shield/combat.json",
+     "gif": "03_gaulish_warrior/03_sword_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 128,
+     "frame_h": 212,
+     "anchor_x": 61,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/03_sword_and_shield/craft.png",
+     "meta": "03_gaulish_warrior/03_sword_and_shield/craft.json",
+     "gif": "03_gaulish_warrior/03_sword_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 121,
+     "frame_h": 178,
+     "anchor_x": 61,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/03_sword_and_shield/build.png",
+     "meta": "03_gaulish_warrior/03_sword_and_shield/build.json",
+     "gif": "03_gaulish_warrior/03_sword_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 123,
+     "frame_h": 208,
+     "anchor_x": 62,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/03_sword_and_shield/quest.png",
+     "meta": "03_gaulish_warrior/03_sword_and_shield/quest.json",
+     "gif": "03_gaulish_warrior/03_sword_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 122,
+     "frame_h": 207,
+     "anchor_x": 62,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "04_two_handed_swordsman",
+   "class_ru": "Меч 2р",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/04_two_handed_swordsman/walk.png",
+     "meta": "03_gaulish_warrior/04_two_handed_swordsman/walk.json",
+     "gif": "03_gaulish_warrior/04_two_handed_swordsman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 102,
+     "frame_h": 211,
+     "anchor_x": 43,
+     "anchor_y": 207
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/04_two_handed_swordsman/combat.png",
+     "meta": "03_gaulish_warrior/04_two_handed_swordsman/combat.json",
+     "gif": "03_gaulish_warrior/04_two_handed_swordsman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 111,
+     "frame_h": 214,
+     "anchor_x": 43,
+     "anchor_y": 206
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/04_two_handed_swordsman/craft.png",
+     "meta": "03_gaulish_warrior/04_two_handed_swordsman/craft.json",
+     "gif": "03_gaulish_warrior/04_two_handed_swordsman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 88,
+     "frame_h": 190,
+     "anchor_x": 42,
+     "anchor_y": 183
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/04_two_handed_swordsman/build.png",
+     "meta": "03_gaulish_warrior/04_two_handed_swordsman/build.json",
+     "gif": "03_gaulish_warrior/04_two_handed_swordsman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 120,
+     "frame_h": 205,
+     "anchor_x": 42,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/04_two_handed_swordsman/quest.png",
+     "meta": "03_gaulish_warrior/04_two_handed_swordsman/quest.json",
+     "gif": "03_gaulish_warrior/04_two_handed_swordsman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 104,
+     "frame_h": 207,
+     "anchor_x": 42,
+     "anchor_y": 205
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "05_mace_and_shield",
+   "class_ru": "Булава+щит",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/05_mace_and_shield/walk.png",
+     "meta": "03_gaulish_warrior/05_mace_and_shield/walk.json",
+     "gif": "03_gaulish_warrior/05_mace_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 138,
+     "frame_h": 210,
+     "anchor_x": 74,
+     "anchor_y": 204
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/05_mace_and_shield/combat.png",
+     "meta": "03_gaulish_warrior/05_mace_and_shield/combat.json",
+     "gif": "03_gaulish_warrior/05_mace_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 144,
+     "frame_h": 212,
+     "anchor_x": 77,
+     "anchor_y": 204
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/05_mace_and_shield/craft.png",
+     "meta": "03_gaulish_warrior/05_mace_and_shield/craft.json",
+     "gif": "03_gaulish_warrior/05_mace_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 132,
+     "frame_h": 175,
+     "anchor_x": 72,
+     "anchor_y": 167
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/05_mace_and_shield/build.png",
+     "meta": "03_gaulish_warrior/05_mace_and_shield/build.json",
+     "gif": "03_gaulish_warrior/05_mace_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 133,
+     "frame_h": 210,
+     "anchor_x": 71,
+     "anchor_y": 202
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/05_mace_and_shield/quest.png",
+     "meta": "03_gaulish_warrior/05_mace_and_shield/quest.json",
+     "gif": "03_gaulish_warrior/05_mace_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 128,
+     "frame_h": 205,
+     "anchor_x": 68,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "06_spearman_shield",
+   "class_ru": "Копьё+щит",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/06_spearman_shield/walk.png",
+     "meta": "03_gaulish_warrior/06_spearman_shield/walk.json",
+     "gif": "03_gaulish_warrior/06_spearman_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 122,
+     "frame_h": 213,
+     "anchor_x": 58,
+     "anchor_y": 206
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/06_spearman_shield/combat.png",
+     "meta": "03_gaulish_warrior/06_spearman_shield/combat.json",
+     "gif": "03_gaulish_warrior/06_spearman_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 133,
+     "frame_h": 224,
+     "anchor_x": 66,
+     "anchor_y": 214
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/06_spearman_shield/craft.png",
+     "meta": "03_gaulish_warrior/06_spearman_shield/craft.json",
+     "gif": "03_gaulish_warrior/06_spearman_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 121,
+     "frame_h": 177,
+     "anchor_x": 60,
+     "anchor_y": 168
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/06_spearman_shield/build.png",
+     "meta": "03_gaulish_warrior/06_spearman_shield/build.json",
+     "gif": "03_gaulish_warrior/06_spearman_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 126,
+     "frame_h": 222,
+     "anchor_x": 61,
+     "anchor_y": 213
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/06_spearman_shield/quest.png",
+     "meta": "03_gaulish_warrior/06_spearman_shield/quest.json",
+     "gif": "03_gaulish_warrior/06_spearman_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 113,
+     "frame_h": 210,
+     "anchor_x": 53,
+     "anchor_y": 205
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "07_stone_slinger",
+   "class_ru": "Пращник",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/07_stone_slinger/walk.png",
+     "meta": "03_gaulish_warrior/07_stone_slinger/walk.json",
+     "gif": "03_gaulish_warrior/07_stone_slinger/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 112,
+     "frame_h": 213,
+     "anchor_x": 56,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/07_stone_slinger/combat.png",
+     "meta": "03_gaulish_warrior/07_stone_slinger/combat.json",
+     "gif": "03_gaulish_warrior/07_stone_slinger/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 120,
+     "frame_h": 213,
+     "anchor_x": 60,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/07_stone_slinger/craft.png",
+     "meta": "03_gaulish_warrior/07_stone_slinger/craft.json",
+     "gif": "03_gaulish_warrior/07_stone_slinger/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 108,
+     "frame_h": 180,
+     "anchor_x": 55,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/07_stone_slinger/build.png",
+     "meta": "03_gaulish_warrior/07_stone_slinger/build.json",
+     "gif": "03_gaulish_warrior/07_stone_slinger/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 108,
+     "frame_h": 209,
+     "anchor_x": 55,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/07_stone_slinger/quest.png",
+     "meta": "03_gaulish_warrior/07_stone_slinger/quest.json",
+     "gif": "03_gaulish_warrior/07_stone_slinger/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 108,
+     "frame_h": 208,
+     "anchor_x": 55,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "08_cavalryman",
+   "class_ru": "Кавалерист",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/08_cavalryman/walk.png",
+     "meta": "03_gaulish_warrior/08_cavalryman/walk.json",
+     "gif": "03_gaulish_warrior/08_cavalryman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 122,
+     "frame_h": 212,
+     "anchor_x": 61,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/08_cavalryman/combat.png",
+     "meta": "03_gaulish_warrior/08_cavalryman/combat.json",
+     "gif": "03_gaulish_warrior/08_cavalryman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 212,
+     "anchor_x": 60,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/08_cavalryman/craft.png",
+     "meta": "03_gaulish_warrior/08_cavalryman/craft.json",
+     "gif": "03_gaulish_warrior/08_cavalryman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 116,
+     "frame_h": 179,
+     "anchor_x": 58,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/08_cavalryman/build.png",
+     "meta": "03_gaulish_warrior/08_cavalryman/build.json",
+     "gif": "03_gaulish_warrior/08_cavalryman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 117,
+     "frame_h": 209,
+     "anchor_x": 59,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/08_cavalryman/quest.png",
+     "meta": "03_gaulish_warrior/08_cavalryman/quest.json",
+     "gif": "03_gaulish_warrior/08_cavalryman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 116,
+     "frame_h": 208,
+     "anchor_x": 59,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "09_lord",
+   "class_ru": "Лорд",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/09_lord/walk.png",
+     "meta": "03_gaulish_warrior/09_lord/walk.json",
+     "gif": "03_gaulish_warrior/09_lord/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 133,
+     "frame_h": 211,
+     "anchor_x": 69,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/09_lord/combat.png",
+     "meta": "03_gaulish_warrior/09_lord/combat.json",
+     "gif": "03_gaulish_warrior/09_lord/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 134,
+     "frame_h": 210,
+     "anchor_x": 65,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/09_lord/craft.png",
+     "meta": "03_gaulish_warrior/09_lord/craft.json",
+     "gif": "03_gaulish_warrior/09_lord/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 126,
+     "frame_h": 177,
+     "anchor_x": 65,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/09_lord/build.png",
+     "meta": "03_gaulish_warrior/09_lord/build.json",
+     "gif": "03_gaulish_warrior/09_lord/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 128,
+     "frame_h": 207,
+     "anchor_x": 66,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/09_lord/quest.png",
+     "meta": "03_gaulish_warrior/09_lord/quest.json",
+     "gif": "03_gaulish_warrior/09_lord/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 127,
+     "frame_h": 205,
+     "anchor_x": 66,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "10_king",
+   "class_ru": "Король",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/10_king/walk.png",
+     "meta": "03_gaulish_warrior/10_king/walk.json",
+     "gif": "03_gaulish_warrior/10_king/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 128,
+     "frame_h": 226,
+     "anchor_x": 67,
+     "anchor_y": 217
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/10_king/combat.png",
+     "meta": "03_gaulish_warrior/10_king/combat.json",
+     "gif": "03_gaulish_warrior/10_king/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 138,
+     "frame_h": 239,
+     "anchor_x": 75,
+     "anchor_y": 226
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/10_king/craft.png",
+     "meta": "03_gaulish_warrior/10_king/craft.json",
+     "gif": "03_gaulish_warrior/10_king/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 128,
+     "frame_h": 180,
+     "anchor_x": 71,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/10_king/build.png",
+     "meta": "03_gaulish_warrior/10_king/build.json",
+     "gif": "03_gaulish_warrior/10_king/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 130,
+     "frame_h": 236,
+     "anchor_x": 71,
+     "anchor_y": 225
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/10_king/quest.png",
+     "meta": "03_gaulish_warrior/10_king/quest.json",
+     "gif": "03_gaulish_warrior/10_king/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 119,
+     "frame_h": 224,
+     "anchor_x": 62,
+     "anchor_y": 217
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "11_prince",
+   "class_ru": "Принц",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/11_prince/walk.png",
+     "meta": "03_gaulish_warrior/11_prince/walk.json",
+     "gif": "03_gaulish_warrior/11_prince/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 121,
+     "frame_h": 216,
+     "anchor_x": 60,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/11_prince/combat.png",
+     "meta": "03_gaulish_warrior/11_prince/combat.json",
+     "gif": "03_gaulish_warrior/11_prince/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 122,
+     "frame_h": 216,
+     "anchor_x": 57,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/11_prince/craft.png",
+     "meta": "03_gaulish_warrior/11_prince/craft.json",
+     "gif": "03_gaulish_warrior/11_prince/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 114,
+     "frame_h": 182,
+     "anchor_x": 57,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/11_prince/build.png",
+     "meta": "03_gaulish_warrior/11_prince/build.json",
+     "gif": "03_gaulish_warrior/11_prince/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 115,
+     "frame_h": 212,
+     "anchor_x": 57,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/11_prince/quest.png",
+     "meta": "03_gaulish_warrior/11_prince/quest.json",
+     "gif": "03_gaulish_warrior/11_prince/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 115,
+     "frame_h": 211,
+     "anchor_x": 57,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "12_noble_commander",
+   "class_ru": "Воевода",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/12_noble_commander/walk.png",
+     "meta": "03_gaulish_warrior/12_noble_commander/walk.json",
+     "gif": "03_gaulish_warrior/12_noble_commander/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 120,
+     "frame_h": 212,
+     "anchor_x": 59,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/12_noble_commander/combat.png",
+     "meta": "03_gaulish_warrior/12_noble_commander/combat.json",
+     "gif": "03_gaulish_warrior/12_noble_commander/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 121,
+     "frame_h": 212,
+     "anchor_x": 56,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/12_noble_commander/craft.png",
+     "meta": "03_gaulish_warrior/12_noble_commander/craft.json",
+     "gif": "03_gaulish_warrior/12_noble_commander/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 114,
+     "frame_h": 178,
+     "anchor_x": 55,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/12_noble_commander/build.png",
+     "meta": "03_gaulish_warrior/12_noble_commander/build.json",
+     "gif": "03_gaulish_warrior/12_noble_commander/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 115,
+     "frame_h": 209,
+     "anchor_x": 56,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/12_noble_commander/quest.png",
+     "meta": "03_gaulish_warrior/12_noble_commander/quest.json",
+     "gif": "03_gaulish_warrior/12_noble_commander/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 114,
+     "frame_h": 207,
+     "anchor_x": 56,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "13_centurion",
+   "class_ru": "Центурион",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/13_centurion/walk.png",
+     "meta": "03_gaulish_warrior/13_centurion/walk.json",
+     "gif": "03_gaulish_warrior/13_centurion/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 113,
+     "frame_h": 212,
+     "anchor_x": 57,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/13_centurion/combat.png",
+     "meta": "03_gaulish_warrior/13_centurion/combat.json",
+     "gif": "03_gaulish_warrior/13_centurion/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 116,
+     "frame_h": 213,
+     "anchor_x": 55,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/13_centurion/craft.png",
+     "meta": "03_gaulish_warrior/13_centurion/craft.json",
+     "gif": "03_gaulish_warrior/13_centurion/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 107,
+     "frame_h": 179,
+     "anchor_x": 54,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/13_centurion/build.png",
+     "meta": "03_gaulish_warrior/13_centurion/build.json",
+     "gif": "03_gaulish_warrior/13_centurion/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 112,
+     "frame_h": 210,
+     "anchor_x": 54,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/13_centurion/quest.png",
+     "meta": "03_gaulish_warrior/13_centurion/quest.json",
+     "gif": "03_gaulish_warrior/13_centurion/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 108,
+     "frame_h": 207,
+     "anchor_x": 54,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "14_prefect",
+   "class_ru": "Префект",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/14_prefect/walk.png",
+     "meta": "03_gaulish_warrior/14_prefect/walk.json",
+     "gif": "03_gaulish_warrior/14_prefect/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 124,
+     "frame_h": 212,
+     "anchor_x": 64,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/14_prefect/combat.png",
+     "meta": "03_gaulish_warrior/14_prefect/combat.json",
+     "gif": "03_gaulish_warrior/14_prefect/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 126,
+     "frame_h": 211,
+     "anchor_x": 62,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/14_prefect/craft.png",
+     "meta": "03_gaulish_warrior/14_prefect/craft.json",
+     "gif": "03_gaulish_warrior/14_prefect/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 118,
+     "frame_h": 178,
+     "anchor_x": 61,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/14_prefect/build.png",
+     "meta": "03_gaulish_warrior/14_prefect/build.json",
+     "gif": "03_gaulish_warrior/14_prefect/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 121,
+     "frame_h": 207,
+     "anchor_x": 61,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/14_prefect/quest.png",
+     "meta": "03_gaulish_warrior/14_prefect/quest.json",
+     "gif": "03_gaulish_warrior/14_prefect/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 118,
+     "frame_h": 206,
+     "anchor_x": 61,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "03_gaulish_warrior",
+   "faction_ru": "Галлы",
+   "color": "#C08B2E",
+   "class": "15_chieftain",
+   "class_ru": "Вождь",
+   "clips": {
+    "walk": {
+     "sheet": "03_gaulish_warrior/15_chieftain/walk.png",
+     "meta": "03_gaulish_warrior/15_chieftain/walk.json",
+     "gif": "03_gaulish_warrior/15_chieftain/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 128,
+     "frame_h": 211,
+     "anchor_x": 65,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "03_gaulish_warrior/15_chieftain/combat.png",
+     "meta": "03_gaulish_warrior/15_chieftain/combat.json",
+     "gif": "03_gaulish_warrior/15_chieftain/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 130,
+     "frame_h": 212,
+     "anchor_x": 62,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "03_gaulish_warrior/15_chieftain/craft.png",
+     "meta": "03_gaulish_warrior/15_chieftain/craft.json",
+     "gif": "03_gaulish_warrior/15_chieftain/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 122,
+     "frame_h": 179,
+     "anchor_x": 62,
+     "anchor_y": 171
+    },
+    "build": {
+     "sheet": "03_gaulish_warrior/15_chieftain/build.png",
+     "meta": "03_gaulish_warrior/15_chieftain/build.json",
+     "gif": "03_gaulish_warrior/15_chieftain/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 122,
+     "frame_h": 209,
+     "anchor_x": 62,
+     "anchor_y": 201
+    },
+    "quest": {
+     "sheet": "03_gaulish_warrior/15_chieftain/quest.png",
+     "meta": "03_gaulish_warrior/15_chieftain/quest.json",
+     "gif": "03_gaulish_warrior/15_chieftain/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 122,
+     "frame_h": 206,
+     "anchor_x": 62,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "01_archer",
+   "class_ru": "Лучник",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/01_archer/walk.png",
+     "meta": "04_slavic/01_archer/walk.json",
+     "gif": "04_slavic/01_archer/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 122,
+     "frame_h": 212,
+     "anchor_x": 61,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/01_archer/combat.png",
+     "meta": "04_slavic/01_archer/combat.json",
+     "gif": "04_slavic/01_archer/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 211,
+     "anchor_x": 60,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/01_archer/craft.png",
+     "meta": "04_slavic/01_archer/craft.json",
+     "gif": "04_slavic/01_archer/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 116,
+     "frame_h": 178,
+     "anchor_x": 59,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "04_slavic/01_archer/build.png",
+     "meta": "04_slavic/01_archer/build.json",
+     "gif": "04_slavic/01_archer/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 134,
+     "frame_h": 208,
+     "anchor_x": 59,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "04_slavic/01_archer/quest.png",
+     "meta": "04_slavic/01_archer/quest.json",
+     "gif": "04_slavic/01_archer/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 122,
+     "frame_h": 206,
+     "anchor_x": 60,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "02_two_handed_axeman",
+   "class_ru": "Топор 2р",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/02_two_handed_axeman/walk.png",
+     "meta": "04_slavic/02_two_handed_axeman/walk.json",
+     "gif": "04_slavic/02_two_handed_axeman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 118,
+     "frame_h": 210,
+     "anchor_x": 53,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/02_two_handed_axeman/combat.png",
+     "meta": "04_slavic/02_two_handed_axeman/combat.json",
+     "gif": "04_slavic/02_two_handed_axeman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 208,
+     "anchor_x": 57,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/02_two_handed_axeman/craft.png",
+     "meta": "04_slavic/02_two_handed_axeman/craft.json",
+     "gif": "04_slavic/02_two_handed_axeman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 112,
+     "frame_h": 177,
+     "anchor_x": 52,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "04_slavic/02_two_handed_axeman/build.png",
+     "meta": "04_slavic/02_two_handed_axeman/build.json",
+     "gif": "04_slavic/02_two_handed_axeman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 130,
+     "frame_h": 204,
+     "anchor_x": 52,
+     "anchor_y": 198
+    },
+    "quest": {
+     "sheet": "04_slavic/02_two_handed_axeman/quest.png",
+     "meta": "04_slavic/02_two_handed_axeman/quest.json",
+     "gif": "04_slavic/02_two_handed_axeman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 118,
+     "frame_h": 204,
+     "anchor_x": 52,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "03_sword_and_shield",
+   "class_ru": "Меч+щит",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/03_sword_and_shield/walk.png",
+     "meta": "04_slavic/03_sword_and_shield/walk.json",
+     "gif": "04_slavic/03_sword_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 123,
+     "frame_h": 212,
+     "anchor_x": 58,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/03_sword_and_shield/combat.png",
+     "meta": "04_slavic/03_sword_and_shield/combat.json",
+     "gif": "04_slavic/03_sword_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 123,
+     "frame_h": 213,
+     "anchor_x": 55,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/03_sword_and_shield/craft.png",
+     "meta": "04_slavic/03_sword_and_shield/craft.json",
+     "gif": "04_slavic/03_sword_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 116,
+     "frame_h": 178,
+     "anchor_x": 55,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "04_slavic/03_sword_and_shield/build.png",
+     "meta": "04_slavic/03_sword_and_shield/build.json",
+     "gif": "04_slavic/03_sword_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 118,
+     "frame_h": 209,
+     "anchor_x": 55,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "04_slavic/03_sword_and_shield/quest.png",
+     "meta": "04_slavic/03_sword_and_shield/quest.json",
+     "gif": "04_slavic/03_sword_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 117,
+     "frame_h": 208,
+     "anchor_x": 56,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "04_two_handed_swordsman",
+   "class_ru": "Меч 2р",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/04_two_handed_swordsman/walk.png",
+     "meta": "04_slavic/04_two_handed_swordsman/walk.json",
+     "gif": "04_slavic/04_two_handed_swordsman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 98,
+     "frame_h": 227,
+     "anchor_x": 47,
+     "anchor_y": 219
+    },
+    "combat": {
+     "sheet": "04_slavic/04_two_handed_swordsman/combat.png",
+     "meta": "04_slavic/04_two_handed_swordsman/combat.json",
+     "gif": "04_slavic/04_two_handed_swordsman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 114,
+     "frame_h": 228,
+     "anchor_x": 49,
+     "anchor_y": 217
+    },
+    "craft": {
+     "sheet": "04_slavic/04_two_handed_swordsman/craft.png",
+     "meta": "04_slavic/04_two_handed_swordsman/craft.json",
+     "gif": "04_slavic/04_two_handed_swordsman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 90,
+     "frame_h": 200,
+     "anchor_x": 45,
+     "anchor_y": 190
+    },
+    "build": {
+     "sheet": "04_slavic/04_two_handed_swordsman/build.png",
+     "meta": "04_slavic/04_two_handed_swordsman/build.json",
+     "gif": "04_slavic/04_two_handed_swordsman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 118,
+     "frame_h": 218,
+     "anchor_x": 45,
+     "anchor_y": 208
+    },
+    "quest": {
+     "sheet": "04_slavic/04_two_handed_swordsman/quest.png",
+     "meta": "04_slavic/04_two_handed_swordsman/quest.json",
+     "gif": "04_slavic/04_two_handed_swordsman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 99,
+     "frame_h": 224,
+     "anchor_x": 45,
+     "anchor_y": 217
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "05_mace_and_shield",
+   "class_ru": "Булава+щит",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/05_mace_and_shield/walk.png",
+     "meta": "04_slavic/05_mace_and_shield/walk.json",
+     "gif": "04_slavic/05_mace_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 132,
+     "frame_h": 212,
+     "anchor_x": 68,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/05_mace_and_shield/combat.png",
+     "meta": "04_slavic/05_mace_and_shield/combat.json",
+     "gif": "04_slavic/05_mace_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 139,
+     "frame_h": 216,
+     "anchor_x": 72,
+     "anchor_y": 204
+    },
+    "craft": {
+     "sheet": "04_slavic/05_mace_and_shield/craft.png",
+     "meta": "04_slavic/05_mace_and_shield/craft.json",
+     "gif": "04_slavic/05_mace_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 127,
+     "frame_h": 176,
+     "anchor_x": 67,
+     "anchor_y": 167
+    },
+    "build": {
+     "sheet": "04_slavic/05_mace_and_shield/build.png",
+     "meta": "04_slavic/05_mace_and_shield/build.json",
+     "gif": "04_slavic/05_mace_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 128,
+     "frame_h": 213,
+     "anchor_x": 66,
+     "anchor_y": 203
+    },
+    "quest": {
+     "sheet": "04_slavic/05_mace_and_shield/quest.png",
+     "meta": "04_slavic/05_mace_and_shield/quest.json",
+     "gif": "04_slavic/05_mace_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 122,
+     "frame_h": 208,
+     "anchor_x": 62,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "06_spearman_shield",
+   "class_ru": "Копьё+щит",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/06_spearman_shield/walk.png",
+     "meta": "04_slavic/06_spearman_shield/walk.json",
+     "gif": "04_slavic/06_spearman_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 124,
+     "frame_h": 211,
+     "anchor_x": 58,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/06_spearman_shield/combat.png",
+     "meta": "04_slavic/06_spearman_shield/combat.json",
+     "gif": "04_slavic/06_spearman_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 136,
+     "frame_h": 221,
+     "anchor_x": 66,
+     "anchor_y": 212
+    },
+    "craft": {
+     "sheet": "04_slavic/06_spearman_shield/craft.png",
+     "meta": "04_slavic/06_spearman_shield/craft.json",
+     "gif": "04_slavic/06_spearman_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 123,
+     "frame_h": 176,
+     "anchor_x": 60,
+     "anchor_y": 168
+    },
+    "build": {
+     "sheet": "04_slavic/06_spearman_shield/build.png",
+     "meta": "04_slavic/06_spearman_shield/build.json",
+     "gif": "04_slavic/06_spearman_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 124,
+     "frame_h": 219,
+     "anchor_x": 60,
+     "anchor_y": 211
+    },
+    "quest": {
+     "sheet": "04_slavic/06_spearman_shield/quest.png",
+     "meta": "04_slavic/06_spearman_shield/quest.json",
+     "gif": "04_slavic/06_spearman_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 116,
+     "frame_h": 206,
+     "anchor_x": 53,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "07_stone_slinger",
+   "class_ru": "Пращник",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/07_stone_slinger/walk.png",
+     "meta": "04_slavic/07_stone_slinger/walk.json",
+     "gif": "04_slavic/07_stone_slinger/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 98,
+     "frame_h": 239,
+     "anchor_x": 50,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/07_stone_slinger/combat.png",
+     "meta": "04_slavic/07_stone_slinger/combat.json",
+     "gif": "04_slavic/07_stone_slinger/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 106,
+     "frame_h": 241,
+     "anchor_x": 53,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/07_stone_slinger/craft.png",
+     "meta": "04_slavic/07_stone_slinger/craft.json",
+     "gif": "04_slavic/07_stone_slinger/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 96,
+     "frame_h": 202,
+     "anchor_x": 48,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "04_slavic/07_stone_slinger/build.png",
+     "meta": "04_slavic/07_stone_slinger/build.json",
+     "gif": "04_slavic/07_stone_slinger/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 96,
+     "frame_h": 234,
+     "anchor_x": 48,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "04_slavic/07_stone_slinger/quest.png",
+     "meta": "04_slavic/07_stone_slinger/quest.json",
+     "gif": "04_slavic/07_stone_slinger/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 96,
+     "frame_h": 236,
+     "anchor_x": 48,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "08_cavalryman",
+   "class_ru": "Кавалерист",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/08_cavalryman/walk.png",
+     "meta": "04_slavic/08_cavalryman/walk.json",
+     "gif": "04_slavic/08_cavalryman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 117,
+     "frame_h": 212,
+     "anchor_x": 59,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/08_cavalryman/combat.png",
+     "meta": "04_slavic/08_cavalryman/combat.json",
+     "gif": "04_slavic/08_cavalryman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 122,
+     "frame_h": 212,
+     "anchor_x": 60,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/08_cavalryman/craft.png",
+     "meta": "04_slavic/08_cavalryman/craft.json",
+     "gif": "04_slavic/08_cavalryman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 114,
+     "frame_h": 179,
+     "anchor_x": 58,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "04_slavic/08_cavalryman/build.png",
+     "meta": "04_slavic/08_cavalryman/build.json",
+     "gif": "04_slavic/08_cavalryman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 114,
+     "frame_h": 209,
+     "anchor_x": 58,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "04_slavic/08_cavalryman/quest.png",
+     "meta": "04_slavic/08_cavalryman/quest.json",
+     "gif": "04_slavic/08_cavalryman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 113,
+     "frame_h": 208,
+     "anchor_x": 58,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "09_lord",
+   "class_ru": "Лорд",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/09_lord/walk.png",
+     "meta": "04_slavic/09_lord/walk.json",
+     "gif": "04_slavic/09_lord/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 122,
+     "frame_h": 212,
+     "anchor_x": 58,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/09_lord/combat.png",
+     "meta": "04_slavic/09_lord/combat.json",
+     "gif": "04_slavic/09_lord/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 211,
+     "anchor_x": 57,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/09_lord/craft.png",
+     "meta": "04_slavic/09_lord/craft.json",
+     "gif": "04_slavic/09_lord/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 116,
+     "frame_h": 179,
+     "anchor_x": 56,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "04_slavic/09_lord/build.png",
+     "meta": "04_slavic/09_lord/build.json",
+     "gif": "04_slavic/09_lord/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 118,
+     "frame_h": 208,
+     "anchor_x": 56,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "04_slavic/09_lord/quest.png",
+     "meta": "04_slavic/09_lord/quest.json",
+     "gif": "04_slavic/09_lord/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 117,
+     "frame_h": 206,
+     "anchor_x": 56,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "10_king",
+   "class_ru": "Король",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/10_king/walk.png",
+     "meta": "04_slavic/10_king/walk.json",
+     "gif": "04_slavic/10_king/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 128,
+     "frame_h": 212,
+     "anchor_x": 62,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/10_king/combat.png",
+     "meta": "04_slavic/10_king/combat.json",
+     "gif": "04_slavic/10_king/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 132,
+     "frame_h": 212,
+     "anchor_x": 63,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/10_king/craft.png",
+     "meta": "04_slavic/10_king/craft.json",
+     "gif": "04_slavic/10_king/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 122,
+     "frame_h": 178,
+     "anchor_x": 59,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "04_slavic/10_king/build.png",
+     "meta": "04_slavic/10_king/build.json",
+     "gif": "04_slavic/10_king/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 122,
+     "frame_h": 209,
+     "anchor_x": 59,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "04_slavic/10_king/quest.png",
+     "meta": "04_slavic/10_king/quest.json",
+     "gif": "04_slavic/10_king/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 122,
+     "frame_h": 207,
+     "anchor_x": 59,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "11_prince",
+   "class_ru": "Принц",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/11_prince/walk.png",
+     "meta": "04_slavic/11_prince/walk.json",
+     "gif": "04_slavic/11_prince/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 123,
+     "frame_h": 213,
+     "anchor_x": 60,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/11_prince/combat.png",
+     "meta": "04_slavic/11_prince/combat.json",
+     "gif": "04_slavic/11_prince/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 214,
+     "anchor_x": 57,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "04_slavic/11_prince/craft.png",
+     "meta": "04_slavic/11_prince/craft.json",
+     "gif": "04_slavic/11_prince/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 116,
+     "frame_h": 179,
+     "anchor_x": 56,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "04_slavic/11_prince/build.png",
+     "meta": "04_slavic/11_prince/build.json",
+     "gif": "04_slavic/11_prince/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 118,
+     "frame_h": 210,
+     "anchor_x": 57,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "04_slavic/11_prince/quest.png",
+     "meta": "04_slavic/11_prince/quest.json",
+     "gif": "04_slavic/11_prince/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 117,
+     "frame_h": 208,
+     "anchor_x": 57,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "12_noble_commander",
+   "class_ru": "Воевода",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/12_noble_commander/walk.png",
+     "meta": "04_slavic/12_noble_commander/walk.json",
+     "gif": "04_slavic/12_noble_commander/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 124,
+     "frame_h": 212,
+     "anchor_x": 58,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/12_noble_commander/combat.png",
+     "meta": "04_slavic/12_noble_commander/combat.json",
+     "gif": "04_slavic/12_noble_commander/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 125,
+     "frame_h": 212,
+     "anchor_x": 55,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/12_noble_commander/craft.png",
+     "meta": "04_slavic/12_noble_commander/craft.json",
+     "gif": "04_slavic/12_noble_commander/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 117,
+     "frame_h": 178,
+     "anchor_x": 54,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "04_slavic/12_noble_commander/build.png",
+     "meta": "04_slavic/12_noble_commander/build.json",
+     "gif": "04_slavic/12_noble_commander/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 119,
+     "frame_h": 208,
+     "anchor_x": 55,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "04_slavic/12_noble_commander/quest.png",
+     "meta": "04_slavic/12_noble_commander/quest.json",
+     "gif": "04_slavic/12_noble_commander/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 118,
+     "frame_h": 206,
+     "anchor_x": 55,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "13_centurion",
+   "class_ru": "Центурион",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/13_centurion/walk.png",
+     "meta": "04_slavic/13_centurion/walk.json",
+     "gif": "04_slavic/13_centurion/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 101,
+     "frame_h": 214,
+     "anchor_x": 48,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/13_centurion/combat.png",
+     "meta": "04_slavic/13_centurion/combat.json",
+     "gif": "04_slavic/13_centurion/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 103,
+     "frame_h": 214,
+     "anchor_x": 47,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/13_centurion/craft.png",
+     "meta": "04_slavic/13_centurion/craft.json",
+     "gif": "04_slavic/13_centurion/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 94,
+     "frame_h": 180,
+     "anchor_x": 45,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "04_slavic/13_centurion/build.png",
+     "meta": "04_slavic/13_centurion/build.json",
+     "gif": "04_slavic/13_centurion/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 99,
+     "frame_h": 210,
+     "anchor_x": 46,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "04_slavic/13_centurion/quest.png",
+     "meta": "04_slavic/13_centurion/quest.json",
+     "gif": "04_slavic/13_centurion/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 95,
+     "frame_h": 209,
+     "anchor_x": 46,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "14_prefect",
+   "class_ru": "Префект",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/14_prefect/walk.png",
+     "meta": "04_slavic/14_prefect/walk.json",
+     "gif": "04_slavic/14_prefect/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 118,
+     "frame_h": 213,
+     "anchor_x": 59,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/14_prefect/combat.png",
+     "meta": "04_slavic/14_prefect/combat.json",
+     "gif": "04_slavic/14_prefect/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 120,
+     "frame_h": 213,
+     "anchor_x": 57,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/14_prefect/craft.png",
+     "meta": "04_slavic/14_prefect/craft.json",
+     "gif": "04_slavic/14_prefect/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 111,
+     "frame_h": 180,
+     "anchor_x": 55,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "04_slavic/14_prefect/build.png",
+     "meta": "04_slavic/14_prefect/build.json",
+     "gif": "04_slavic/14_prefect/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 114,
+     "frame_h": 210,
+     "anchor_x": 56,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "04_slavic/14_prefect/quest.png",
+     "meta": "04_slavic/14_prefect/quest.json",
+     "gif": "04_slavic/14_prefect/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 112,
+     "frame_h": 208,
+     "anchor_x": 56,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "04_slavic",
+   "faction_ru": "Славяне",
+   "color": "#9B3F5C",
+   "class": "15_chieftain",
+   "class_ru": "Вождь",
+   "clips": {
+    "walk": {
+     "sheet": "04_slavic/15_chieftain/walk.png",
+     "meta": "04_slavic/15_chieftain/walk.json",
+     "gif": "04_slavic/15_chieftain/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 136,
+     "frame_h": 210,
+     "anchor_x": 69,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "04_slavic/15_chieftain/combat.png",
+     "meta": "04_slavic/15_chieftain/combat.json",
+     "gif": "04_slavic/15_chieftain/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 144,
+     "frame_h": 208,
+     "anchor_x": 73,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "04_slavic/15_chieftain/craft.png",
+     "meta": "04_slavic/15_chieftain/craft.json",
+     "gif": "04_slavic/15_chieftain/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 132,
+     "frame_h": 176,
+     "anchor_x": 68,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "04_slavic/15_chieftain/build.png",
+     "meta": "04_slavic/15_chieftain/build.json",
+     "gif": "04_slavic/15_chieftain/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 133,
+     "frame_h": 206,
+     "anchor_x": 68,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "04_slavic/15_chieftain/quest.png",
+     "meta": "04_slavic/15_chieftain/quest.json",
+     "gif": "04_slavic/15_chieftain/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 132,
+     "frame_h": 204,
+     "anchor_x": 68,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "01_archer",
+   "class_ru": "Лучник",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/01_archer/walk.png",
+     "meta": "05_roman/01_archer/walk.json",
+     "gif": "05_roman/01_archer/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 104,
+     "frame_h": 210,
+     "anchor_x": 50,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/01_archer/combat.png",
+     "meta": "05_roman/01_archer/combat.json",
+     "gif": "05_roman/01_archer/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 106,
+     "frame_h": 210,
+     "anchor_x": 50,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/01_archer/craft.png",
+     "meta": "05_roman/01_archer/craft.json",
+     "gif": "05_roman/01_archer/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 99,
+     "frame_h": 177,
+     "anchor_x": 47,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "05_roman/01_archer/build.png",
+     "meta": "05_roman/01_archer/build.json",
+     "gif": "05_roman/01_archer/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 110,
+     "frame_h": 207,
+     "anchor_x": 48,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/01_archer/quest.png",
+     "meta": "05_roman/01_archer/quest.json",
+     "gif": "05_roman/01_archer/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 100,
+     "frame_h": 205,
+     "anchor_x": 48,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "02_two_handed_axeman",
+   "class_ru": "Топор 2р",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/02_two_handed_axeman/walk.png",
+     "meta": "05_roman/02_two_handed_axeman/walk.json",
+     "gif": "05_roman/02_two_handed_axeman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 120,
+     "frame_h": 209,
+     "anchor_x": 47,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/02_two_handed_axeman/combat.png",
+     "meta": "05_roman/02_two_handed_axeman/combat.json",
+     "gif": "05_roman/02_two_handed_axeman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 124,
+     "frame_h": 208,
+     "anchor_x": 50,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/02_two_handed_axeman/craft.png",
+     "meta": "05_roman/02_two_handed_axeman/craft.json",
+     "gif": "05_roman/02_two_handed_axeman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 114,
+     "frame_h": 177,
+     "anchor_x": 46,
+     "anchor_y": 171
+    },
+    "build": {
+     "sheet": "05_roman/02_two_handed_axeman/build.png",
+     "meta": "05_roman/02_two_handed_axeman/build.json",
+     "gif": "05_roman/02_two_handed_axeman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 131,
+     "frame_h": 204,
+     "anchor_x": 46,
+     "anchor_y": 198
+    },
+    "quest": {
+     "sheet": "05_roman/02_two_handed_axeman/quest.png",
+     "meta": "05_roman/02_two_handed_axeman/quest.json",
+     "gif": "05_roman/02_two_handed_axeman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 120,
+     "frame_h": 203,
+     "anchor_x": 46,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "03_sword_and_shield",
+   "class_ru": "Меч+щит",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/03_sword_and_shield/walk.png",
+     "meta": "05_roman/03_sword_and_shield/walk.json",
+     "gif": "05_roman/03_sword_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 104,
+     "frame_h": 213,
+     "anchor_x": 53,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/03_sword_and_shield/combat.png",
+     "meta": "05_roman/03_sword_and_shield/combat.json",
+     "gif": "05_roman/03_sword_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 107,
+     "frame_h": 213,
+     "anchor_x": 51,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/03_sword_and_shield/craft.png",
+     "meta": "05_roman/03_sword_and_shield/craft.json",
+     "gif": "05_roman/03_sword_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 98,
+     "frame_h": 180,
+     "anchor_x": 49,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "05_roman/03_sword_and_shield/build.png",
+     "meta": "05_roman/03_sword_and_shield/build.json",
+     "gif": "05_roman/03_sword_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 104,
+     "frame_h": 209,
+     "anchor_x": 50,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/03_sword_and_shield/quest.png",
+     "meta": "05_roman/03_sword_and_shield/quest.json",
+     "gif": "05_roman/03_sword_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 98,
+     "frame_h": 208,
+     "anchor_x": 50,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "04_two_handed_swordsman",
+   "class_ru": "Меч 2р",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/04_two_handed_swordsman/walk.png",
+     "meta": "05_roman/04_two_handed_swordsman/walk.json",
+     "gif": "05_roman/04_two_handed_swordsman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 95,
+     "frame_h": 210,
+     "anchor_x": 42,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/04_two_handed_swordsman/combat.png",
+     "meta": "05_roman/04_two_handed_swordsman/combat.json",
+     "gif": "05_roman/04_two_handed_swordsman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 103,
+     "frame_h": 210,
+     "anchor_x": 44,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "05_roman/04_two_handed_swordsman/craft.png",
+     "meta": "05_roman/04_two_handed_swordsman/craft.json",
+     "gif": "05_roman/04_two_handed_swordsman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 92,
+     "frame_h": 176,
+     "anchor_x": 41,
+     "anchor_y": 168
+    },
+    "build": {
+     "sheet": "05_roman/04_two_handed_swordsman/build.png",
+     "meta": "05_roman/04_two_handed_swordsman/build.json",
+     "gif": "05_roman/04_two_handed_swordsman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 110,
+     "frame_h": 207,
+     "anchor_x": 42,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "05_roman/04_two_handed_swordsman/quest.png",
+     "meta": "05_roman/04_two_handed_swordsman/quest.json",
+     "gif": "05_roman/04_two_handed_swordsman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 95,
+     "frame_h": 204,
+     "anchor_x": 42,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "05_mace_and_shield",
+   "class_ru": "Булава+щит",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/05_mace_and_shield/walk.png",
+     "meta": "05_roman/05_mace_and_shield/walk.json",
+     "gif": "05_roman/05_mace_and_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 110,
+     "frame_h": 210,
+     "anchor_x": 55,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/05_mace_and_shield/combat.png",
+     "meta": "05_roman/05_mace_and_shield/combat.json",
+     "gif": "05_roman/05_mace_and_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 113,
+     "frame_h": 212,
+     "anchor_x": 55,
+     "anchor_y": 203
+    },
+    "craft": {
+     "sheet": "05_roman/05_mace_and_shield/craft.png",
+     "meta": "05_roman/05_mace_and_shield/craft.json",
+     "gif": "05_roman/05_mace_and_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 105,
+     "frame_h": 175,
+     "anchor_x": 54,
+     "anchor_y": 167
+    },
+    "build": {
+     "sheet": "05_roman/05_mace_and_shield/build.png",
+     "meta": "05_roman/05_mace_and_shield/build.json",
+     "gif": "05_roman/05_mace_and_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 107,
+     "frame_h": 209,
+     "anchor_x": 54,
+     "anchor_y": 201
+    },
+    "quest": {
+     "sheet": "05_roman/05_mace_and_shield/quest.png",
+     "meta": "05_roman/05_mace_and_shield/quest.json",
+     "gif": "05_roman/05_mace_and_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 106,
+     "frame_h": 205,
+     "anchor_x": 55,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "06_spearman_shield",
+   "class_ru": "Копьё+щит",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/06_spearman_shield/walk.png",
+     "meta": "05_roman/06_spearman_shield/walk.json",
+     "gif": "05_roman/06_spearman_shield/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 122,
+     "frame_h": 222,
+     "anchor_x": 65,
+     "anchor_y": 217
+    },
+    "combat": {
+     "sheet": "05_roman/06_spearman_shield/combat.png",
+     "meta": "05_roman/06_spearman_shield/combat.json",
+     "gif": "05_roman/06_spearman_shield/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 134,
+     "frame_h": 232,
+     "anchor_x": 73,
+     "anchor_y": 225
+    },
+    "craft": {
+     "sheet": "05_roman/06_spearman_shield/craft.png",
+     "meta": "05_roman/06_spearman_shield/craft.json",
+     "gif": "05_roman/06_spearman_shield/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 123,
+     "frame_h": 177,
+     "anchor_x": 69,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "05_roman/06_spearman_shield/build.png",
+     "meta": "05_roman/06_spearman_shield/build.json",
+     "gif": "05_roman/06_spearman_shield/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 130,
+     "frame_h": 231,
+     "anchor_x": 70,
+     "anchor_y": 224
+    },
+    "quest": {
+     "sheet": "05_roman/06_spearman_shield/quest.png",
+     "meta": "05_roman/06_spearman_shield/quest.json",
+     "gif": "05_roman/06_spearman_shield/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 114,
+     "frame_h": 218,
+     "anchor_x": 60,
+     "anchor_y": 216
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "07_stone_slinger",
+   "class_ru": "Пращник",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/07_stone_slinger/walk.png",
+     "meta": "05_roman/07_stone_slinger/walk.json",
+     "gif": "05_roman/07_stone_slinger/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 90,
+     "frame_h": 214,
+     "anchor_x": 45,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/07_stone_slinger/combat.png",
+     "meta": "05_roman/07_stone_slinger/combat.json",
+     "gif": "05_roman/07_stone_slinger/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 96,
+     "frame_h": 214,
+     "anchor_x": 47,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/07_stone_slinger/craft.png",
+     "meta": "05_roman/07_stone_slinger/craft.json",
+     "gif": "05_roman/07_stone_slinger/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 84,
+     "frame_h": 180,
+     "anchor_x": 43,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "05_roman/07_stone_slinger/build.png",
+     "meta": "05_roman/07_stone_slinger/build.json",
+     "gif": "05_roman/07_stone_slinger/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 85,
+     "frame_h": 210,
+     "anchor_x": 43,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/07_stone_slinger/quest.png",
+     "meta": "05_roman/07_stone_slinger/quest.json",
+     "gif": "05_roman/07_stone_slinger/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 85,
+     "frame_h": 210,
+     "anchor_x": 43,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "08_cavalryman",
+   "class_ru": "Кавалерист",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/08_cavalryman/walk.png",
+     "meta": "05_roman/08_cavalryman/walk.json",
+     "gif": "05_roman/08_cavalryman/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 105,
+     "frame_h": 212,
+     "anchor_x": 53,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/08_cavalryman/combat.png",
+     "meta": "05_roman/08_cavalryman/combat.json",
+     "gif": "05_roman/08_cavalryman/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 111,
+     "frame_h": 212,
+     "anchor_x": 56,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/08_cavalryman/craft.png",
+     "meta": "05_roman/08_cavalryman/craft.json",
+     "gif": "05_roman/08_cavalryman/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 100,
+     "frame_h": 179,
+     "anchor_x": 51,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "05_roman/08_cavalryman/build.png",
+     "meta": "05_roman/08_cavalryman/build.json",
+     "gif": "05_roman/08_cavalryman/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 101,
+     "frame_h": 209,
+     "anchor_x": 51,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/08_cavalryman/quest.png",
+     "meta": "05_roman/08_cavalryman/quest.json",
+     "gif": "05_roman/08_cavalryman/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 100,
+     "frame_h": 208,
+     "anchor_x": 51,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "09_lord",
+   "class_ru": "Лорд",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/09_lord/walk.png",
+     "meta": "05_roman/09_lord/walk.json",
+     "gif": "05_roman/09_lord/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 120,
+     "frame_h": 212,
+     "anchor_x": 61,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/09_lord/combat.png",
+     "meta": "05_roman/09_lord/combat.json",
+     "gif": "05_roman/09_lord/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 120,
+     "frame_h": 211,
+     "anchor_x": 57,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/09_lord/craft.png",
+     "meta": "05_roman/09_lord/craft.json",
+     "gif": "05_roman/09_lord/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 112,
+     "frame_h": 178,
+     "anchor_x": 57,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "05_roman/09_lord/build.png",
+     "meta": "05_roman/09_lord/build.json",
+     "gif": "05_roman/09_lord/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 114,
+     "frame_h": 208,
+     "anchor_x": 57,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/09_lord/quest.png",
+     "meta": "05_roman/09_lord/quest.json",
+     "gif": "05_roman/09_lord/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 113,
+     "frame_h": 206,
+     "anchor_x": 57,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "10_king",
+   "class_ru": "Король",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/10_king/walk.png",
+     "meta": "05_roman/10_king/walk.json",
+     "gif": "05_roman/10_king/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 118,
+     "frame_h": 210,
+     "anchor_x": 60,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/10_king/combat.png",
+     "meta": "05_roman/10_king/combat.json",
+     "gif": "05_roman/10_king/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 118,
+     "frame_h": 210,
+     "anchor_x": 56,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/10_king/craft.png",
+     "meta": "05_roman/10_king/craft.json",
+     "gif": "05_roman/10_king/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 111,
+     "frame_h": 178,
+     "anchor_x": 56,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "05_roman/10_king/build.png",
+     "meta": "05_roman/10_king/build.json",
+     "gif": "05_roman/10_king/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 113,
+     "frame_h": 206,
+     "anchor_x": 57,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/10_king/quest.png",
+     "meta": "05_roman/10_king/quest.json",
+     "gif": "05_roman/10_king/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 111,
+     "frame_h": 204,
+     "anchor_x": 57,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "11_prince",
+   "class_ru": "Принц",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/11_prince/walk.png",
+     "meta": "05_roman/11_prince/walk.json",
+     "gif": "05_roman/11_prince/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 118,
+     "frame_h": 213,
+     "anchor_x": 58,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/11_prince/combat.png",
+     "meta": "05_roman/11_prince/combat.json",
+     "gif": "05_roman/11_prince/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 118,
+     "frame_h": 213,
+     "anchor_x": 55,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/11_prince/craft.png",
+     "meta": "05_roman/11_prince/craft.json",
+     "gif": "05_roman/11_prince/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 111,
+     "frame_h": 180,
+     "anchor_x": 55,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "05_roman/11_prince/build.png",
+     "meta": "05_roman/11_prince/build.json",
+     "gif": "05_roman/11_prince/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 112,
+     "frame_h": 210,
+     "anchor_x": 55,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/11_prince/quest.png",
+     "meta": "05_roman/11_prince/quest.json",
+     "gif": "05_roman/11_prince/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 112,
+     "frame_h": 208,
+     "anchor_x": 55,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "12_noble_commander",
+   "class_ru": "Воевода",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/12_noble_commander/walk.png",
+     "meta": "05_roman/12_noble_commander/walk.json",
+     "gif": "05_roman/12_noble_commander/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 119,
+     "frame_h": 210,
+     "anchor_x": 55,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/12_noble_commander/combat.png",
+     "meta": "05_roman/12_noble_commander/combat.json",
+     "gif": "05_roman/12_noble_commander/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 119,
+     "frame_h": 210,
+     "anchor_x": 52,
+     "anchor_y": 202
+    },
+    "craft": {
+     "sheet": "05_roman/12_noble_commander/craft.png",
+     "meta": "05_roman/12_noble_commander/craft.json",
+     "gif": "05_roman/12_noble_commander/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 112,
+     "frame_h": 176,
+     "anchor_x": 51,
+     "anchor_y": 169
+    },
+    "build": {
+     "sheet": "05_roman/12_noble_commander/build.png",
+     "meta": "05_roman/12_noble_commander/build.json",
+     "gif": "05_roman/12_noble_commander/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 113,
+     "frame_h": 207,
+     "anchor_x": 52,
+     "anchor_y": 200
+    },
+    "quest": {
+     "sheet": "05_roman/12_noble_commander/quest.png",
+     "meta": "05_roman/12_noble_commander/quest.json",
+     "gif": "05_roman/12_noble_commander/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 112,
+     "frame_h": 204,
+     "anchor_x": 52,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "13_centurion",
+   "class_ru": "Центурион",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/13_centurion/walk.png",
+     "meta": "05_roman/13_centurion/walk.json",
+     "gif": "05_roman/13_centurion/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 100,
+     "frame_h": 212,
+     "anchor_x": 50,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/13_centurion/combat.png",
+     "meta": "05_roman/13_centurion/combat.json",
+     "gif": "05_roman/13_centurion/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 106,
+     "frame_h": 213,
+     "anchor_x": 52,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/13_centurion/craft.png",
+     "meta": "05_roman/13_centurion/craft.json",
+     "gif": "05_roman/13_centurion/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 96,
+     "frame_h": 180,
+     "anchor_x": 48,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "05_roman/13_centurion/build.png",
+     "meta": "05_roman/13_centurion/build.json",
+     "gif": "05_roman/13_centurion/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 100,
+     "frame_h": 209,
+     "anchor_x": 49,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/13_centurion/quest.png",
+     "meta": "05_roman/13_centurion/quest.json",
+     "gif": "05_roman/13_centurion/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 97,
+     "frame_h": 208,
+     "anchor_x": 49,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "14_prefect",
+   "class_ru": "Префект",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/14_prefect/walk.png",
+     "meta": "05_roman/14_prefect/walk.json",
+     "gif": "05_roman/14_prefect/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 108,
+     "frame_h": 212,
+     "anchor_x": 54,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/14_prefect/combat.png",
+     "meta": "05_roman/14_prefect/combat.json",
+     "gif": "05_roman/14_prefect/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 109,
+     "frame_h": 212,
+     "anchor_x": 51,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/14_prefect/craft.png",
+     "meta": "05_roman/14_prefect/craft.json",
+     "gif": "05_roman/14_prefect/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 101,
+     "frame_h": 180,
+     "anchor_x": 50,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "05_roman/14_prefect/build.png",
+     "meta": "05_roman/14_prefect/build.json",
+     "gif": "05_roman/14_prefect/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 104,
+     "frame_h": 209,
+     "anchor_x": 51,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/14_prefect/quest.png",
+     "meta": "05_roman/14_prefect/quest.json",
+     "gif": "05_roman/14_prefect/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 102,
+     "frame_h": 207,
+     "anchor_x": 51,
+     "anchor_y": 202
+    }
+   }
+  },
+  {
+   "faction": "05_roman",
+   "faction_ru": "Римляне",
+   "color": "#8B2B2B",
+   "class": "15_chieftain",
+   "class_ru": "Вождь",
+   "clips": {
+    "walk": {
+     "sheet": "05_roman/15_chieftain/walk.png",
+     "meta": "05_roman/15_chieftain/walk.json",
+     "gif": "05_roman/15_chieftain/walk.gif",
+     "frames": 8,
+     "fps": 12,
+     "frame_w": 132,
+     "frame_h": 209,
+     "anchor_x": 67,
+     "anchor_y": 205
+    },
+    "combat": {
+     "sheet": "05_roman/15_chieftain/combat.png",
+     "meta": "05_roman/15_chieftain/combat.json",
+     "gif": "05_roman/15_chieftain/combat.gif",
+     "frames": 8,
+     "fps": 14,
+     "frame_w": 140,
+     "frame_h": 208,
+     "anchor_x": 70,
+     "anchor_y": 201
+    },
+    "craft": {
+     "sheet": "05_roman/15_chieftain/craft.png",
+     "meta": "05_roman/15_chieftain/craft.json",
+     "gif": "05_roman/15_chieftain/craft.gif",
+     "frames": 8,
+     "fps": 10,
+     "frame_w": 128,
+     "frame_h": 176,
+     "anchor_x": 66,
+     "anchor_y": 170
+    },
+    "build": {
+     "sheet": "05_roman/15_chieftain/build.png",
+     "meta": "05_roman/15_chieftain/build.json",
+     "gif": "05_roman/15_chieftain/build.gif",
+     "frames": 8,
+     "fps": 9,
+     "frame_w": 128,
+     "frame_h": 205,
+     "anchor_x": 66,
+     "anchor_y": 199
+    },
+    "quest": {
+     "sheet": "05_roman/15_chieftain/quest.png",
+     "meta": "05_roman/15_chieftain/quest.json",
+     "gif": "05_roman/15_chieftain/quest.gif",
+     "frames": 8,
+     "fps": 7,
+     "frame_w": 128,
+     "frame_h": 204,
+     "anchor_x": 66,
+     "anchor_y": 202
+    }
+   }
+  }
+ ]
+}

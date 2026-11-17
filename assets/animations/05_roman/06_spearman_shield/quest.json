@@ -1,0 +1,13 @@
+{
+  "unit": "05_roman/06_spearman_shield",
+  "clip": "quest",
+  "fps": 7,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 114,
+  "frame_h": 218,
+  "anchor_x": 60,
+  "anchor_y": 216,
+  "sheet": "quest.png",
+  "character_px": 200
+}

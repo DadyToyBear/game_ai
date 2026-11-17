@@ -1,0 +1,13 @@
+{
+  "unit": "01_celtic_briton/11_prince",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 101,
+  "frame_h": 181,
+  "anchor_x": 53,
+  "anchor_y": 169,
+  "sheet": "craft.png",
+  "character_px": 200
+}

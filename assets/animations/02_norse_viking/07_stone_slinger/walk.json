@@ -1,0 +1,13 @@
+{
+  "unit": "02_norse_viking/07_stone_slinger",
+  "clip": "walk",
+  "fps": 12,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 99,
+  "frame_h": 215,
+  "anchor_x": 49,
+  "anchor_y": 205,
+  "sheet": "walk.png",
+  "character_px": 200
+}

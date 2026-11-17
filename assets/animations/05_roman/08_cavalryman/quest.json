@@ -1,0 +1,13 @@
+{
+  "unit": "05_roman/08_cavalryman",
+  "clip": "quest",
+  "fps": 7,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 100,
+  "frame_h": 208,
+  "anchor_x": 51,
+  "anchor_y": 202,
+  "sheet": "quest.png",
+  "character_px": 200
+}

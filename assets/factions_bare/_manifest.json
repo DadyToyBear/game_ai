@@ -1,0 +1,687 @@
+{
+  "01_celtic_briton": {
+    "01_archer": {
+      "hair": "side-shaved with two thin braids hanging by the ears",
+      "beard": "heavy braided forked beard",
+      "body_hair": "light body hair",
+      "tattoo": "blue triskele tattoo on the right forearm and a band around the bicep",
+      "war_paint": "black soot band smeared across both eyes",
+      "scar": "a thin scar cutting through the left eyebrow",
+      "build": "celtic-faction variant 1"
+    },
+    "02_two_handed_axeman": {
+      "hair": "wolf-tail single braid down the back",
+      "beard": "mutton-chop sideburns with a bare chin",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "three claw-scar tattoos across the ribs",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "a thin scar cutting through the left eyebrow",
+      "build": "celtic-faction variant 2"
+    },
+    "03_sword_and_shield": {
+      "hair": "bald shaved scalp with tattooed knotwork",
+      "beard": "thick drooping mustache only",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "blue triskele tattoo on the right forearm and a band around the bicep",
+      "war_paint": "white lime handprints on the chest and upper arm",
+      "scar": "no visible scars",
+      "build": "celtic-faction variant 3"
+    },
+    "04_two_handed_swordsman": {
+      "hair": "wolf-tail single braid down the back",
+      "beard": "thick drooping mustache only",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "spiral sun and crescent tattoos on both shoulders",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "celtic-faction variant 4"
+    },
+    "05_mace_and_shield": {
+      "hair": "side-shaved with two thin braids hanging by the ears",
+      "beard": "thick drooping mustache only",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "blue triskele tattoo on the right forearm and a band around the bicep",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "celtic-faction variant 5"
+    },
+    "06_spearman_shield": {
+      "hair": "twin thick braids down the chest",
+      "beard": "clean-shaven",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "spiral sun and crescent tattoos on both shoulders",
+      "war_paint": "blue paint spirals on both cheekbones and a stripe down the nose",
+      "scar": "four old claw scars raked across the chest",
+      "build": "celtic-faction variant 6"
+    },
+    "07_stone_slinger": {
+      "hair": "shaved sides with a high tight topknot",
+      "beard": "mutton-chop sideburns with a bare chin",
+      "body_hair": "light body hair",
+      "tattoo": "row of runic symbols tattooed down the left ribs",
+      "war_paint": "half-face woad blue war paint covering the left side of the face",
+      "scar": "a long slash scar along the right forearm",
+      "build": "celtic-faction variant 7"
+    },
+    "08_cavalryman": {
+      "hair": "wild tangled mane with bone beads",
+      "beard": "clean-shaven",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "dark blue interlace knotwork tattoo sleeve covering the whole left arm",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "four old claw scars raked across the chest",
+      "build": "celtic-faction variant 8"
+    },
+    "09_lord": {
+      "hair": "cropped bowl-cut with ragged fringe",
+      "beard": "full thick beard",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "three claw-scar tattoos across the ribs",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "celtic-faction variant 9"
+    },
+    "10_king": {
+      "hair": "shaved sides with a high tight topknot",
+      "beard": "long forked beard",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "spiral sun and crescent tattoos on both shoulders",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "no visible scars",
+      "build": "celtic-faction variant 10"
+    },
+    "11_prince": {
+      "hair": "shaved sides with a high tight topknot",
+      "beard": "chin strap beard with a shaved jaw",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "no tattoos",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "no visible scars",
+      "build": "celtic-faction variant 11"
+    },
+    "12_noble_commander": {
+      "hair": "long loose hair falling past the shoulders",
+      "beard": "clean-shaven",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "coiled serpent tattoo winding around the left bicep",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "four old claw scars raked across the chest",
+      "build": "celtic-faction variant 12"
+    },
+    "13_centurion": {
+      "hair": "wolf-tail single braid down the back",
+      "beard": "full thick beard",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "spiral sun and crescent tattoos on both shoulders",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "no visible scars",
+      "build": "celtic-faction variant 13"
+    },
+    "14_prefect": {
+      "hair": "bald shaved scalp with tattooed knotwork",
+      "beard": "mutton-chop sideburns with a bare chin",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "three claw-scar tattoos across the ribs",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "a long slash scar along the right forearm",
+      "build": "celtic-faction variant 14"
+    },
+    "15_chieftain": {
+      "hair": "side-shaved with two thin braids hanging by the ears",
+      "beard": "bushy full beard with two small braids",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "no tattoos",
+      "war_paint": "blue paint spirals on both cheekbones and a stripe down the nose",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "celtic-faction variant 15"
+    }
+  },
+  "02_norse_viking": {
+    "01_archer": {
+      "hair": "wild tangled mane with bone beads",
+      "beard": "long forked beard",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "simple legionary eagle tattoo on the right upper arm",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "norse-faction variant 1"
+    },
+    "02_two_handed_axeman": {
+      "hair": "twin thick braids down the chest",
+      "beard": "short stubble and a long mustache",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "blue woad La Tene spiral tattoos across the right shoulder and pectoral",
+      "war_paint": "no war paint",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "norse-faction variant 2"
+    },
+    "03_sword_and_shield": {
+      "hair": "cropped bowl-cut with ragged fringe",
+      "beard": "clean-shaven",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "blue woad La Tene spiral tattoos across the right shoulder and pectoral",
+      "war_paint": "black soot band smeared across both eyes",
+      "scar": "four old claw scars raked across the chest",
+      "build": "norse-faction variant 3"
+    },
+    "04_two_handed_swordsman": {
+      "hair": "long hair tied back with a bronze ring",
+      "beard": "clean-shaven",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "no tattoos",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "a thin scar cutting through the left eyebrow",
+      "build": "norse-faction variant 4"
+    },
+    "05_mace_and_shield": {
+      "hair": "high ponytail bound with a leather thong",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "light body hair",
+      "tattoo": "coiled serpent tattoo winding around the left bicep",
+      "war_paint": "no war paint",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "norse-faction variant 5"
+    },
+    "06_spearman_shield": {
+      "hair": "long loose hair falling past the shoulders",
+      "beard": "long forked beard",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "red-and-black hand-print tattoo on the left pectoral",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "four old claw scars raked across the chest",
+      "build": "norse-faction variant 6"
+    },
+    "07_stone_slinger": {
+      "hair": "long loose hair falling past the shoulders",
+      "beard": "long forked beard",
+      "body_hair": "light body hair",
+      "tattoo": "black Slavic solar-wheel tattoo in the centre of the chest",
+      "war_paint": "black soot band smeared across both eyes",
+      "scar": "a long slash scar along the right forearm",
+      "build": "norse-faction variant 7"
+    },
+    "08_cavalryman": {
+      "hair": "cropped bowl-cut with ragged fringe",
+      "beard": "chin strap beard with a shaved jaw",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "black raven-wing tattoo spreading from the collarbone over the shoulder blade",
+      "war_paint": "no war paint",
+      "scar": "a long slash scar along the right forearm",
+      "build": "norse-faction variant 8"
+    },
+    "09_lord": {
+      "hair": "shaved patterns in the hair with a short swept forelock",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "row of runic symbols tattooed down the left ribs",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "norse-faction variant 9"
+    },
+    "10_king": {
+      "hair": "high ponytail bound with a leather thong",
+      "beard": "short trimmed chin beard",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "simple legionary eagle tattoo on the right upper arm",
+      "war_paint": "white lime handprints on the chest and upper arm",
+      "scar": "no visible scars",
+      "build": "norse-faction variant 10"
+    },
+    "11_prince": {
+      "hair": "short curly hair with a braided scalp lock",
+      "beard": "short stubble and a long mustache",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "dark blue interlace knotwork tattoo sleeve covering the whole left arm",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "a long slash scar along the right forearm",
+      "build": "norse-faction variant 11"
+    },
+    "12_noble_commander": {
+      "hair": "high ponytail bound with a leather thong",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "spiral sun and crescent tattoos on both shoulders",
+      "war_paint": "black soot band smeared across both eyes",
+      "scar": "four old claw scars raked across the chest",
+      "build": "norse-faction variant 12"
+    },
+    "13_centurion": {
+      "hair": "shaved sides with a stiff upright mohawk crest",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "three claw-scar tattoos across the ribs",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "a long slash scar along the right forearm",
+      "build": "norse-faction variant 13"
+    },
+    "14_prefect": {
+      "hair": "shaved sides with a high tight topknot",
+      "beard": "clean-shaven",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "dark blue interlace knotwork tattoo sleeve covering the whole left arm",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "a thin scar cutting through the left eyebrow",
+      "build": "norse-faction variant 14"
+    },
+    "15_chieftain": {
+      "hair": "bald shaved scalp with tattooed knotwork",
+      "beard": "full thick beard",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "three claw-scar tattoos across the ribs",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "four old claw scars raked across the chest",
+      "build": "norse-faction variant 15"
+    }
+  },
+  "03_gaulish_warrior": {
+    "01_archer": {
+      "hair": "long hair tied back with a bronze ring",
+      "beard": "heavy braided forked beard",
+      "body_hair": "light body hair",
+      "tattoo": "row of runic symbols tattooed down the left ribs",
+      "war_paint": "half-face woad blue war paint covering the left side of the face",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "gaulish-faction variant 1"
+    },
+    "02_two_handed_axeman": {
+      "hair": "twin thick braids down the chest",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "coiled serpent tattoo winding around the left bicep",
+      "war_paint": "blue paint spirals on both cheekbones and a stripe down the nose",
+      "scar": "no visible scars",
+      "build": "gaulish-faction variant 2"
+    },
+    "03_sword_and_shield": {
+      "hair": "shaved patterns in the hair with a short swept forelock",
+      "beard": "short trimmed chin beard",
+      "body_hair": "light body hair",
+      "tattoo": "black Slavic solar-wheel tattoo in the centre of the chest",
+      "war_paint": "blue paint spirals on both cheekbones and a stripe down the nose",
+      "scar": "a thin scar cutting through the left eyebrow",
+      "build": "gaulish-faction variant 3"
+    },
+    "04_two_handed_swordsman": {
+      "hair": "side-shaved with two thin braids hanging by the ears",
+      "beard": "short stubble and a long mustache",
+      "body_hair": "light body hair",
+      "tattoo": "black raven-wing tattoo spreading from the collarbone over the shoulder blade",
+      "war_paint": "white lime handprints on the chest and upper arm",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "gaulish-faction variant 4"
+    },
+    "05_mace_and_shield": {
+      "hair": "shaved sides with a stiff upright mohawk crest",
+      "beard": "clean-shaven",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "blue woad La Tene spiral tattoos across the right shoulder and pectoral",
+      "war_paint": "half-face woad blue war paint covering the left side of the face",
+      "scar": "no visible scars",
+      "build": "gaulish-faction variant 5"
+    },
+    "06_spearman_shield": {
+      "hair": "bald shaved scalp with tattooed knotwork",
+      "beard": "heavy braided forked beard",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "red-and-black hand-print tattoo on the left pectoral",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "four old claw scars raked across the chest",
+      "build": "gaulish-faction variant 6"
+    },
+    "07_stone_slinger": {
+      "hair": "wild tangled mane with bone beads",
+      "beard": "thin warrior mustache and stubble",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "simple legionary eagle tattoo on the right upper arm",
+      "war_paint": "blue paint spirals on both cheekbones and a stripe down the nose",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "gaulish-faction variant 7"
+    },
+    "08_cavalryman": {
+      "hair": "shaved sides with a high tight topknot",
+      "beard": "full thick beard",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "blue triskele tattoo on the right forearm and a band around the bicep",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "gaulish-faction variant 8"
+    },
+    "09_lord": {
+      "hair": "wolf-tail single braid down the back",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "blue triskele tattoo on the right forearm and a band around the bicep",
+      "war_paint": "no war paint",
+      "scar": "a thin scar cutting through the left eyebrow",
+      "build": "gaulish-faction variant 9"
+    },
+    "10_king": {
+      "hair": "long loose hair falling past the shoulders",
+      "beard": "short trimmed chin beard",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "black raven-wing tattoo spreading from the collarbone over the shoulder blade",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "a long slash scar along the right forearm",
+      "build": "gaulish-faction variant 10"
+    },
+    "11_prince": {
+      "hair": "short curly hair with a braided scalp lock",
+      "beard": "short trimmed chin beard",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "spiral sun and crescent tattoos on both shoulders",
+      "war_paint": "no war paint",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "gaulish-faction variant 11"
+    },
+    "12_noble_commander": {
+      "hair": "shaved sides with a stiff upright mohawk crest",
+      "beard": "thin warrior mustache and stubble",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "spiral sun and crescent tattoos on both shoulders",
+      "war_paint": "no war paint",
+      "scar": "a long slash scar along the right forearm",
+      "build": "gaulish-faction variant 12"
+    },
+    "13_centurion": {
+      "hair": "shaved sides with a high tight topknot",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "black raven-wing tattoo spreading from the collarbone over the shoulder blade",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "a thin scar cutting through the left eyebrow",
+      "build": "gaulish-faction variant 13"
+    },
+    "14_prefect": {
+      "hair": "cropped bowl-cut with ragged fringe",
+      "beard": "chin strap beard with a shaved jaw",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "black Slavic solar-wheel tattoo in the centre of the chest",
+      "war_paint": "blue paint spirals on both cheekbones and a stripe down the nose",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "gaulish-faction variant 14"
+    },
+    "15_chieftain": {
+      "hair": "shaved sides with a stiff upright mohawk crest",
+      "beard": "short trimmed chin beard",
+      "body_hair": "light body hair",
+      "tattoo": "blue woad La Tene spiral tattoos across the right shoulder and pectoral",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "no visible scars",
+      "build": "gaulish-faction variant 15"
+    }
+  },
+  "04_slavic": {
+    "01_archer": {
+      "hair": "wild tangled mane with bone beads",
+      "beard": "chin strap beard with a shaved jaw",
+      "body_hair": "light body hair",
+      "tattoo": "three claw-scar tattoos across the ribs",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "a thin scar cutting through the left eyebrow",
+      "build": "slavic-faction variant 1"
+    },
+    "02_two_handed_axeman": {
+      "hair": "cropped bowl-cut with ragged fringe",
+      "beard": "mutton-chop sideburns with a bare chin",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "simple legionary eagle tattoo on the right upper arm",
+      "war_paint": "white lime handprints on the chest and upper arm",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "slavic-faction variant 2"
+    },
+    "03_sword_and_shield": {
+      "hair": "shaved patterns in the hair with a short swept forelock",
+      "beard": "heavy braided forked beard",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "dark blue interlace knotwork tattoo sleeve covering the whole left arm",
+      "war_paint": "blue paint spirals on both cheekbones and a stripe down the nose",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "slavic-faction variant 3"
+    },
+    "04_two_handed_swordsman": {
+      "hair": "shaved patterns in the hair with a short swept forelock",
+      "beard": "heavy braided forked beard",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "blue triskele tattoo on the right forearm and a band around the bicep",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "no visible scars",
+      "build": "slavic-faction variant 4"
+    },
+    "05_mace_and_shield": {
+      "hair": "long hair tied back with a bronze ring",
+      "beard": "mutton-chop sideburns with a bare chin",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "black Slavic solar-wheel tattoo in the centre of the chest",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "slavic-faction variant 5"
+    },
+    "06_spearman_shield": {
+      "hair": "cropped bowl-cut with ragged fringe",
+      "beard": "mutton-chop sideburns with a bare chin",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "black raven-wing tattoo spreading from the collarbone over the shoulder blade",
+      "war_paint": "half-face woad blue war paint covering the left side of the face",
+      "scar": "a long slash scar along the right forearm",
+      "build": "slavic-faction variant 6"
+    },
+    "07_stone_slinger": {
+      "hair": "long loose hair falling past the shoulders",
+      "beard": "short trimmed chin beard",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "coiled serpent tattoo winding around the left bicep",
+      "war_paint": "white lime handprints on the chest and upper arm",
+      "scar": "no visible scars",
+      "build": "slavic-faction variant 7"
+    },
+    "08_cavalryman": {
+      "hair": "shaved sides with a stiff upright mohawk crest",
+      "beard": "bushy full beard with two small braids",
+      "body_hair": "light body hair",
+      "tattoo": "blue woad La Tene spiral tattoos across the right shoulder and pectoral",
+      "war_paint": "half-face woad blue war paint covering the left side of the face",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "slavic-faction variant 8"
+    },
+    "09_lord": {
+      "hair": "high ponytail bound with a leather thong",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "light body hair",
+      "tattoo": "blue woad La Tene spiral tattoos across the right shoulder and pectoral",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "slavic-faction variant 9"
+    },
+    "10_king": {
+      "hair": "cropped bowl-cut with ragged fringe",
+      "beard": "chin strap beard with a shaved jaw",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "row of runic symbols tattooed down the left ribs",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "no visible scars",
+      "build": "slavic-faction variant 10"
+    },
+    "11_prince": {
+      "hair": "cropped bowl-cut with ragged fringe",
+      "beard": "mutton-chop sideburns with a bare chin",
+      "body_hair": "light body hair",
+      "tattoo": "dark blue interlace knotwork tattoo sleeve covering the whole left arm",
+      "war_paint": "blue paint spirals on both cheekbones and a stripe down the nose",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "slavic-faction variant 11"
+    },
+    "12_noble_commander": {
+      "hair": "long loose hair falling past the shoulders",
+      "beard": "short trimmed chin beard",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "blue woad La Tene spiral tattoos across the right shoulder and pectoral",
+      "war_paint": "black soot band smeared across both eyes",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "slavic-faction variant 12"
+    },
+    "13_centurion": {
+      "hair": "long hair tied back with a bronze ring",
+      "beard": "clean-shaven",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "three claw-scar tattoos across the ribs",
+      "war_paint": "black soot band smeared across both eyes",
+      "scar": "a long slash scar along the right forearm",
+      "build": "slavic-faction variant 13"
+    },
+    "14_prefect": {
+      "hair": "close-cropped hair with a narrow ridge crest",
+      "beard": "thick drooping mustache only",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "blue triskele tattoo on the right forearm and a band around the bicep",
+      "war_paint": "white lime handprints on the chest and upper arm",
+      "scar": "a thin scar cutting through the left eyebrow",
+      "build": "slavic-faction variant 14"
+    },
+    "15_chieftain": {
+      "hair": "high ponytail bound with a leather thong",
+      "beard": "bushy full beard with two small braids",
+      "body_hair": "light body hair",
+      "tattoo": "red-and-black hand-print tattoo on the left pectoral",
+      "war_paint": "no war paint",
+      "scar": "a long slash scar along the right forearm",
+      "build": "slavic-faction variant 15"
+    }
+  },
+  "05_roman": {
+    "01_archer": {
+      "hair": "bald shaved scalp with tattooed knotwork",
+      "beard": "long forked beard",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "spiral sun and crescent tattoos on both shoulders",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "four old claw scars raked across the chest",
+      "build": "roman-faction variant 1"
+    },
+    "02_two_handed_axeman": {
+      "hair": "short curly hair with a braided scalp lock",
+      "beard": "clean-shaven",
+      "body_hair": "light body hair",
+      "tattoo": "spiral sun and crescent tattoos on both shoulders",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "no visible scars",
+      "build": "roman-faction variant 2"
+    },
+    "03_sword_and_shield": {
+      "hair": "bald shaved scalp with tattooed knotwork",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "black raven-wing tattoo spreading from the collarbone over the shoulder blade",
+      "war_paint": "no war paint",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "roman-faction variant 3"
+    },
+    "04_two_handed_swordsman": {
+      "hair": "wolf-tail single braid down the back",
+      "beard": "clean-shaven",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "red-and-black hand-print tattoo on the left pectoral",
+      "war_paint": "black soot band smeared across both eyes",
+      "scar": "a diagonal scar across the right cheek",
+      "build": "roman-faction variant 4"
+    },
+    "05_mace_and_shield": {
+      "hair": "side-shaved with two thin braids hanging by the ears",
+      "beard": "thin warrior mustache and stubble",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "coiled serpent tattoo winding around the left bicep",
+      "war_paint": "black soot band smeared across both eyes",
+      "scar": "no visible scars",
+      "build": "roman-faction variant 5"
+    },
+    "06_spearman_shield": {
+      "hair": "close-cropped hair with a narrow ridge crest",
+      "beard": "thick drooping mustache only",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "no tattoos",
+      "war_paint": "white lime handprints on the chest and upper arm",
+      "scar": "a long slash scar along the right forearm",
+      "build": "roman-faction variant 6"
+    },
+    "07_stone_slinger": {
+      "hair": "shaved sides with a stiff upright mohawk crest",
+      "beard": "thin warrior mustache and stubble",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "no tattoos",
+      "war_paint": "ochre dots and lines painted across the forehead, cheeks and chin",
+      "scar": "no visible scars",
+      "build": "roman-faction variant 7"
+    },
+    "08_cavalryman": {
+      "hair": "long loose hair falling past the shoulders",
+      "beard": "braided beard with two iron rings",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "dark blue interlace knotwork tattoo sleeve covering the whole left arm",
+      "war_paint": "white lime handprints on the chest and upper arm",
+      "scar": "four old claw scars raked across the chest",
+      "build": "roman-faction variant 8"
+    },
+    "09_lord": {
+      "hair": "shaved sides with a stiff upright mohawk crest",
+      "beard": "mutton-chop sideburns with a bare chin",
+      "body_hair": "moderate chest and forearm hair",
+      "tattoo": "black Slavic solar-wheel tattoo in the centre of the chest",
+      "war_paint": "no war paint",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "roman-faction variant 9"
+    },
+    "10_king": {
+      "hair": "close-cropped hair with a narrow ridge crest",
+      "beard": "heavy braided forked beard",
+      "body_hair": "light body hair",
+      "tattoo": "blue triskele tattoo on the right forearm and a band around the bicep",
+      "war_paint": "blue woad band across the eyes and down the bridge of the nose",
+      "scar": "a long slash scar along the right forearm",
+      "build": "roman-faction variant 10"
+    },
+    "11_prince": {
+      "hair": "shaved patterns in the hair with a short swept forelock",
+      "beard": "short trimmed chin beard",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "red-and-black hand-print tattoo on the left pectoral",
+      "war_paint": "no war paint",
+      "scar": "no visible scars",
+      "build": "roman-faction variant 11"
+    },
+    "12_noble_commander": {
+      "hair": "bald shaved scalp with tattooed knotwork",
+      "beard": "thick drooping mustache only",
+      "body_hair": "heavy thick body hair",
+      "tattoo": "blue woad La Tene spiral tattoos across the right shoulder and pectoral",
+      "war_paint": "white lime handprints on the chest and upper arm",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "roman-faction variant 12"
+    },
+    "13_centurion": {
+      "hair": "long hair tied back with a bronze ring",
+      "beard": "heavy braided forked beard",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "coiled serpent tattoo winding around the left bicep",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "a long slash scar along the right forearm",
+      "build": "roman-faction variant 13"
+    },
+    "14_prefect": {
+      "hair": "twin thick braids down the chest",
+      "beard": "heavy braided forked beard",
+      "body_hair": "hairless smooth skin",
+      "tattoo": "no tattoos",
+      "war_paint": "no war paint",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "roman-faction variant 14"
+    },
+    "15_chieftain": {
+      "hair": "twin thick braids down the chest",
+      "beard": "short trimmed chin beard",
+      "body_hair": "trail of hair down the chest and stomach",
+      "tattoo": "row of runic symbols tattooed down the left ribs",
+      "war_paint": "three horizontal red ochre stripes across the cheeks and nose",
+      "scar": "a deep notch scar on the left jaw",
+      "build": "roman-faction variant 15"
+    }
+  }
+}

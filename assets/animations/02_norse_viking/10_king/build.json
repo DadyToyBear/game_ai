@@ -1,0 +1,13 @@
+{
+  "unit": "02_norse_viking/10_king",
+  "clip": "build",
+  "fps": 9,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 120,
+  "frame_h": 210,
+  "anchor_x": 56,
+  "anchor_y": 200,
+  "sheet": "build.png",
+  "character_px": 200
+}

@@ -1,0 +1,13 @@
+{
+  "unit": "01_celtic_briton/11_prince",
+  "clip": "combat",
+  "fps": 14,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 108,
+  "frame_h": 213,
+  "anchor_x": 53,
+  "anchor_y": 201,
+  "sheet": "combat.png",
+  "character_px": 200
+}
