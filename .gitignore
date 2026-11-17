@@ -6,3 +6,7 @@ __pycache__/
 build/
 output/
 Unselected files/
+
+# WebPort distributable: keep the installable plugin archive versioned.
+dist/*.zip
+!dist/webport-addon.zip

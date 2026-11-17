@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Мини-пример: отряд на карте</title>
+<style>
+  :root { --ink:#f3ead6; --gold:#d8af68; --panel:#1c2320; }
+  body { margin:0; background:#111817; color:var(--ink); font:14px/1.4 Georgia,serif; }
+  #game { display:flex; flex-direction:column; height:100vh; }
+  header { display:flex; align-items:center; gap:12px; padding:8px 14px;
+           background:#272c29; border-bottom:1px solid #3a423d; }
+  .res { padding:4px 8px; border:1px solid #4b544c; border-radius:7px; font-size:12px; }
+  #layout { display:flex; flex:1; min-height:0; }
+  #field { display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; padding:10px; flex:1; }
+  .cell { min-height:96px; background:#2c3a2c; border:1px solid #49563f; border-radius:4px; }
+  #sidebar { width:260px; padding:12px; background:var(--panel); border-left:1px solid #3a423d; }
+  .unit-card { padding:8px; margin-bottom:8px; background:#222a24; border:1px solid #4d5748; border-radius:6px; }
+  .unit-card b { color:var(--gold); }
+  button { padding:8px 12px; background:#3a412f; border:1px solid #7d6a45; border-radius:6px; color:var(--ink); }
+</style>
+</head>
+<body>
+  <div id="game">
+    <header>
+      <span class="brand">Мини-пример WebPort</span>
+      <span class="res">Золото: <b id="gold">120</b></span>
+      <span class="res">Войско: <b id="army">2</b></span>
+      <button id="endTurn">Завершить день</button>
+    </header>
+    <div id="layout">
+      <div id="field">
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      </div>
+      <aside id="sidebar">
+        <h2>Отряды</h2>
+        <div class="unit-card"><b>Мечники</b><br><small>120 воинов, строй «стена щитов»</small></div>
+        <div class="unit-card"><b>Лучники</b><br><small>80 стрелков, залп по площади</small></div>
+        <div id="log"></div>
+      </aside>
+    </div>
+  </div>
+  <script type="module">
+    import { createCampaign, endDay, addGold } from "./src/campaign.mjs";
+
+    const state = createCampaign({ gold: 120, army: ["swords", "archers"] });
+
+    function render() {
+      document.getElementById("gold").textContent = state.gold;
+      document.getElementById("army").textContent = state.army.length;
+      document.getElementById("log").innerHTML = state.log.map((line) => `<div>${line}</div>`).join("");
+    }
+
+    document.getElementById("endTurn").addEventListener("click", () => {
+      addGold(state, 15);
+      endDay(state);
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>
