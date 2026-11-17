@@ -7,6 +7,7 @@ import {
   createBattle,
   issueOrder,
   previewBattleAttack,
+  resolveHeadlessBattle,
   setBattlePaused,
   setBattleSpeed,
 } from '../src/battle_simulation.mjs';
@@ -196,6 +197,45 @@ test('spearmen counter cavalry and cavalry charge adds a one-time first-hit bonu
   assert.ok(resolveSingleAttacker({ attackerClass: '08_cavalryman', targetClass: '03_sword_and_shield', charge: 1 }) <
     resolveSingleAttacker({ attackerClass: '08_cavalryman', targetClass: '03_sword_and_shield', charge: 0 }),
   'the cavalry charge improves its first contact');
+});
+
+test('pike brace reduces cavalry damage and stays deterministic in the manual/headless battle path', () => {
+  const createEncounter = () => createBattle({
+    seed: 809,
+    map: { width: 7, height: 3 },
+    attacker: { regiments: [{ id: 'cavalry', class: '08_cavalryman', count: 1000,
+      position: { x: 2, y: 1 }, morale: 100,
+      stats: { attack: 100, defense: 20, range: 1.2, speed: 0, charge: 1 } }] },
+    defender: { regiments: [{ id: 'pikes', class: '06_spearman_shield', count: 1000,
+      position: { x: 3, y: 1 }, morale: 100,
+      stats: { attack: 80, defense: 20, range: 1.2, speed: 0 } }] },
+  });
+  const orderCavalry = state => issueOrder(state, 'cavalry', { type: 'attack', targetId: 'pikes' });
+  const unbraced = advanceBattle(setBattlePaused(orderCavalry(createEncounter()), false), 1);
+  const initial = orderCavalry(createEncounter());
+  const bracedOrder = issueOrder(initial, 'pikes', { type: 'brace' });
+  const ordinaryPikesOrder = issueOrder(initial, 'pikes', { type: 'attack', targetId: 'cavalry' });
+  const bracedDamage = previewBattleAttack(bracedOrder, 'cavalry', 'pikes').expectedDamage;
+  const ordinaryDamage = previewBattleAttack(ordinaryPikesOrder, 'cavalry', 'pikes').expectedDamage;
+  assert.ok(Math.abs(bracedDamage / ordinaryDamage - 0.55) < 1e-10,
+    'brace reduces all cavalry damage, including the one-time charge bonus, by exactly 45%');
+  const braced = advanceBattle(setBattlePaused(bracedOrder, false), 1);
+  const casualties = state => 1000 - state.regiments.find(unit => unit.id === 'pikes').count;
+
+  assert.ok(casualties(braced) < casualties(unbraced),
+    'braced spearmen take less damage from a cavalry charge');
+  assert.equal(braced.regiments.find(unit => unit.id === 'pikes').state, 'bracing');
+  assert.throws(() => issueOrder(initial, 'cavalry', { type: 'brace' }), /Only spearmen/,
+    'non-spearmen cannot issue a pike-brace order');
+  const released = issueOrder(bracedOrder, 'pikes', { type: 'hold' });
+  assert.equal(released.regiments.find(unit => unit.id === 'pikes').order.type, 'hold',
+    'a normal order replaces and clears the brace stance');
+
+  const resolveManual = advanceBattle(setBattlePaused(bracedOrder, false), 1200);
+  const resolveHeadless = resolveHeadlessBattle(bracedOrder, 1200);
+  assert.ok(resolveManual.result, 'the control fight reaches an outcome');
+  assert.deepEqual(resolveHeadless, resolveManual,
+    'the brace order and its defensive effect are identical in the headless resolver');
 });
 
 test('front rank protects a rear regiment from direct attacks, but not a flank', () => {

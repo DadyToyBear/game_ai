@@ -602,6 +602,37 @@ test('browser DOM smoke: tactical battle renders and resolves a player turn', as
   assert.deepEqual(errors, []);
 });
 
+test('browser DOM smoke: selected spearmen can brace and release their pikes in battle', async (t) => {
+  const seed = await launchGame();
+  seed.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seed.window.localStorage.getItem('crown-banner-save-v2'));
+  seed.window.happyDOM.abort();
+  save.units.push({ cls: '06_spearman_shield', x: 18 * 64, y: 12 * 64, faction: save.faction,
+    count: 20, capacity: 20, morale: 65, fatigue: 0, illDays: 0, enemy: false,
+    gear: {}, formation: 'line', marchMode: 'normal' });
+
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  const pikePick = [...window.document.querySelectorAll('#armyRoster [data-roster]')]
+    .find(button => button.closest('.roster-card')?.textContent.includes('Копейщик'));
+  assert.ok(pikePick, 'the player roster has a spearmen unit');
+  pikePick.click();
+  window.document.querySelector('#battleBtn').click();
+  assert.equal(window.document.querySelector('#battleModal').dataset.battleMode, 'simulation');
+  const brace = window.document.querySelector('#battleModal [data-action="brace"]');
+  assert.equal(brace.disabled, false, 'the brace action is enabled for a selected spearman');
+  brace.click();
+  assert.equal(window.document.querySelector('#battleModal [data-action="brace"]').textContent, 'Снять упор');
+  assert.match(window.document.querySelector('#battleTacticalPreview').textContent, /Упёр копья/);
+  assert.ok(window.document.querySelector('#battleModal .battle-cell.unit-braced'),
+    'braced pikes receive a distinct tactical marker');
+  window.document.querySelector('#battleModal [data-action="brace"]').click();
+  assert.equal(window.document.querySelector('#battleModal [data-action="brace"]').textContent, 'Упор копий');
+  assert.equal(window.document.querySelector('#battleModal .battle-cell.unit-braced'), null,
+    'releasing the stance removes the defensive marker');
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: siege gate integrity is shown and a selected attacker can order an assault', async (t) => {
   const seedSession = await launchGame();
   t.after(() => seedSession.window.happyDOM.abort());

@@ -182,7 +182,7 @@ export function issueOrder(state, regimentId, order) {
   const next = clone(state);
   const regiment = next.regiments.find((unit) => unit.id === String(regimentId));
   if (!regiment || regiment.count <= 0 || ['routed', 'withdrawn'].includes(regiment.state)) throw new Error(`Unknown or defeated regiment: ${regimentId}`);
-  if (!order || !['move', 'attack', 'hold', 'retreat', 'attack_gate'].includes(order.type)) {
+  if (!order || !['move', 'attack', 'hold', 'brace', 'retreat', 'attack_gate'].includes(order.type)) {
     throw new Error(`Unsupported order: ${order?.type ?? 'none'}`);
   }
 
@@ -212,6 +212,20 @@ export function issueOrder(state, regimentId, order) {
     } else {
       regiment.target_id = null;
     }
+  } else if (order.type === 'brace') {
+    if (regiment.class !== '06_spearman_shield') throw new Error('Only spearmen can brace against cavalry');
+    normalizedOrder = { type: 'brace' };
+    if (order.targetId != null) {
+      const target = next.regiments.find((unit) => unit.id === String(order.targetId));
+      if (!target || target.side === regiment.side || target.class !== '08_cavalryman' || target.count <= 0 || ['routed', 'withdrawn'].includes(target.state)) {
+        throw new Error(`Invalid brace target: ${order.targetId}`);
+      }
+      normalizedOrder.targetId = target.id;
+      regiment.target_id = target.id;
+      regiment.facing = Math.atan2(target.position.y - regiment.position.y, target.position.x - regiment.position.x);
+    } else {
+      regiment.target_id = null;
+    }
   } else if (order.type === 'attack_gate') {
     if (regiment.side !== 'attacker' || !next.siege?.gate) throw new Error('Only attackers can assault a siege gate');
     if (next.siege.gate.status === 'breached') throw new Error('The siege gate is already breached');
@@ -222,7 +236,7 @@ export function issueOrder(state, regimentId, order) {
     regiment.target_id = null;
   }
   regiment.order = normalizedOrder;
-  regiment.state = order.type === 'hold' ? 'holding' : order.type === 'retreat' ? 'retreating' : 'moving';
+  regiment.state = order.type === 'brace' ? 'bracing' : order.type === 'hold' ? 'holding' : order.type === 'retreat' ? 'retreating' : 'moving';
   next.orders.push({ tick: next.tick, regimentId: regiment.id, ...normalizedOrder });
   return next;
 }
@@ -308,11 +322,14 @@ function expectedAttackDamage(state, unit, target, variation = 1, consumeCharge 
   const defenseFactor = 1 / (1 + target.stats.defense / 100 + terrainDefense(targetTerrain)) * formationDamageTaken(target) * rankCover;
   const rangedCover = attackerTerrain === 'woods' && unit.stats.range > 1.5 ? 1.08 : 1;
   const formationFactor = 1 + formationAttack(unit);
-  const roleCounter = unit.class === '06_spearman_shield' && target.class === '08_cavalryman' ? 1.25 : 1;
+  const roleCounter = unit.class === '06_spearman_shield' && target.class === '08_cavalryman'
+    ? unit.order?.type === 'brace' ? 1.5 : 1.25
+    : 1;
+  const pikeBrace = target.class === '06_spearman_shield' && target.order?.type === 'brace' && unit.class === '08_cavalryman' ? 0.55 : 1;
   const flankBonus = flankMultiplier(unit, target);
   const chargeBonus = unit.stats.charge > 0 && !unit.has_charged ? unit.count * Math.min(0.05, unit.stats.charge * 0.02) : 0;
   if (consumeCharge && unit.stats.charge > 0) unit.has_charged = true;
-  return unit.count * unit.stats.attack * DAMAGE_SCALE * moraleFactor * defenseFactor * rangedCover * formationFactor * roleCounter * flankBonus * variation + chargeBonus;
+  return (unit.count * unit.stats.attack * DAMAGE_SCALE * moraleFactor * defenseFactor * rangedCover * formationFactor * roleCounter * flankBonus * variation + chargeBonus) * pikeBrace;
 }
 
 export function previewBattleAttack(state, attackerId, targetId) {
@@ -427,8 +444,11 @@ export function stepBattle(state) {
   for (const unit of units) {
     if (unit.count <= 0 || ['routed', 'withdrawn'].includes(unit.state)) continue;
     const order = unit.order;
-    if (!order || (order.type === 'hold' && !order.targetId)) continue;
-    const holdingPosition = order.type === 'hold';
+    if (!order || order.type === 'brace' && !order.targetId || order.type === 'hold' && !order.targetId) {
+      if (order?.type === 'brace') unit.state = 'bracing';
+      continue;
+    }
+    const holdingPosition = order.type === 'hold' || order.type === 'brace';
     if (order.type === 'retreat') {
       const exit = { x: unit.side === 'attacker' ? 0 : next.map.width - 1, y: unit.position.y };
       moveToward(next, unit, exit, unit.stats.speed * BATTLE_FIXED_DT);
@@ -491,11 +511,11 @@ export function stepBattle(state) {
         moveToward(next, unit, order.flank ? flankWaypoint(next, unit, target) : target.position, unit.stats.speed * BATTLE_FIXED_DT);
         unit.state = 'moving';
       } else {
-        unit.state = 'holding';
+        unit.state = order.type === 'brace' ? 'bracing' : 'holding';
       }
       continue;
     }
-    unit.state = holdingPosition ? 'holding' : 'engaged';
+    unit.state = order.type === 'brace' ? 'bracing' : holdingPosition ? 'holding' : 'engaged';
     const variation = 0.9 + nextRandom(next) * 0.2;
     const damage = expectedAttackDamage(next, unit, target, variation, true);
     intents.push({ targetId: target.id, damage });
@@ -551,7 +571,7 @@ export function resolveHeadlessBattle(state, maxTicks = BATTLE_TICK_HZ * 60 * 10
   for (let tick = 0; tick < limit && !current.result; tick += 1) {
     for (const unit of current.regiments) {
       if (unit.count <= 0 || ['routed', 'withdrawn'].includes(unit.state)) continue;
-      if (unit.order?.type === 'retreat' || unit.order?.type === 'move' || unit.order?.type === 'attack_gate' || unit.order?.type === 'hold' && !unit.order.targetId) continue;
+      if (unit.order?.type === 'retreat' || unit.order?.type === 'move' || unit.order?.type === 'attack_gate' || unit.order?.type === 'brace' || unit.order?.type === 'hold' && !unit.order.targetId) continue;
       const existingTarget = current.regiments.find((candidate) => candidate.id === unit.order?.targetId &&
         candidate.side !== unit.side && candidate.count > 0 && !['routed', 'withdrawn'].includes(candidate.state));
       if ((unit.order?.type === 'attack' || unit.order?.type === 'hold') && existingTarget) continue;
