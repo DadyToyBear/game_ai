@@ -331,6 +331,10 @@ check("сборщик генерирует SVG-ориентиры и натив�
   includes(scene, 'path="res://assets/worldmap/world_overlay.svg"');
   includes(scene, 'path="res://scripts/WebportCanvasOverlay.gd"');
   includes(scene, 'world_data_path = "res://data/worldmap.json"');
+  includes(readFileSync(overlayScriptPath, "utf8"), "mouse_filter = Control.MOUSE_FILTER_PASS");
+  includes(readFileSync(overlayScriptPath, "utf8"), "if _show_landmark(event.position):");
+  includes(readFileSync(overlayScriptPath, "utf8"), "return false");
+  includes(readFileSync(overlayScriptPath, "utf8"), "return true");
   includes(overlayScript, "func _gui_input(event: InputEvent)");
   includes(overlayScript, "_show_landmark(event.position)");
   includes(reportText, "Сгенерированные статические ресурсы");

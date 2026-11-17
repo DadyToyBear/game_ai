@@ -114,6 +114,42 @@ test('packaged runtime mirrors the browser inline runtime when the build artifac
   assert.equal(packaged, inlineScript.trim());
 });
 
+test('browser DOM smoke: tax and harvest are once-per-day actions that persist and reset on the next day', async (t) => {
+  const { window, errors } = await launchGame();
+  t.after(() => window.happyDOM.abort());
+  const tax = window.document.querySelector('#taxBtn');
+  const harvest = window.document.querySelector('#harvestBtn');
+  assert.equal(tax.disabled, false);
+  assert.equal(harvest.disabled, false);
+  tax.click();
+  harvest.click();
+  assert.equal(tax.disabled, true, 'tax collection locks after use');
+  assert.equal(harvest.disabled, true, 'harvest locks after use');
+  const once = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.deepEqual(once.dailyActions, { tax: true, harvest: true });
+  const gold = once.gold, food = once.food;
+  tax.click();
+  harvest.click();
+  assert.equal(JSON.parse(window.localStorage.getItem('crown-banner-save-v2')).gold, gold,
+    'a second click cannot collect tax again');
+  assert.equal(JSON.parse(window.localStorage.getItem('crown-banner-save-v2')).food, food,
+    'a second click cannot harvest again');
+
+  window.happyDOM.abort();
+  const resumed = await launchGame(once);
+  t.after(() => resumed.window.happyDOM.abort());
+  assert.equal(resumed.window.document.querySelector('#taxBtn').disabled, true,
+    'used actions remain locked after restoring a save');
+  assert.equal(resumed.window.document.querySelector('#harvestBtn').disabled, true);
+  resumed.window.document.querySelector('#endTurn').click();
+  assert.equal(resumed.window.document.querySelector('#taxBtn').disabled, false,
+    'daily actions refresh when the campaign day advances');
+  assert.equal(resumed.window.document.querySelector('#harvestBtn').disabled, false);
+  assert.deepEqual(JSON.parse(resumed.window.localStorage.getItem('crown-banner-save-v2')).dailyActions,
+    { tax: false, harvest: false });
+  assert.deepEqual([...errors, ...resumed.errors], []);
+});
+
 test('browser DOM smoke: campaign loads, tabs work, and a daily turn is saved', async (t) => {
   const { window, errors } = await launchGame();
   t.after(() => window.happyDOM.abort());
