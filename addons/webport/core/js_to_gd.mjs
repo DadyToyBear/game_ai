@@ -40,6 +40,11 @@ const GD_PREC = {
 };
 const NON_ASSOC = new Set(["-", "/", "%", "<<", ">>"]);
 
+// Свойства DOM, присваивание которых переносится через WebportLinks.set_prop.
+const DOM_PROPS = new Set([
+  "textContent", "innerText", "innerHTML", "className", "value", "checked", "disabled", "src",
+]);
+
 const GD_KEYWORDS = new Set([
   "and", "or", "not", "if", "else", "elif", "for", "while", "break", "continue",
   "pass", "return", "class", "extends", "is", "in", "as", "self", "signal",
@@ -396,6 +401,11 @@ export class Converter {
   inferKind(decl, vname) {
     const init = decl.init;
     if (!init) return;
+    if (init.type === "CallExpression" && this.calleeText(init.callee) === "document.getElementById") {
+      this.domVarIds = this.domVarIds ?? new Map();
+      const id = init.arguments[0]?.value;
+      if (id) this.domVarIds.set(decl.id.name, id);
+    }
     if (init.type === "ObjectExpression") this.objects.add(vname);
     else if (init.type === "ArrayExpression") this.arrays.add(vname);
     else if (init.type === "CallExpression") {
@@ -962,6 +972,16 @@ export class Converter {
     return `${cast}(${rightCode})`;
   }
 
+  /** id элемента, к которому обращается DOM-вызов: getElementById("x") → x. */
+  domNodeId(objNode) {
+    if (!objNode) return null;
+    if (objNode.type === "CallExpression" && this.calleeText(objNode.callee) === "document.getElementById") {
+      return objNode.arguments[0]?.value ?? null;
+    }
+    if (objNode.type === "Identifier") return this.domVarIds?.get(objNode.name) ?? null;
+    return null;
+  }
+
   /** Приоритет узла в терминах GDScript (для расстановки скобок). */
   gdPrecOf(node) {
     if (!node) return 99;
@@ -991,6 +1011,18 @@ export class Converter {
 
   assignment(node) {
     const op = ASSIGN_OPS[node.operator] ?? "=";
+    const domProp = node.left?.type === "MemberExpression" && !node.left.computed
+      ? node.left.property.name : null;
+    if (domProp && DOM_PROPS.has(domProp)) {
+      const nodeId = this.domNodeId(node.left.object);
+      const value = this.expr(node.right);
+      this.todo.push({
+        line: node.loc?.start?.line ?? 0,
+        file: this.filename,
+        message: `${nodeId ? `#${nodeId}` : "узел"}.${domProp} = … — перенесите в WebportLinks.set_prop("${nodeId ?? "id"}", "${domProp === "textContent" ? "text" : "text"}")`,
+      });
+      return `${this.helper("set_dom")}("${nodeId ?? ""}", ${this.string(domProp)}, ${value})`;
+    }
     const left = this.expr(node.left);
     const right = this.expr(node.right);
     if (op === "=") return `${left} = ${this.emitCast(node.left, right)}`;
@@ -1028,7 +1060,7 @@ export class Converter {
       if (cooked) all.push(this.string(cooked));
       if (node.expressions[i]) all.push(`str(${this.expr(node.expressions[i])})`);
     }
-    return all.join(" + ");
+    return `(${all.join(" + ")})`;
   }
 
   // ── вызовы ───────────────────────────────────────────────────────────────
@@ -1083,6 +1115,11 @@ export class Converter {
 
     if (node.callee.type === "MemberExpression" && !node.callee.computed) {
       const method = node.callee.property.name;
+      // импортированный модуль: campaign.createCampaign(...) → campaign.createCampaign(...)
+      const importedRoot = node.callee.object?.type === "Identifier" ? this.importMap[node.callee.object.name] : null;
+      if (importedRoot && !ARRAY_METHODS.has(method)) {
+        return `${importedRoot}.${this.name(method)}(${this.argList(node)})`;
+      }
       if (ARRAY_METHODS.has(method)) return this.arrayMethod(node, method);
 
       const obj = this.expr(node.callee.object);

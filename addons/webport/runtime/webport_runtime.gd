@@ -161,6 +161,65 @@ static func is_integer(value: Variant) -> bool:
 	return false
 
 
+# ── DOM-совместимый слой ────────────────────────────────────────────────────
+#
+# Присваивания вида el.textContent = x превращаются в set_dom("id", "textContent", x).
+# Узел ищется по таблице id → путь из WebportLinks; если узел — Label/Button,
+# значение кладётся в свойство text, иначе в metadata["webport_" + prop].
+
+static func set_dom(node_id: String, prop: String, value: Variant) -> bool:
+	if node_id.is_empty():
+		return false
+	var node: Node = null
+	var root := Engine.get_main_loop()
+	if root is SceneTree:
+		var current := (root as SceneTree).current_scene
+		if current != null:
+			node = current.find_child(node_id, true, false)
+	if node == null:
+		# имя узла могло быть нормализовано (resourceBar → ResourceBar)
+		if root is SceneTree and (root as SceneTree).current_scene != null:
+			node = (root as SceneTree).current_scene.find_child(_pascal(node_id), true, false)
+	if node == null:
+		return false
+	match prop:
+		"textContent", "innerText":
+			if "text" in node:
+				node.set("text", str(value))
+			else:
+				node.set_meta("webport_text", str(value))
+		"innerHTML":
+			if "text" in node:
+				node.set("text", str(value))
+			node.set_meta("webport_html", str(value))
+		"value":
+			if "value" in node:
+				node.set("value", value)
+			else:
+				node.set_meta("webport_value", value)
+		"checked":
+			if "button_pressed" in node:
+				node.set("button_pressed", bool(value))
+		"disabled":
+			if "disabled" in node:
+				node.set("disabled", bool(value))
+		"src":
+			node.set_meta("webport_src", str(value))
+		"className":
+			node.set_meta("webport_class", str(value))
+		_:
+			node.set_meta("webport_" + prop, value)
+	return true
+
+
+static func _pascal(value: String) -> String:
+	var out := ""
+	for part in value.split("_", false):
+		if part.length() > 0:
+			out += part.substr(0, 1).to_upper() + part.substr(1)
+	return out
+
+
 # ── числа и значения ────────────────────────────────────────────────────────
 
 ## Деление как в JS: 3/2 == 1.5. В GDScript int/int даёт int — это тихая ошибка при переносе.

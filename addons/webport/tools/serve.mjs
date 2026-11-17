@@ -37,6 +37,9 @@ const PAGE = `<!doctype html><html lang="ru"><head><meta charset="utf-8">
  .stat{display:inline-block;margin:0 12px 8px 0;font-size:13px}
  .bar{height:8px;background:#2a3033;border-radius:4px;overflow:hidden;margin-top:4px}
  .bar i{display:block;height:100%;background:linear-gradient(90deg,#6f8f4f,#c9a45e)}
+ .n{position:relative;box-sizing:border-box;font:12px/1.3 system-ui,sans-serif;color:#e8e2d4;margin:2px 0}
+ .n i{display:block;font:9px/1 ui-monospace,monospace;color:#9aa4ad;opacity:.75;font-style:normal;margin-bottom:2px}
+ button.n{color:inherit;cursor:default}
 </style></head><body>
 <header><h1>WebPort — проверка переноса в Redot</h1></header>
 <div class="wrap"><aside id="side"></aside><main id="main"></main></div>
@@ -48,9 +51,19 @@ document.getElementById('side').innerHTML = P.screens.map(s =>
 document.getElementById('main').innerHTML = P.html;
 document.querySelectorAll('[data-s]').forEach(el => el.onclick = async (e) => {
   e.preventDefault();
-  const r = await fetch('/data?s=' + el.dataset.s);
+  const r = await fetch('/data?s=' + encodeURIComponent(el.dataset.s));
   document.getElementById('main').innerHTML = await r.text();
+  bindPreview();
 });
+function bindPreview(){
+  document.querySelectorAll('[data-p]').forEach(el => el.onclick = async (e) => {
+    e.preventDefault();
+    const r = await fetch('/preview?s=' + encodeURIComponent(el.dataset.p));
+    document.getElementById('main').innerHTML = await r.text();
+    bindPreview();
+  });
+}
+bindPreview();
 </script></body></html>`;
 
 export function startServer({ project, port = 8123 }) {
@@ -62,6 +75,13 @@ export function startServer({ project, port = 8123 }) {
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const report = readJson(reportPath, { screens: [], modules: [], todo: [], summary: {} });
+
+    if (url.pathname === "/preview") {
+      const scene = url.searchParams.get("s") ?? "";
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(previewHtml(root, report, scene));
+      return;
+    }
 
     if (url.pathname === "/data") {
       const want = url.searchParams.get("s") ?? "";
@@ -147,10 +167,109 @@ function sceneHtml(root, report, sceneRel) {
   }).join("");
   const issues = (screen.todo ?? []).map((t) => `<div class="row"><span>${t.message}</span></div>`).join("")
     || '<div class="row ok">Замечаний нет.</div>';
-  return `<h2 style="font:600 15px Georgia;color:#e9c98a;margin:0">${screen.page} → ${screen.scene}</h2>
+  return `<p><a href="#" data-p="${decodeURIComponent(sceneRel)}">Предпросмотр сцены →</a></p>
+    <h2 style="font:600 15px Georgia;color:#e9c98a;margin:0">${screen.page} → ${screen.scene}</h2>
     <p style="color:#a9a294;font-size:13px">${paths.length} узлов, ${screen.cssRules} CSS-правил.</p>
     <h3 style="font:600 14px Georgia;color:#e9c98a">Структура сцены</h3>${items}
     <h3 style="font:600 14px Georgia;color:#e9c98a">Замечания по экрану</h3>${issues}`;
+}
+
+/**
+ * previewHtml — приблизительный предпросмотр перенесённой сцены.
+ *
+ * Полноценный Godot-рендер тут невозможен, поэтому строим дерево из .tscn
+ * (Panel/Control/Button/Label/контейнеры) и раскрашиваем его теми StyleBoxFlat,
+ * которые записал конвертер. Это ловит главные ошибки переноса: пропавшие узлы,
+ * неверные размеры, потерянные фоны и рамки — до открытия движка.
+ */
+function previewHtml(root, report, sceneRel) {
+  const text = readFileSync(join(root, sceneRel), "utf8");
+  const blocks = text.split(/\n(?=\[(?:node|sub_resource) )/);
+  const subResources = new Map();
+  const nodes = [];
+  for (const block of blocks) {
+    const sub = /^\[sub_resource type="([^"]+)" id="([^"]+)"\]/.exec(block);
+    if (sub) {
+      subResources.set(sub[2], block);
+      continue;
+    }
+    const m = /^\[node name="([^"]+)" type="([^"]+)"(?: parent="([^"]+)")?\]/.exec(block);
+    if (!m) continue;
+    const [, name, type, parent] = m;
+    const path = parent ? `${parent}/${name}` : name;
+    nodes.push({ name, type, path, body: block });
+  }
+
+  const styleOf = (body) => {
+    const ref = /SubResource\("([^"]+)"\)/.exec(body);
+    if (!ref) return "";
+    const sb = subResources.get(ref[1]) ?? "";
+    const bg = /bg_color = Color\(([^)]+)\)/.exec(sb);
+    const border = /border_color = Color\(([^)]+)\)/.exec(sb);
+    const radius = /corner_radius_top_left = ([\d.]+)/.exec(sb);
+    const style = [];
+    if (bg) {
+      const [r, g, b, a] = bg[1].split(",").map((v) => Number(v.trim()));
+      style.push(`background:rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${a})`);
+    }
+    if (border) {
+      const [r, g, b] = border[1].split(",").map((v) => Number(v.trim()));
+      style.push(`border:1px solid rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},.9)`);
+    }
+    if (radius) style.push(`border-radius:${Number(radius[1])}px`);
+    return style.join(";");
+  };
+
+  const isContainer = (type) => /(VBox|HBox|Grid)Container/.test(type);
+  const html = [];
+  const stack = [];
+  for (const node of nodes) {
+    const depth = node.path.split("/").length - 1;
+    const body = node.body;
+    const textProp = /^text = "(.+)"$/m.exec(body);
+    const color = /theme_override_colors\/font_color = Color\(([^)]+)\)/.exec(body);
+    const fontSize = /theme_override_font_sizes\/font_size = (\d+)/.exec(body);
+    const minSize = /custom_minimum_size = Vector2\(([\d.]+), ([\d.]+)\)/.exec(body);
+    const columns = /^columns = (\d+)$/m.exec(body);
+    const style = styleOf(body);
+    const label = node.path.replace(/^[^/]+\/?/, "").replace(/\//g, " › ") || node.name;
+
+    const css = [style];
+    if (minSize) css.push(`min-width:${Number(minSize[1])}px;min-height:${Number(minSize[2])}px`);
+    if (textProp) {
+      css.push("padding:4px 6px");
+      if (color) {
+        const [r, g, b] = color[1].split(",").map((v) => Number(v.trim()));
+        css.push(`color:rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`);
+      }
+      if (fontSize) css.push(`font-size:${fontSize[1]}px`);
+    }
+    if (isContainer(node.type)) {
+      css.push(node.type.startsWith("H") ? "display:flex;gap:4px;align-items:flex-start" : "display:flex;flex-direction:column;gap:4px");
+      if (columns) css.push(`display:grid;grid-template-columns:repeat(${columns[1]},1fr);gap:4px`);
+    }
+    if (!css.filter(Boolean).length) css.push("outline:1px dashed #47506b");
+
+    const tag = textProp ? (/Button/.test(node.type) ? "button" : "span") : "div";
+    const content = textProp ? escapeHtml(textProp[1]) : "";
+    html.push(
+      `<${tag} class="n" style="${css.filter(Boolean).join(";")}" title="${escapeHtml(node.type)} · ${escapeHtml(node.path)}">` +
+      `<i>${escapeHtml(node.name)}</i>${content}</${tag}>`,
+    );
+  }
+  const issues = (report.screens ?? []).find((s) => s.scene === sceneRel)?.todo ?? [];
+  return `<h2 style="font:600 15px Georgia;color:#e9c98a;margin:0">Предпросмотр сцены ${escapeHtml(sceneRel)}</h2>
+    <p style="color:#a9a294;font-size:13px">Это эвристический HTML-рендер дерева .tscn: цвета и рамки из StyleBoxFlat,
+    размеры из custom_minimum_size. Реальную раскладку контейнеров считает движок — здесь видно, что не потерялось.</p>
+    <div style="background:#101315;border:1px solid #262c2f;border-radius:8px;padding:14px;max-width:900px">
+      ${html.join("\n")}
+    </div>
+    <h3 style="font:600 14px Georgia;color:#e9c98a">Узлы, требующие ручной доработки</h3>
+    ${issues.length ? `<ul style="font-size:13px;color:#d8cfbb">${issues.map((t) => `<li>${escapeHtml(t.message)}</li>`).join("")}</ul>` : '<p class="ok" style="color:#9dc46f">Замечаний по сцене нет.</p>'}`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 function reportHtml(report) {
