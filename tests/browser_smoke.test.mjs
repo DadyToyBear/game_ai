@@ -170,6 +170,32 @@ test('browser DOM smoke: minimap click and drag move the world camera', async (t
   assert.deepEqual(errors, []);
 });
 
+test('browser DOM smoke: clicking a friendly settlement opens its council controls', async (t) => {
+  const { window, errors } = await launchGame();
+  t.after(() => window.happyDOM.abort());
+  const world = window.document.querySelector('#world');
+  Object.defineProperties(world, { clientWidth: { configurable: true, value: 400 }, clientHeight: { configurable: true, value: 300 } });
+  world.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300 });
+  world.setPointerCapture = () => {};
+
+  const mapWidth = 45 * 64, mapHeight = 30 * 64;
+  const scale = Math.min(400 / mapWidth, 300 / mapHeight) * 1.28;
+  const x = (9.5 * 64 - mapWidth * .49) * scale + 200;
+  const y = (16.5 * 64 - mapHeight * .49) * scale + 150;
+  const pointer = (type) => {
+    const event = new window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
+    Object.defineProperty(event, 'pointerId', { value: 3 });
+    world.dispatchEvent(event);
+  };
+  pointer('pointerdown');
+  pointer('pointerup');
+
+  assert.equal(window.document.querySelector('[data-tab="council"]').classList.contains('active'), true);
+  assert.match(window.document.querySelector('#settlementManager').textContent, /Замок Серых Долин/);
+  assert.match(window.document.querySelector('#toast').textContent, /Совет открыт/);
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: wheel zoom keeps its map anchor under the pointer', async (t) => {
   const { window, errors, canvasContexts } = await launchGame();
   t.after(() => window.happyDOM.abort());
