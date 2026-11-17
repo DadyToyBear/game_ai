@@ -8,7 +8,7 @@
 PORT=3100 node server.mjs
 ```
 
-Откройте `/game`. Основная документация — [`docs/GAME_PROTOTYPE.md`](docs/GAME_PROTOTYPE.md) и план этапов [`docs/NEXT_STAGES.md`](docs/NEXT_STAGES.md).
+Откройте `/game`. Основная документация — [`docs/GAME_PROTOTYPE.md`](docs/GAME_PROTOTYPE.md) и план этапов [`docs/NEXT_STAGES.md`](docs/NEXT_STAGES.md). Сенсорные сценарии игры и настройки мобильного проекта Godot описаны в [`docs/DEVICE_SUPPORT_RU.md`](docs/DEVICE_SUPPORT_RU.md).
 
 ## Перенос в Redot с WebPort
 

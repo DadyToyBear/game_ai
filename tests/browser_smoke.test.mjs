@@ -554,10 +554,12 @@ test('browser DOM smoke: tactical battle renders and resolves a player turn', as
   assert.ok(window.document.querySelectorAll('#battleModal .unit-strength').length >= 2, 'both armies display a current-strength meter');
   assert.equal(window.document.querySelector('#battleModal').dataset.battleMode, 'simulation');
   const touchBattlefield = window.document.querySelector('#battleModal .tactical-scroll');
+  assert.match(window.document.querySelector('#battleModal .tactical-scroll-hint').textContent, /сдвигай вбок/,
+    'the mobile battle screen explains how to inspect the full battlefield');
   assert.equal(touchBattlefield.getAttribute('role'), 'region', 'the battlefield is an independently scrollable touch region');
   assert.equal(touchBattlefield.querySelectorAll('[data-cell-x]').length, 45, 'all 45 battlefield cells remain interactive inside the scroll region');
   assert.match(window.document.querySelector('style').textContent,
-    /@media\(max-width:520px\)\{#battleModal \.tactical-scroll\{[^}]*overflow-x:auto/,
+    /@media\(max-width:520px\)\{[^}]*\}#battleModal \.tactical-scroll\{[^}]*overflow-x:auto/,
     'narrow phones can horizontally scroll the battlefield instead of shrinking cell targets');
   assert.match(window.document.querySelector('style').textContent, /\.tactical-scroll \.battle-cell\{min-height:44px/,
     'touch battlefield cells meet the 44-pixel target size');
