@@ -1,0 +1,9 @@
+{
+  "image": "archer_walk_row.png",
+  "frames": 8,
+  "cell_w": 146,
+  "cell_h": 256,
+  "source": "archer_walk.png",
+  "ref_height_px": 417,
+  "scale": 0.5771
+}

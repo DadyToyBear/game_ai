@@ -1,0 +1,9 @@
+{
+  "image": "axeman_walk_row.png",
+  "frames": 8,
+  "cell_w": 203,
+  "cell_h": 256,
+  "source": "axeman_walk.png",
+  "ref_height_px": 358,
+  "scale": 0.6722
+}

@@ -1,0 +1,9 @@
+{
+  "image": "cavalry_walk_row.png",
+  "frames": 12,
+  "cell_w": 228,
+  "cell_h": 256,
+  "source": "cavalry_walk.png",
+  "ref_height_px": 302,
+  "scale": 0.7968
+}

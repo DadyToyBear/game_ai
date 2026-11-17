@@ -1,0 +1,9 @@
+{
+  "image": "spearman_walk_row.png",
+  "frames": 8,
+  "cell_w": 125,
+  "cell_h": 256,
+  "source": "spearman_walk.png",
+  "ref_height_px": 488,
+  "scale": 0.4931
+}
