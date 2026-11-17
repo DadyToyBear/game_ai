@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createBattleRequest, resolveBattleRequest } from '../src/battle_contract.mjs';
+import { advanceBattle, createBattle, createScenarioTerrain, issueOrder, setBattlePaused } from '../src/battle_simulation.mjs';
 
 const battleRequest = () => createBattleRequest({
   battleId: 'test-crossing-19',
@@ -52,6 +53,40 @@ test('battle_result is a deterministic, serializable resolution from the shared 
   assert.deepEqual(Object.keys(first.casualties).sort(), ['border-spears', 'crown-swords']);
   assert.deepEqual(first.regiments.map((unit) => unit.id).sort(), ['border-spears', 'crown-swords']);
   assert.deepEqual(JSON.parse(JSON.stringify(first)), first);
+});
+
+test('manual and headless auto duels match exactly on the same seed and orders across all four scenarios', () => {
+  for (const scenarioId of ['river_crossing', 'forest_ambush', 'bridge_defense', 'fortress_siege']) {
+    const request = createBattleRequest({
+      battleId: `parity-${scenarioId}-73`,
+      seed: 73,
+      scenarioId,
+      map: { width: 9, height: 5, terrain: createScenarioTerrain(scenarioId) },
+      attacker: { regiments: [{
+        id: 'attacker', class: '03_sword_and_shield', count: 100, morale: 70,
+        position: { x: 1.25, y: 0.75 }, stats: { attack: 65, defense: 45, range: 1.2, speed: 3.2 },
+      }] },
+      defender: { regiments: [{
+        id: 'defender', class: '06_spearman_shield', count: 100, morale: 70,
+        position: { x: 7.75, y: 0.75 }, stats: { attack: 65, defense: 45, range: 1.2, speed: 3.2 },
+      }] },
+    });
+    let manual = createBattle(request);
+    manual = issueOrder(manual, 'attacker', { type: 'attack', targetId: 'defender' });
+    manual = issueOrder(manual, 'defender', { type: 'attack', targetId: 'attacker' });
+    manual = advanceBattle(setBattlePaused(manual, false), 9000);
+    const automatic = resolveBattleRequest(request);
+    assert.ok(manual.result, `${scenarioId} manual duel should resolve`);
+    assert.equal(automatic.status, 'resolved', `${scenarioId} headless duel should resolve`);
+    assert.equal(automatic.winner, manual.result.winner, `${scenarioId} winner stays aligned`);
+    assert.equal(automatic.durationTicks, manual.result.durationTicks, `${scenarioId} duration is identical`);
+    for (const unit of manual.regiments) {
+      const automaticUnit = automatic.regiments.find((candidate) => candidate.id === unit.id);
+      assert.ok(automaticUnit, `${scenarioId} result preserves regiment IDs`);
+      assert.equal(automaticUnit.count, unit.count, `${scenarioId} casualty delta for ${unit.id} is zero`);
+      assert.equal(automaticUnit.morale, unit.morale, `${scenarioId} morale matches for ${unit.id}`);
+    }
+  }
 });
 
 test('headless resolution reports its tick limit rather than inventing a winner', () => {
