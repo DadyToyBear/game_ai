@@ -166,7 +166,7 @@ test('browser DOM smoke: local settlement loyalty changes its daily production',
     const townCard = [...window.document.querySelectorAll('.settlement-card')]
       .find((card) => card.textContent.includes('Опытный город'));
     assert.ok(townCard, 'the controlled settlement is shown in the local management panel');
-    const expectedProductivity = loyalty < 20 ? 50 : loyalty < 50 ? 75 : 100;
+    const expectedProductivity = loyalty < 20 ? 50 : loyalty < 50 ? 75 : loyalty >= 80 ? 110 : 100;
     assert.match(townCard.textContent, new RegExp(`Выработка поселения: ${expectedProductivity}%`));
     const before = JSON.parse(window.localStorage.getItem('crown-banner-save-v2')).gold;
     window.document.querySelector('#endTurn').click();
@@ -176,9 +176,12 @@ test('browser DOM smoke: local settlement loyalty changes its daily production',
     return after - before;
   };
 
+  const honoredIncome = await dailyGoldAtLoyalty(90);
   const loyalIncome = await dailyGoldAtLoyalty(70);
   const middlingIncome = await dailyGoldAtLoyalty(35);
   const disloyalIncome = await dailyGoldAtLoyalty(10);
+  assert.ok(Math.abs((honoredIncome - loyalIncome) - 0.4) < 0.001,
+    'very high loyalty increases positive settlement income by 10%');
   assert.equal(loyalIncome - middlingIncome, 1,
     'positive settlement production is reduced by one quarter at 35% loyalty');
   assert.equal(middlingIncome - disloyalIncome, 1,
