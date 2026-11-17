@@ -311,6 +311,40 @@ test('browser DOM smoke: routed survivors leave the campaign roster and return a
   assert.deepEqual([...errors, ...resumed.errors], []);
 });
 
+test('browser DOM smoke: nearby friendly regiments arrive after a signalled travel delay', async (t) => {
+  const seedSession = await launchGame();
+  t.after(() => seedSession.window.happyDOM.abort());
+  seedSession.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seedSession.window.localStorage.getItem('crown-banner-save-v2'));
+  const reserve = save.units.find((unit) => !unit.enemy && unit.cls === '06_spearman_shield');
+  assert.ok(reserve);
+  reserve.x = 35.5 * 64;
+  reserve.y = 11.5 * 64;
+  for (const foe of save.units.filter((unit) => unit.enemy)) {
+    foe.count = 100;
+    foe.capacity = 100;
+  }
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  const sword = [...window.document.querySelectorAll('#armyRoster [data-roster]')]
+    .find((button) => button.closest('.roster-card')?.textContent.includes('Мечник'));
+  assert.ok(sword);
+  sword.click();
+  window.document.querySelector('#battleBtn').click();
+  const signal = window.document.querySelector('#battleModal [data-action="signal-reinforcements"]');
+  assert.ok(signal && !signal.disabled, 'a nearby uncommitted regiment can be signalled');
+  signal.click();
+  assert.match(window.document.querySelector('#battleModal .feed').textContent, /отправлены по сигнальному огню/);
+  assert.match(window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').textContent, /Подкрепления/);
+  for (let frame = 1; frame <= 48; frame += 1) window.__frameCallback(window.performance.now() + frame * 50);
+  assert.ok(Number(window.document.querySelector('#battleModal').dataset.tick) >= 30, `simulation advanced to tick ${window.document.querySelector('#battleModal').dataset.tick}`);
+  assert.match(window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').textContent, /Подкрепления прибыли/,
+    'the reinforcement arrives after simulation ticks elapse');
+  assert.match(window.document.querySelector('#battleModal .armycard').textContent, /Копейщик/,
+    'the reinforcement joins the live tactical roster');
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: slingers can be recruited and use the ranged command', async (t) => {
   const { window, errors } = await launchGame();
   t.after(() => window.happyDOM.abort());

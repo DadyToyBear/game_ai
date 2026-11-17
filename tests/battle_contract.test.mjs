@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createBattleRequest, resolveBattleRequest } from '../src/battle_contract.mjs';
-import { advanceBattle, createBattle, createScenarioTerrain, issueOrder, setBattlePaused } from '../src/battle_simulation.mjs';
+import { advanceBattle, createBattle, createScenarioTerrain, issueOrder, queueBattleReinforcements, setBattlePaused } from '../src/battle_simulation.mjs';
 
 const battleRequest = () => createBattleRequest({
   battleId: 'test-crossing-19',
@@ -87,6 +87,44 @@ test('manual and headless auto duels match exactly on the same seed and orders a
       assert.equal(automaticUnit.morale, unit.morale, `${scenarioId} morale matches for ${unit.id}`);
     }
   }
+});
+
+test('signalled reinforcements remain off-field until their travel tick, then join the deterministic battle', () => {
+  const initial = createBattle({
+    seed: 12,
+    attacker: { regiments: [{ id: 'front', class: 'infantry', count: 20, position: { x: 1, y: 1 }, stats: { attack: 0, speed: 0, range: 0.5 } }] },
+    defender: { regiments: [{ id: 'foe', class: 'infantry', count: 20, position: { x: 7, y: 3 }, stats: { attack: 0, speed: 0, range: 0.5 } }] },
+  });
+  const queued = queueBattleReinforcements(initial, [{
+    side: 'attacker', arrivalTick: 3,
+    regiment: { id: 'reserve', class: 'cavalry', count: 12, position: { x: 0.5, y: 2 }, stats: { attack: 50, speed: 3 } },
+  }]);
+  assert.equal(initial.regiments.some((unit) => unit.id === 'reserve'), false, 'queueing does not mutate or deploy into the source state');
+  let running = setBattlePaused(queued, false);
+  running = advanceBattle(running, 2);
+  assert.equal(running.regiments.some((unit) => unit.id === 'reserve'), false, 'the reserve stays off-field before its ETA');
+  running = advanceBattle(running, 1);
+  const arrived = running.regiments.find((unit) => unit.id === 'reserve');
+  assert.ok(arrived, 'the reserve joins on its scheduled tick');
+  assert.equal(arrived.state, 'moving', 'an arriving unit immediately receives an attack march');
+  assert.equal(running.reinforcement_queue.length, 0);
+  assert.ok(running.orders.some((order) => order.regimentId === 'reserve' && order.reinforcement));
+  assert.throws(() => queueBattleReinforcements(running, [{ side: 'attacker', arrivalTick: 4, regiment: { id: 'front', count: 1 } }]), /Duplicate regiment id/);
+});
+
+test('headless contract accepts and resolves delayed reinforcements', () => {
+  const request = createBattleRequest({
+    ...battleRequest(),
+    reinforcements: [{ side: 'attacker', arrivalTick: 45, regiment: {
+      id: 'reserve', class: '03_sword_and_shield', count: 36,
+      position: { x: 0.5, y: 1.5 }, stats: { attack: 70, defense: 40, range: 1.2, speed: 3.2 },
+    } }],
+  });
+  assert.equal(request.reinforcements[0].arrivalTick, 45);
+  const result = resolveBattleRequest(request);
+  assert.equal(result.status, 'resolved');
+  assert.ok(result.regiments.some((unit) => unit.id === 'reserve'));
+  assert.ok(result.durationTicks >= 45, 'the battle cannot finish before a scheduled friendly reserve can arrive');
 });
 
 test('headless resolution reports its tick limit rather than inventing a winner', () => {

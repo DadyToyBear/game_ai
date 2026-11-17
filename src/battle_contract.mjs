@@ -27,8 +27,15 @@ export function createBattleRequest(input) {
   const attacker = clone(input.attacker);
   const defender = clone(input.defender);
   const map = clone(input.map ?? DEFAULT_MAP);
+  const reinforcements = input.reinforcements == null ? undefined : clone(input.reinforcements);
+  if (reinforcements !== undefined && (!Array.isArray(reinforcements) || reinforcements.some((item) =>
+    !item || !['attacker', 'defender'].includes(item.side) || !Number.isInteger(Number(item.arrivalTick)) ||
+    Number(item.arrivalTick) < 1 || !item.regiment || typeof item.regiment.id !== 'string' || !item.regiment.id.trim()))) {
+    throw new TypeError('reinforcements must contain valid delayed regiments');
+  }
   const battleId = String(input.battleId ?? `${scenarioId}-${Math.floor(seed) >>> 0}-${[...attacker.regiments, ...defender.regiments].map((unit) => unit.id).join('-')}`);
   const request = { schemaVersion: 1, battleId, seed: Math.floor(seed) >>> 0, scenarioId, map, attacker, defender };
+  if (reinforcements !== undefined) request.reinforcements = reinforcements;
   // Reuse the simulation's normalization and duplicate-ID checks at the boundary.
   createBattle(request);
   return request;

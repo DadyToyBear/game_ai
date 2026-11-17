@@ -100,6 +100,16 @@ export function createBattle(input = {}) {
     ids.add(regiment.id);
   }
 
+  const reinforcementQueue = (Array.isArray(input.reinforcements) ? input.reinforcements : []).map((item, index) => ({
+    arrivalTick: Math.max(1, Math.floor(finite(item.arrivalTick, 1))),
+    side: item.side === 'defender' ? 'defender' : 'attacker',
+    regiment: normalizedRegiment(item.regiment ?? {}, item.side === 'defender' ? 'defender' : 'attacker', index, map),
+  })).sort((a, b) => a.arrivalTick - b.arrivalTick || a.regiment.id.localeCompare(b.regiment.id));
+  for (const item of reinforcementQueue) {
+    if (ids.has(item.regiment.id)) throw new Error(`Duplicate regiment id: ${item.regiment.id}`);
+    ids.add(item.regiment.id);
+  }
+
   const seed = Math.floor(finite(input.seed, 1)) >>> 0;
   return {
     seed,
@@ -111,8 +121,30 @@ export function createBattle(input = {}) {
     map,
     regiments,
     orders: [],
+    reinforcement_queue: reinforcementQueue,
     result: null,
   };
+}
+
+export function queueBattleReinforcements(state, reinforcements) {
+  if (!state || typeof state !== 'object') throw new TypeError('Battle state is required');
+  if (state.result) throw new Error('Cannot signal reinforcements after the battle has ended');
+  if (!Array.isArray(reinforcements) || reinforcements.length === 0) throw new TypeError('Reinforcements must be a non-empty array');
+  const next = clone(state);
+  const ids = new Set([...next.regiments.map((unit) => unit.id), ...next.reinforcement_queue.map((item) => item.regiment.id)]);
+  const additions = reinforcements.map((item, index) => {
+    const side = item?.side === 'defender' ? 'defender' : item?.side === 'attacker' ? 'attacker' : null;
+    if (!side || !Number.isInteger(Number(item.arrivalTick)) || Number(item.arrivalTick) <= next.tick) {
+      throw new TypeError('Each reinforcement needs a side and a future integer arrivalTick');
+    }
+    const regiment = normalizedRegiment(item.regiment ?? {}, side, next.regiments.length + index, next.map);
+    if (ids.has(regiment.id)) throw new Error(`Duplicate regiment id: ${regiment.id}`);
+    ids.add(regiment.id);
+    return { arrivalTick: Math.floor(Number(item.arrivalTick)), side, regiment };
+  });
+  next.reinforcement_queue.push(...additions);
+  next.reinforcement_queue.sort((a, b) => a.arrivalTick - b.arrivalTick || a.regiment.id.localeCompare(b.regiment.id));
+  return next;
 }
 
 export function setBattlePaused(state, paused) {
@@ -310,8 +342,29 @@ function moveToward(state, unit, target, maxDistance) {
   if (canOccupy(state, unit, x, y)) unit.position = { x, y };
 }
 
+function deployDueReinforcements(state) {
+  const due = state.reinforcement_queue.filter((item) => item.arrivalTick <= state.tick);
+  state.reinforcement_queue = state.reinforcement_queue.filter((item) => item.arrivalTick > state.tick);
+  for (const item of due) {
+    const unit = item.regiment;
+    state.regiments.push(unit);
+    const target = state.regiments.filter((candidate) => candidate.side !== unit.side && candidate.count > 0 &&
+      !['routed', 'withdrawn'].includes(candidate.state)).sort((a, b) => distance(unit.position, a.position) -
+      distance(unit.position, b.position) || a.id.localeCompare(b.id))[0];
+    if (target) {
+      unit.order = { type: 'attack', targetId: target.id };
+      unit.target_id = target.id;
+      unit.facing = Math.atan2(target.position.y - unit.position.y, target.position.x - unit.position.x);
+      unit.state = 'moving';
+      state.orders.push({ tick: state.tick, regimentId: unit.id, ...unit.order, reinforcement: true });
+    }
+  }
+  state.regiments.sort((a, b) => a.id.localeCompare(b.id));
+}
+
 function finishResult(state) {
   const liveSides = new Set(state.regiments.filter((unit) => unit.count > 0 && !['routed', 'withdrawn'].includes(unit.state)).map((unit) => unit.side));
+  for (const item of state.reinforcement_queue) if (item.regiment.count > 0) liveSides.add(item.side);
   if (liveSides.size > 1) return;
   const winner = liveSides.size === 1 ? [...liveSides][0] : 'draw';
   state.result = {
@@ -330,6 +383,7 @@ export function stepBattle(state) {
   if (state.paused || state.result) return state;
   const next = clone(state);
   next.tick += 1;
+  deployDueReinforcements(next);
   const units = next.regiments;
   const intents = [];
 
