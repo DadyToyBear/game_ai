@@ -212,6 +212,54 @@ test('browser DOM smoke: loyalty forecast matches the next daily update', async 
   assert.deepEqual(errors, []);
 });
 
+test('browser DOM smoke: a settlement musters local spearmen and enforces its four-day levy cooldown', async (t) => {
+  const seed = await launchGame();
+  seed.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seed.window.localStorage.getItem('crown-banner-save-v2'));
+  seed.window.happyDOM.abort();
+  save.gold = 100;
+  save.food = 80;
+  save.population = 80;
+  save.structures.push({ id: 'muster-town', type: 'town', name: 'Город гарнизона', x: 21, y: 12,
+    level: 2, owner: 'player', faction: save.faction });
+  save.settlementDevelopment = { ...(save.settlementDevelopment || {}),
+    'muster-town': { loyalty: 55, specialty: 'none', governor: null, levyReadyTurn: 0 } };
+
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  let card = [...window.document.querySelectorAll('.settlement-card')]
+    .find((entry) => entry.textContent.includes('Город гарнизона'));
+  const muster = () => card.querySelector('[data-settlement-muster="muster-town"]');
+  assert.equal(muster().disabled, false);
+  const before = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  muster().click();
+  const after = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.equal(after.gold, before.gold - 16);
+  assert.equal(after.food, before.food - 8);
+  assert.equal(after.population, before.population - 5);
+  assert.equal(after.settlementDevelopment['muster-town'].levyReadyTurn, after.campaignTurn + 4);
+  const militia = after.units.find(unit => unit.cls === '06_spearman_shield' && unit.count === 8
+    && Math.abs(unit.x / 64 - 21) <= 4 && Math.abs(unit.y / 64 - 12) <= 4);
+  assert.ok(militia, 'eight spearmen appear near the settlement');
+  assert.equal(militia.capacity, 12);
+  assert.equal(militia.morale, 58);
+
+  card = [...window.document.querySelectorAll('.settlement-card')]
+    .find((entry) => entry.textContent.includes('Город гарнизона'));
+  assert.equal(muster().disabled, true, 'the local muster cannot be repeated immediately');
+  for (const remaining of [3, 2, 1]) {
+    window.document.querySelector('#endTurn').click();
+    card = [...window.document.querySelectorAll('.settlement-card')]
+      .find((entry) => entry.textContent.includes('Город гарнизона'));
+    assert.match(muster().textContent, new RegExp(`Доступно через ${remaining} дн`));
+  }
+  window.document.querySelector('#endTurn').click();
+  card = [...window.document.querySelectorAll('.settlement-card')]
+    .find((entry) => entry.textContent.includes('Город гарнизона'));
+  assert.equal(muster().disabled, false, 'the levy becomes available after four campaign days');
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: settlement relief spends resources, raises loyalty, and observes its three-day cooldown', async (t) => {
   const seed = await launchGame();
   seed.window.document.querySelector('#saveBtn').click();
