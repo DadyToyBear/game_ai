@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Корона и знамя — сгенерированные ассеты</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#191612; --panel:#221e18; --line:#3a332a; --ink:#e9e0cf;
+           --dim:#a89881; --gold:#c8a35c; --ochre:#b07a3f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:15px/1.5 Georgia, "Times New Roman", serif; }
+  header { padding:38px 24px 22px; border-bottom:1px solid var(--line);
+           background:radial-gradient(ellipse at 50% -40%, #3a3126 0%, var(--bg) 70%); }
+  h1 { margin:0 0 6px; font-size:28px; letter-spacing:.4px; }
+  h2 { margin:0 0 4px; font-size:20px; color:var(--gold); }
+  .sub, .dim { color:var(--dim); font-size:13.5px; margin:0 0 14px; }
+  nav { padding:12px 24px; border-bottom:1px solid var(--line); display:flex;
+        flex-wrap:wrap; gap:6px 16px; font-size:13.5px; }
+  nav a { color:var(--dim); text-decoration:none; border-bottom:1px dotted transparent; }
+  nav a:hover { color:var(--gold); border-bottom-color:var(--gold); }
+  section { padding:26px 24px 8px; }
+  .grid { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-start; }
+  .card { margin:0; background:var(--panel); border:1px solid var(--line);
+           border-radius:6px; padding:10px; width:190px; }
+  .card img { display:block; width:100%; height:auto; border-radius:3px;
+               background:#2b2620; }
+  .card figcaption { margin-top:7px; font-size:12px; color:var(--dim); }
+  .card figcaption b { display:block; color:var(--ink); font-size:12.5px;
+                        font-family:ui-monospace, "SF Mono", Consolas, monospace; }
+  .card .note { margin-top:4px; font-size:11.5px; color:var(--ochre); }
+  .card.wide { width:420px; }
+  .card.row { width:100%; max-width:720px; }
+  .card.icon { width:96px; padding:7px; }
+  .card.icon figcaption b { font-size:11px; }
+  .card.tile { width:150px; }
+  .card.anim { width:190px; }
+  .card.anim img { background:#332e26; }
+  footer { padding:26px 24px 46px; color:var(--dim); font-size:12.5px;
+            border-top:1px solid var(--line); margin-top:20px; }
+  code { font-family:ui-monospace, Consolas, monospace; color:var(--gold); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Корона и знамя — сгенерированные ассеты</h1>
+  <p class="sub">Сгенерировано вместо nano banana 2 по файлу промтов · 17.11.2026
+     · всего 30.8 МБ в 48 файлах</p>
+  <p class="sub">Стиль-якорь: painterly medieval fantasy, приглушённая земляная палитра
+     (железо-коричневый, охра, мох, шифер), тёплый пергамент, чистый силуэт, без надписей.</p>
+</header>
+<nav>
+  <a href="#units">Войска</a>
+  <a href="#ui">Интерфейс боя</a>
+  <a href="#icons">Иконки</a>
+  <a href="#bgs">Фоны поля боя</a>
+  <a href="#tiles">Тайлы</a>
+  <a href="#walk">Спрайты ходьбы</a>
+  <a href="#events">Иллюстрации</a>
+</nav>
+
+<section id="units"><h2>Войска — карточки-портреты</h2><p class="sub">512×512, прозрачный фон, постановка на общую «землю».</p><div class="grid"><figure class="card "><img src="units/cards/archer_card.png" alt="archer_card" loading="lazy"><figcaption><b>archer_card</b><span>512×512 · 199 KB</span></figcaption></figure><figure class="card "><img src="units/cards/axeman_card.png" alt="axeman_card" loading="lazy"><figcaption><b>axeman_card</b><span>512×512 · 165 KB</span></figcaption></figure><figure class="card "><img src="units/cards/cavalry_card.png" alt="cavalry_card" loading="lazy"><figcaption><b>cavalry_card</b><span>512×512 · 269 KB</span></figcaption></figure><figure class="card "><img src="units/cards/gaul_card.png" alt="gaul_card" loading="lazy"><figcaption><b>gaul_card</b><span>512×512 · 246 KB</span></figcaption></figure><figure class="card "><img src="units/cards/roman_card.png" alt="roman_card" loading="lazy"><figcaption><b>roman_card</b><span>512×512 · 201 KB</span></figcaption></figure><figure class="card "><img src="units/cards/slavic_card.png" alt="slavic_card" loading="lazy"><figcaption><b>slavic_card</b><span>512×512 · 222 KB</span></figcaption></figure><figure class="card "><img src="units/cards/slinger_card.png" alt="slinger_card" loading="lazy"><figcaption><b>slinger_card</b><span>512×512 · 189 KB</span></figcaption></figure><figure class="card "><img src="units/cards/spearman_card.png" alt="spearman_card" loading="lazy"><figcaption><b>spearman_card</b><span>512×512 · 171 KB</span></figcaption></figure><figure class="card "><img src="units/cards/sword_card.png" alt="sword_card" loading="lazy"><figcaption><b>sword_card</b><span>512×512 · 229 KB</span></figcaption></figure><figure class="card "><img src="units/cards/viking_card.png" alt="viking_card" loading="lazy"><figcaption><b>viking_card</b><span>512×512 · 220 KB</span></figcaption></figure></div></section>
+
+<section id="ui"><h2>Интерфейс боя</h2><p class="sub">Пергамент, тёмное дерево, золото. Панель, кнопки, плашка раунда, полоса численности.</p><div class="grid"><figure class="card wide"><img src="ui/battle/battle_panel.png" alt="battle_panel" loading="lazy"><figcaption><b>battle_panel</b><span>1408×768 · 2766 KB</span></figcaption></figure><figure class="card wide"><img src="ui/battle/battle_buttons.png" alt="battle_buttons" loading="lazy"><figcaption><b>battle_buttons</b><span>1408×768 · 1897 KB</span></figcaption></figure><figure class="card wide"><img src="ui/battle/round_banner.png" alt="round_banner" loading="lazy"><figcaption><b>round_banner</b><span>1315×704 · 1601 KB</span></figcaption></figure><figure class="card wide"><img src="ui/battle/hp_bar.png" alt="hp_bar" loading="lazy"><figcaption><b>hp_bar</b><span>1240×408 · 807 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/buttons/button.png" alt="button" loading="lazy"><figcaption><b>button</b><span>206×358 · 152 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/buttons/button2.png" alt="button2" loading="lazy"><figcaption><b>button2</b><span>197×345 · 144 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/buttons/button3.png" alt="button3" loading="lazy"><figcaption><b>button3</b><span>217×345 · 153 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/buttons/button4.png" alt="button4" loading="lazy"><figcaption><b>button4</b><span>229×346 · 159 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/buttons/button5.png" alt="button5" loading="lazy"><figcaption><b>button5</b><span>205×344 · 147 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/buttons/button6.png" alt="button6" loading="lazy"><figcaption><b>button6</b><span>264×344 · 178 KB</span></figcaption></figure></div></section>
+
+<section id="icons"><h2>Иконки приказов, построений и состояний</h2><p class="sub">Сверху — исходные листы от генератора, ниже — нарезанные PNG 128×128 с прозрачным фоном, готовые для движка.</p><div class="grid"><figure class="card row"><img src="ui/battle/command_icons_row.png" loading="lazy"><figcaption><b>command_icons_row.png</b><span>768×128 · 169 KB</span></figcaption></figure><figure class="card row"><img src="ui/battle/formation_icons_row.png" loading="lazy"><figcaption><b>formation_icons_row.png</b><span>384×128 · 88 KB</span></figcaption></figure><figure class="card row"><img src="ui/battle/status_icons_row.png" loading="lazy"><figcaption><b>status_icons_row.png</b><span>512×128 · 119 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/attack.png" alt="attack" loading="lazy"><figcaption><b>attack</b><span>128×128 · 29 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/charge.png" alt="charge" loading="lazy"><figcaption><b>charge</b><span>128×128 · 29 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/charge2.png" alt="charge2" loading="lazy"><figcaption><b>charge2</b><span>128×128 · 29 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/defend.png" alt="defend" loading="lazy"><figcaption><b>defend</b><span>128×128 · 30 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/fatigue.png" alt="fatigue" loading="lazy"><figcaption><b>fatigue</b><span>128×128 · 28 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/hold.png" alt="hold" loading="lazy"><figcaption><b>hold</b><span>128×128 · 28 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/hold2.png" alt="hold2" loading="lazy"><figcaption><b>hold2</b><span>128×128 · 28 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/line.png" alt="line" loading="lazy"><figcaption><b>line</b><span>128×128 · 27 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/march.png" alt="march" loading="lazy"><figcaption><b>march</b><span>128×128 · 31 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/morale.png" alt="morale" loading="lazy"><figcaption><b>morale</b><span>128×128 · 31 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/retreat.png" alt="retreat" loading="lazy"><figcaption><b>retreat</b><span>128×128 · 28 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/shieldwall.png" alt="shieldwall" loading="lazy"><figcaption><b>shieldwall</b><span>128×128 · 29 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/sickness.png" alt="sickness" loading="lazy"><figcaption><b>sickness</b><span>128×128 · 31 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/volley.png" alt="volley" loading="lazy"><figcaption><b>volley</b><span>128×128 · 27 KB</span></figcaption></figure><figure class="card icon"><img src="ui/battle/icons/wedge.png" alt="wedge" loading="lazy"><figcaption><b>wedge</b><span>128×128 · 32 KB</span></figcaption></figure></div></section>
+
+<section id="bgs"><h2>Фоны поля боя</h2><p class="sub">Живописные фоны без войск; на них движок кладёт отряды.</p><div class="grid"><figure class="card wide"><img src="battle_scenarios/battle_bg_bridge.png" alt="battle_bg_bridge" loading="lazy"><figcaption><b>battle_bg_bridge</b><span>1376×768 · 2450 KB</span></figcaption></figure><figure class="card wide"><img src="battle_scenarios/battle_bg_forest.png" alt="battle_bg_forest" loading="lazy"><figcaption><b>battle_bg_forest</b><span>1348×740 · 1861 KB</span></figcaption></figure><figure class="card wide"><img src="battle_scenarios/battle_bg_fortress.png" alt="battle_bg_fortress" loading="lazy"><figcaption><b>battle_bg_fortress</b><span>1376×768 · 2821 KB</span></figcaption></figure><figure class="card wide"><img src="battle_scenarios/battle_bg_river.png" alt="battle_bg_river" loading="lazy"><figcaption><b>battle_bg_river</b><span>1376×768 · 2768 KB</span></figcaption></figure><figure class="card wide"><img src="battle_scenarios/battle_tiles.png" alt="battle_tiles" loading="lazy"><figcaption><b>battle_tiles</b><span>1408×768 · 2725 KB</span></figcaption></figure></div></section>
+
+<section id="tiles"><h2>Тайлы поля боя</h2><p class="sub">8 тайлов 128×128: трава, дорога, река, брод, лес, стена, ворота, мост.</p><div class="grid"><figure class="card tile"><img src="battle_scenarios/tiles/bridge.png" alt="bridge" loading="lazy"><figcaption><b>bridge</b><span>128×128 · 38 KB</span></figcaption></figure><figure class="card tile"><img src="battle_scenarios/tiles/ford.png" alt="ford" loading="lazy"><figcaption><b>ford</b><span>128×128 · 38 KB</span></figcaption></figure><figure class="card tile"><img src="battle_scenarios/tiles/forest.png" alt="forest" loading="lazy"><figcaption><b>forest</b><span>128×128 · 40 KB</span></figcaption></figure><figure class="card tile"><img src="battle_scenarios/tiles/gate.png" alt="gate" loading="lazy"><figcaption><b>gate</b><span>128×128 · 31 KB</span></figcaption></figure><figure class="card tile"><img src="battle_scenarios/tiles/grass.png" alt="grass" loading="lazy"><figcaption><b>grass</b><span>128×128 · 34 KB</span></figcaption></figure><figure class="card tile"><img src="battle_scenarios/tiles/river.png" alt="river" loading="lazy"><figcaption><b>river</b><span>128×128 · 34 KB</span></figcaption></figure><figure class="card tile"><img src="battle_scenarios/tiles/road.png" alt="road" loading="lazy"><figcaption><b>road</b><span>128×128 · 35 KB</span></figcaption></figure><figure class="card tile"><img src="battle_scenarios/tiles/wall.png" alt="wall" loading="lazy"><figcaption><b>wall</b><span>128×128 · 31 KB</span></figcaption></figure></div></section>
+
+<section id="walk"><h2>Спрайты ходьбы</h2><p class="sub">GIF — предпросмотр цикла; в игре используются листы <code>*_walk_row.png</code> с паспортом <code>.json</code>.</p><div class="grid"><figure class="card anim"><img src="../preview_walk/01_spearman.gif" alt="ходьба" loading="lazy"><figcaption><b>01_spearman</b><span>98×200 · 103 KB</span></figcaption></figure><figure class="card anim"><img src="../preview_walk/02_axeman.gif" alt="ходьба" loading="lazy"><figcaption><b>02_axeman</b><span>159×200 · 125 KB</span></figcaption></figure><figure class="card anim"><img src="../preview_walk/03_sword_and_shield.gif" alt="ходьба" loading="lazy"><figcaption><b>03_sword_and_shield</b><span>114×200 · 127 KB</span></figcaption></figure><figure class="card anim"><img src="../preview_walk/04_slinger.gif" alt="ходьба" loading="lazy"><figcaption><b>04_slinger</b><span>92×200 · 106 KB</span></figcaption></figure><figure class="card anim"><img src="../preview_walk/05_cavalry.gif" alt="ходьба" loading="lazy"><figcaption><b>05_cavalry</b><span>178×200 · 230 KB</span></figcaption></figure></div></section>
+
+<section id="events"><h2>Иллюстрации для новостей и Кодекса</h2><p class="sub">Смотр войск, стена после штурма, обложка Кодекса.</p><div class="grid"><figure class="card wide"><img src="events/codex_cover.png" alt="codex_cover" loading="lazy"><figcaption><b>codex_cover</b><span>896×1200 · 2823 KB</span></figcaption></figure><figure class="card wide"><img src="events/muster_scene.png" alt="muster_scene" loading="lazy"><figcaption><b>muster_scene</b><span>1408×768 · 2940 KB</span></figcaption></figure><figure class="card wide"><img src="events/siege_aftermath.png" alt="siege_aftermath" loading="lazy"><figcaption><b>siege_aftermath</b><span>1408×768 · 2896 KB</span></figcaption></figure></div></section>
+
+<footer>
+  Табличка «что где лежит» и описания скриптов — в <code>assets/README_assets.md</code>.
+  Всё собрано скриптами из <code>tools/</code>; исходные широкие генерации лежат рядом
+  в <code>_raw/</code> и в git не попадают.
+</footer>
+</body>
+</html>
