@@ -338,6 +338,37 @@ test('browser DOM smoke: clicking a friendly settlement opens its council contro
   assert.deepEqual(errors, []);
 });
 
+test('browser DOM smoke: court news is archived, marked read, and can be reopened after loading', async (t) => {
+  const first = await launchGame();
+  const { window } = first;
+  t.after(() => window.happyDOM.abort());
+  window.document.querySelector('[data-tab="council"]').click();
+  const hire = window.document.querySelector('[data-agent-hire="scout"]');
+  assert.ok(hire, 'the council offers an affordable scout to trigger a court notice');
+  hire.click();
+  assert.match(window.document.querySelector('#newsSplash').textContent, /Новый служитель короны/);
+  const saved = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.equal(saved.newsArchive.at(-1).title, 'Новый служитель короны');
+  assert.equal(window.document.querySelector('#newsUnreadBadge').hidden, false);
+  window.happyDOM.abort();
+
+  const resumed = await launchGame(saved);
+  t.after(() => resumed.window.happyDOM.abort());
+  const badge = resumed.window.document.querySelector('#newsUnreadBadge');
+  assert.equal(badge.hidden, false, 'unread news remains marked after restoring the campaign');
+  const closePopup = resumed.window.document.querySelector('#newsSplash [data-news-close]');
+  if (closePopup) closePopup.click();
+  resumed.window.document.querySelector('[data-tab="chronicle"]').click();
+  assert.equal(badge.hidden, true, 'opening the chronicle marks archived news as read');
+  const openArchived = resumed.window.document.querySelector('[data-open-archive]');
+  assert.ok(openArchived, 'the archived story has a reopen control');
+  openArchived.click();
+  const popup = resumed.window.document.querySelector('#newsSplash');
+  assert.match(popup.textContent, /Новый служитель короны/);
+  assert.match(popup.textContent, /ПОВТОРНОЕ ПРОСМОТРЕНИЕ ВЕСТИ/);
+  assert.deepEqual(first.errors.concat(resumed.errors), []);
+});
+
 test('browser DOM smoke: touch drag pans the map and two-finger pinch zooms', async (t) => {
   const { window, errors, canvasContexts } = await launchGame();
   t.after(() => window.happyDOM.abort());
