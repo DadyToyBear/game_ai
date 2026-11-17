@@ -591,7 +591,8 @@ header,.bottom{background:linear-gradient(180deg,#302a20f5,#171a18fa);box-shadow
   canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);pointer.down=true;pointer.moved=false;pointer.start=pointer.now=pos(e)});
   canvas.addEventListener('pointermove',e=>{if(!pointer.down)return;pointer.now=pos(e);if(Math.hypot(pointer.now.x-pointer.start.x,pointer.now.y-pointer.start.y)>8)pointer.moved=true});
   canvas.addEventListener('pointerup',e=>{pointer.down=false;const p=pos(e);if(pointer.moved)selectRect(pointer.start,p);else selectAt(p)});canvas.addEventListener('contextmenu',e=>e.preventDefault());
-  canvas.addEventListener('wheel',e=>{e.preventDefault();state.camera.zoom=Math.max(.65,Math.min(2,state.camera.zoom*(e.deltaY<0?1.1:.91)))},{passive:false});
+  function zoomAtCanvasPoint(point,factor){const anchor=toWorld(point.x,point.y),zoom=Math.max(.65,Math.min(2,state.camera.zoom*factor));if(zoom===state.camera.zoom)return;state.camera.zoom=zoom;const z=scale();state.camera.x=anchor.x-(point.x-canvas.clientWidth/2)/z;state.camera.y=anchor.y-(point.y-canvas.clientHeight/2)/z}
+  canvas.addEventListener('wheel',e=>{e.preventDefault();zoomAtCanvasPoint(pos(e),e.deltaY<0?1.1:.91)},{passive:false});
   let minimapPointerId=null;
   function panToMinimapPointer(e){const r=minimap.getBoundingClientRect();if(!r.width||!r.height)return;const x=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),y=Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));state.camera.x=x*MAP_W;state.camera.y=y*MAP_H}
   minimap.addEventListener('pointerdown',e=>{e.preventDefault();minimapPointerId=e.pointerId??0;if(e.pointerId!=null&&minimap.setPointerCapture)minimap.setPointerCapture(e.pointerId);panToMinimapPointer(e)});

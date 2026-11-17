@@ -170,6 +170,32 @@ test('browser DOM smoke: minimap click and drag move the world camera', async (t
   assert.deepEqual(errors, []);
 });
 
+test('browser DOM smoke: wheel zoom keeps its map anchor under the pointer', async (t) => {
+  const { window, errors, canvasContexts } = await launchGame();
+  t.after(() => window.happyDOM.abort());
+  const world = window.document.querySelector('#world');
+  const minimap = window.document.querySelector('#minimap');
+  Object.defineProperties(minimap, { clientWidth: { configurable: true, value: 100 }, clientHeight: { configurable: true, value: 80 } });
+  Object.defineProperties(world, { clientWidth: { configurable: true, value: 400 }, clientHeight: { configurable: true, value: 300 } });
+  world.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300 });
+  minimap.getBoundingClientRect = () => ({ left: 100, top: 200, width: 100, height: 80, right: 200, bottom: 280 });
+  const viewportRects = [];
+  canvasContexts.get('minimap').strokeRect = (...rect) => viewportRects.push(rect);
+  const renderFrame = () => window.__frameCallback(window.performance.now() + 16);
+  renderFrame();
+  const before = viewportRects.at(-1);
+
+  const wheel = new window.MouseEvent('wheel', { bubbles: true, cancelable: true, clientX: 350, clientY: 150 });
+  Object.defineProperties(wheel, { deltaY: { value: -100 }, clientX: { value: 350 }, clientY: { value: 150 } });
+  world.dispatchEvent(wheel);
+  assert.equal(wheel.defaultPrevented, true);
+  renderFrame();
+  const after = viewportRects.at(-1);
+  assert.ok(after[2] < before[2], 'zooming in narrows the visible map region');
+  assert.ok(after[0] + after[2] / 2 > before[0] + before[2] / 2, `zooming near the right edge moves the camera anchor right: before=${before}, after=${after}`);
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: default provisions sustain two full years without a settlement crisis', async (t) => {
   const { window, errors } = await launchGame();
   t.after(() => window.happyDOM.abort());
