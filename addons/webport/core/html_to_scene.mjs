@@ -268,6 +268,7 @@ function convertElement(el, ctx, htmlPath) {
     node.props.push(["stretch", true]);
     const viewportChildren = [];
     const canvasBackground = el.attrs?.["data-background-image"];
+    const canvasOverlay = el.attrs?.["data-overlay-image"];
     if (canvasBackground) {
       viewportChildren.push({
         name: "StaticCanvasBackground",
@@ -286,6 +287,29 @@ function convertElement(el, ctx, htmlPath) {
         children: [],
         htmlPath: `${htmlNodePath}/CanvasViewport/StaticCanvasBackground`,
         htmlTag: "texture_rect",
+      });
+    }
+    if (canvasOverlay) {
+      viewportChildren.push({
+        name: "StaticCanvasOverlay",
+        type: "TextureRect",
+        props: [
+          ["__texture_src", canvasOverlay],
+          ["anchors_preset", 15],
+          ["anchor_right", 1.0],
+          ["anchor_bottom", 1.0],
+          ["grow_horizontal", 2],
+          ["grow_vertical", 2],
+          ["mouse_filter", 2],
+          ["expand_mode", 0],
+          ["stretch_mode", 6],
+        ],
+        children: [],
+        htmlPath: `${htmlNodePath}/CanvasViewport/StaticCanvasOverlay`,
+        htmlTag: "texture_rect",
+      });
+      ctx.todo.push({
+        message: `<canvas${id ? ` #${id}` : ""}>: data-overlay-image статичен; динамическое выделение/смена владения не синхронизируется`,
       });
     }
     node.children.push({

@@ -195,8 +195,8 @@ check("теги → узлы с путями", () => {
 });
 
 check("canvas получает SubViewport, статическую текстуру и TODO о JS-рисовании", () => {
-  const res = convertHtml('<html><body><canvas id="world" width="640" height="360" data-background-image="/assets/worldmap/overland_map.png"></canvas></body></html>', {
-    assetExists: (path) => path === "assets/worldmap/overland_map.png",
+  const res = convertHtml('<html><body><canvas id="world" width="640" height="360" data-background-image="/assets/worldmap/overland_map.png" data-overlay-image="/assets/worldmap/territory_overlay.svg"></canvas></body></html>', {
+    assetExists: (path) => ["assets/worldmap/overland_map.png", "assets/worldmap/territory_overlay.svg"].includes(path),
   });
   includes(res.scene, '[node name="World" type="SubViewportContainer"');
   includes(res.scene, 'stretch = true');
@@ -204,6 +204,8 @@ check("canvas получает SubViewport, статическую тексту�
   includes(res.scene, "size = Vector2i(640, 360)");
   includes(res.scene, 'path="res://assets/worldmap/overland_map.png"');
   includes(res.scene, '[node name="StaticCanvasBackground" type="TextureRect" parent="GameRoot/World/CanvasViewport"]');
+  includes(res.scene, 'path="res://assets/worldmap/territory_overlay.svg"');
+  includes(res.scene, '[node name="StaticCanvasOverlay" type="TextureRect" parent="GameRoot/World/CanvasViewport"]');
   eq(res.todo.some((item) => item.message.includes("#world") && item.message.includes("JavaScript-рисование")), true);
 });
 
@@ -307,6 +309,24 @@ check("статические id связаны, динамические id о�
     }
   }
   if (missing.length === 0) throw new Error("ожидались HTML-узлы, создаваемые игровым JavaScript");
+});
+
+check("сборщик генерирует SVG-территории и подключает их к SubViewport canvas", () => {
+  const source = join(tmp, "territory-fixture");
+  const out = join(tmp, "territory-fixture-out");
+  mkdirSync(join(source, "data"), { recursive: true });
+  writeFileSync(join(source, "game.html"), `<html><body><canvas id="world" width="100" height="50" data-overlay-image="/assets/worldmap/territory_overlay.svg" data-overlay-source="/data/worldmap.json" data-territory-colors='{"faction_a":"#4f8550"}'></canvas></body></html>`);
+  writeFileSync(join(source, "data/worldmap.json"), JSON.stringify({ art_size: [100, 50], territories: { faction_a: [[0, 0], [1, 0], [1, 1]] } }));
+  const { report } = buildProject({ source, out, only: "game.html", noCopyAssets: true, log: () => {} });
+  const overlay = readFileSync(join(out, "assets/worldmap/territory_overlay.svg"), "utf8");
+  const scene = readFileSync(join(out, "scenes/Game.tscn"), "utf8");
+  const reportText = readFileSync(join(out, "webport/REPORT.md"), "utf8");
+  includes(overlay, 'points="0.00,0.00 100.00,0.00 100.00,50.00"');
+  includes(overlay, 'fill="#4f8550"');
+  includes(scene, '[node name="StaticCanvasOverlay" type="TextureRect"');
+  includes(scene, 'path="res://assets/worldmap/territory_overlay.svg"');
+  includes(reportText, "Сгенерированные статические ресурсы");
+  eq(report.generatedAssets.length, 1, "число созданных картографических слоёв");
 });
 
 check("--only фильтрует HTML-экраны, но сохраняет модули, данные и ассеты", () => {

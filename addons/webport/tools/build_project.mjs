@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 
 import { extractScripts } from "../core/html_scripts.mjs";
 import { convertHtml } from "../core/html_to_scene.mjs";
+import { parseHtml, findAll } from "../core/html_dom.mjs";
 import { convertJs } from "../core/js_to_gd.mjs";
 import { buildBindings } from "../core/dom_bindings.mjs";
 import { lintGdscript, hasLinter } from "../core/gd_lint.mjs";
@@ -91,6 +92,16 @@ function safeName(path) {
   return String(path).replace(/[^A-Za-z0-9_.-]/g, "_");
 }
 
+function renderTerritoryOverlay(worldData, colors) {
+  const [width, height] = worldData.art_size ?? [1264, 848];
+  const polygons = Object.entries(worldData.territories ?? {}).map(([faction, points]) => {
+    const color = /^#[0-9a-f]{6}$/i.test(colors[faction] ?? "") ? colors[faction] : "#e6cf91";
+    const coordinates = points.map(([x, y]) => `${(Number(x) * width).toFixed(2)},${(Number(y) * height).toFixed(2)}`).join(" ");
+    return `<polygon points="${coordinates}" fill="${color}" fill-opacity="0.07" stroke="${color}" stroke-opacity="0.58" stroke-width="3" stroke-dasharray="14 10" vector-effect="non-scaling-stroke"/>`;
+  }).join("\n  ");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  ${polygons}\n</svg>\n`;
+}
+
 /** Имя узла из URL страницы: viewer/game.html → Game. */
 function screenName(pagePath) {
   const base = basename(pagePath, extname(pagePath));
@@ -120,6 +131,7 @@ export function buildProject(options = {}) {
     screens: [],
     modules: [],
     data: [],
+    generatedAssets: [],
     assets: { copied: 0, skipped: 0, missing: 0, bytes: 0 },
     todo: [],
     warnings: [],
@@ -140,7 +152,8 @@ export function buildProject(options = {}) {
   walk(sourceRoot, (f) => files.push(f));
   const rel = (f) => relative(sourceRoot, f).split("\\").join("/");
   const relSet = new Set(files.map((f) => rel(f)));
-  const assetExists = (p) => relSet.has(p) || existsSync(join(sourceRoot, p));
+  const generatedAssetPaths = new Set();
+  const assetExists = (p) => generatedAssetPaths.has(p) || relSet.has(p) || existsSync(join(sourceRoot, p));
 
   const htmlPages = files.filter((f) => extname(f) === ".html" && !/[\\/]addons[\\/]/.test(f));
   const jsModules = files.filter((f) => [".js", ".mjs"].includes(extname(f)) && !/[\\/]addons[\\/]/.test(f));
@@ -155,6 +168,34 @@ export function buildProject(options = {}) {
     if (opts.only && !pageRel.includes(opts.only)) continue;
     const html = readFileSync(page, "utf8");
     const sceneName = screenName(pageRel);
+    const parsedPage = parseHtml(html);
+    for (const canvasElement of findAll(parsedPage, (element) => element.tag === "canvas" && element.attrs?.["data-overlay-source"] && element.attrs?.["data-overlay-image"])) {
+      const sourceRel = String(canvasElement.attrs["data-overlay-source"]).replace(/^\/+/, "");
+      const imageRel = String(canvasElement.attrs["data-overlay-image"]).replace(/^\/+/, "");
+      if ([sourceRel, imageRel].some((p) => !p || p.split("/").includes(".."))) {
+        report.warnings.push({ message: `${pageRel}: небезопасный путь data-overlay-source/data-overlay-image — SVG-слой не собран` });
+        continue;
+      }
+      if (generatedAssetPaths.has(imageRel)) continue;
+      const sourceFile = resolve(sourceRoot, sourceRel);
+      if (!existsSync(sourceFile)) {
+        report.warnings.push({ message: `${pageRel}: отсутствуют данные слоя карты ${sourceRel}` });
+        continue;
+      }
+      try {
+        const worldData = JSON.parse(readFileSync(sourceFile, "utf8"));
+        if (!worldData.art_size || !worldData.territories || typeof worldData.territories !== "object") {
+          throw new Error("ожидались art_size и territories");
+        }
+        const colors = JSON.parse(canvasElement.attrs["data-territory-colors"] ?? "{}");
+        const svg = renderTerritoryOverlay(worldData, colors);
+        writeOut(outRoot, imageRel, svg);
+        generatedAssetPaths.add(imageRel);
+        report.generatedAssets.push({ source: sourceRel, target: imageRel, kind: "static territory overlay (SVG)" });
+      } catch (error) {
+        report.warnings.push({ message: `${pageRel}: не удалось собрать SVG-слой ${imageRel}: ${error.message}` });
+      }
+    }
     const scripts = extractScripts(html, {
       assetExists,
       concat: true,
@@ -445,6 +486,12 @@ export function renderReport(report) {
   lines.push(`| Из них требуют ручной работы | ${s.manual} |`);
   lines.push(`| Ошибок линтера GDScript | ${s.lintErrors} |`);
   lines.push("");
+
+  if (report.generatedAssets?.length) {
+    lines.push("## Сгенерированные статические ресурсы", "");
+    for (const asset of report.generatedAssets) lines.push(`- \`${asset.target}\` — ${asset.kind} из \`${asset.source}\`.`);
+    lines.push("");
+  }
 
   lines.push("## Экраны", "");
   lines.push("| Страница | Сцена | Узлов | CSS-правил | Замечаний |", "|---|---|---|---|---|");
