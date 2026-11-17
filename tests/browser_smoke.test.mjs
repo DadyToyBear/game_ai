@@ -331,17 +331,61 @@ test('browser DOM smoke: nearby friendly regiments arrive after a signalled trav
   assert.ok(sword);
   sword.click();
   window.document.querySelector('#battleBtn').click();
+  const signalBeforeChoice = window.document.querySelector('#battleModal [data-action="signal-reinforcements"]');
+  assert.ok(signalBeforeChoice && signalBeforeChoice.disabled, 'a reinforcement must be chosen before dispatch');
+  const goldDisplay = [...window.document.querySelectorAll('#resourceBar .res')]
+    .find((item) => item.title === 'Золото')?.querySelector('b');
+  assert.ok(goldDisplay);
+  const goldBefore = Number(goldDisplay.textContent);
+  const costText = window.document.querySelector('#battleModal .reinforcement-option small').textContent;
+  const dispatchCost = Number(costText.match(/(\d+) зол\./)?.[1]);
+  assert.ok(dispatchCost > 0, 'each candidate displays its dispatch cost');
+  window.document.querySelector('#battleModal [data-reinforcement-id]').click();
   const signal = window.document.querySelector('#battleModal [data-action="signal-reinforcements"]');
-  assert.ok(signal && !signal.disabled, 'a nearby uncommitted regiment can be signalled');
+  assert.ok(signal && !signal.disabled, 'selecting a nearby regiment enables dispatch');
+  assert.match(signal.textContent, new RegExp(`Послать · ${dispatchCost} зол\\.`));
   signal.click();
+  const goldAfter = Number([...window.document.querySelectorAll('#resourceBar .res')]
+    .find((item) => item.title === 'Золото')?.querySelector('b')?.textContent);
+  assert.equal(goldBefore - goldAfter, dispatchCost, 'the quoted dispatch cost is paid exactly once');
   assert.match(window.document.querySelector('#battleModal .feed').textContent, /отправлены по сигнальному огню/);
   assert.match(window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').textContent, /Подкрепления/);
   for (let frame = 1; frame <= 48; frame += 1) window.__frameCallback(window.performance.now() + frame * 50);
   assert.ok(Number(window.document.querySelector('#battleModal').dataset.tick) >= 30, `simulation advanced to tick ${window.document.querySelector('#battleModal').dataset.tick}`);
-  assert.match(window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').textContent, /Подкрепления прибыли/,
+  assert.match(window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').textContent, /Прибыли/,
     'the reinforcement arrives after simulation ticks elapse');
   assert.match(window.document.querySelector('#battleModal .armycard').textContent, /Копейщик/,
     'the reinforcement joins the live tactical roster');
+  assert.deepEqual(errors, []);
+});
+
+test('browser DOM smoke: a retreat before the reserve ETA refunds its signal cost', async (t) => {
+  const seedSession = await launchGame();
+  t.after(() => seedSession.window.happyDOM.abort());
+  seedSession.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seedSession.window.localStorage.getItem('crown-banner-save-v2'));
+  const reserve = save.units.find((unit) => !unit.enemy && unit.cls === '06_spearman_shield');
+  assert.ok(reserve);
+  reserve.x = 35.5 * 64;
+  reserve.y = 11.5 * 64;
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  const sword = [...window.document.querySelectorAll('#armyRoster [data-roster]')]
+    .find((button) => button.closest('.roster-card')?.textContent.includes('Мечник'));
+  sword.click();
+  window.document.querySelector('#battleBtn').click();
+  const gold = () => Number([...window.document.querySelectorAll('#resourceBar .res')]
+    .find((item) => item.title === 'Золото')?.querySelector('b')?.textContent);
+  const before = gold();
+  const itemCost = Number(window.document.querySelector('#battleModal .reinforcement-option small').textContent.match(/(\d+) зол\./)?.[1]);
+  window.document.querySelector('#battleModal [data-reinforcement-id]').click();
+  window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').click();
+  assert.equal(before - gold(), itemCost, 'the signal charges the listed amount');
+  window.document.querySelector('#battleModal #battleExit').click();
+  assert.equal(gold(), before, 'a reserve that never deployed is refunded on early retreat');
+  const saved = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.ok(saved.units.some((unit) => unit.cls === reserve.cls && unit.count === reserve.count),
+    'the undeparted regiment remains in the campaign roster');
   assert.deepEqual(errors, []);
 });
 
