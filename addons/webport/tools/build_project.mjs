@@ -419,11 +419,12 @@ export function buildProject(options = {}) {
   // 7. project.godot и главная сцена
   const mainScene = pickMainScene(report.screens, opts.mainScene);
   const existingProject = join(outRoot, "project.godot");
-  const autoloads = collectAutoloads(outRoot);
+  const autoloads = ["WebportLinks=res://addons/webport/runtime/webport_links.gd", ...collectAutoloads(outRoot)];
+  validateAutoloadScripts(autoloads, outRoot);
   const projectText = renderProjectGodot({
     name: opts.name,
     mainScene: mainScene?.scene,
-    autoloads: ["WebportLinks=res://addons/webport/runtime/webport_links.gd", ...autoloads],
+    autoloads,
   });
   writeFileSync(existingProject, projectText);
 
@@ -489,6 +490,26 @@ function collectDynamicIds(source) {
   while ((match = innerHtmlTarget.exec(source))) ids.add(match[2] ?? match[4]);
   return ids;
 }
+export function validateAutoloadScripts(autoloads, projectRoot) {
+  const root = resolve(projectRoot);
+  for (const entry of autoloads) {
+    const separator = entry.indexOf("=");
+    const alias = separator >= 0 ? entry.slice(0, separator).trim() : entry.trim();
+    const scriptPath = separator >= 0 ? entry.slice(separator + 1).trim() : `res://webport/${alias}.gd`;
+    if (!scriptPath.startsWith("res://")) {
+      throw new Error(`autoload ${alias} должен использовать путь res://: ${scriptPath}`);
+    }
+    const target = resolve(root, scriptPath.slice("res://".length));
+    const fromRoot = relative(root, target);
+    if (fromRoot === ".." || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
+      throw new Error(`autoload ${alias} выходит за пределы проекта: ${scriptPath}`);
+    }
+    if (!existsSync(target)) {
+      throw new Error(`autoload ${alias} указывает на отсутствующий скрипт ${scriptPath}`);
+    }
+  }
+}
+
 function collectAutoloads(outRoot) {
   const hooks = join(outRoot, "webport", "autoloads.txt");
   if (!existsSync(hooks)) return [];

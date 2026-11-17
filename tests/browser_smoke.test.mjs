@@ -188,6 +188,50 @@ test('browser DOM smoke: local settlement loyalty changes its daily production',
     'positive settlement production is halved below 20% loyalty');
 });
 
+test('browser DOM smoke: settlement relief spends resources, raises loyalty, and observes its three-day cooldown', async (t) => {
+  const seed = await launchGame();
+  seed.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seed.window.localStorage.getItem('crown-banner-save-v2'));
+  seed.window.happyDOM.abort();
+  save.structures.push({ id: 'aid-town', type: 'town', name: 'Город у брода', x: 21, y: 12,
+    level: 2, owner: 'player', faction: save.faction });
+  save.settlementDevelopment = { ...(save.settlementDevelopment || {}),
+    'aid-town': { loyalty: 35, specialty: 'none', governor: null, aidReadyTurn: 0 } };
+
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  const card = [...window.document.querySelectorAll('.settlement-card')]
+    .find((entry) => entry.textContent.includes('Город у брода'));
+  assert.ok(card, 'the settlement is listed in local management');
+  const aid = card.querySelector('[data-settlement-aid="aid-town"]');
+  assert.equal(aid.disabled, false);
+  const before = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  aid.click();
+  const after = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.equal(after.food, before.food - 12);
+  assert.equal(after.gold, before.gold - 5);
+  assert.equal(after.settlementDevelopment['aid-town'].loyalty, 43);
+  assert.equal(after.settlementDevelopment['aid-town'].aidReadyTurn, after.campaignTurn + 3);
+
+  let currentCard = [...window.document.querySelectorAll('.settlement-card')]
+    .find((entry) => entry.textContent.includes('Город у брода'));
+  assert.equal(currentCard.querySelector('[data-settlement-aid]').disabled, true,
+    'a second relief action cannot be issued immediately');
+  for (const remaining of [2, 1]) {
+    window.document.querySelector('#endTurn').click();
+    currentCard = [...window.document.querySelectorAll('.settlement-card')]
+      .find((entry) => entry.textContent.includes('Город у брода'));
+    assert.match(currentCard.querySelector('[data-settlement-aid]').textContent,
+      new RegExp(`Доступно через ${remaining} дн`));
+  }
+  window.document.querySelector('#endTurn').click();
+  currentCard = [...window.document.querySelectorAll('.settlement-card')]
+    .find((entry) => entry.textContent.includes('Город у брода'));
+  assert.equal(currentCard.querySelector('[data-settlement-aid]').disabled, false,
+    'the action becomes available after three full campaign days');
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: campaign loads, tabs work, and a daily turn is saved', async (t) => {
   const { window, errors } = await launchGame();
   t.after(() => window.happyDOM.abort());

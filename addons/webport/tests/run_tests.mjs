@@ -12,7 +12,7 @@ import { parseHtml, summarize, collectIds } from "../core/html_dom.mjs";
 import { convertHtml, parseCss } from "../core/html_to_scene.mjs";
 import { lintGdscript, hasLinter } from "../core/gd_lint.mjs";
 import { extractScripts } from "../core/html_scripts.mjs";
-import { buildProject } from "../tools/build_project.mjs";
+import { buildProject, validateAutoloadScripts } from "../tools/build_project.mjs";
 import { writeFileSync, mkdirSync, mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -309,6 +309,21 @@ check("статические id связаны, динамические id о�
     }
   }
   if (missing.length === 0) throw new Error("ожидались HTML-узлы, создаваемые игровым JavaScript");
+});
+
+check("перед генерацией project.godot проверяются пути всех Autoload-скриптов", () => {
+  const project = join(tmp, "autoload-validation");
+  const runtime = join(project, "addons/webport/runtime/webport_links.gd");
+  mkdirSync(join(project, "addons/webport/runtime"), { recursive: true });
+  writeFileSync(runtime, "extends Node\n");
+  validateAutoloadScripts(["WebportLinks=res://addons/webport/runtime/webport_links.gd"], project);
+  let message = "";
+  try {
+    validateAutoloadScripts(["Broken=res://webport/Broken.gd"], project);
+  } catch (error) {
+    message = error.message;
+  }
+  includes(message, "autoload Broken указывает на отсутствующий скрипт res://webport/Broken.gd");
 });
 
 check("сборщик генерирует SVG-ориентиры и нативный клик по ним в SubViewport", () => {
