@@ -421,3 +421,27 @@ export function advanceBattle(state, ticks = 1) {
 export function runBattle(state, maxTicks = BATTLE_TICK_HZ * 60) {
   return advanceBattle(state, maxTicks);
 }
+
+export function resolveHeadlessBattle(state, maxTicks = BATTLE_TICK_HZ * 60 * 10) {
+  if (!state || typeof state !== 'object') throw new TypeError('Battle state is required');
+  const limit = Math.max(1, Math.floor(finite(maxTicks, BATTLE_TICK_HZ * 60 * 10)));
+  let current = clone(state);
+  current.paused = false;
+  for (let tick = 0; tick < limit && !current.result; tick += 1) {
+    for (const unit of current.regiments) {
+      if (unit.count <= 0 || ['routed', 'withdrawn'].includes(unit.state)) continue;
+      if (unit.order?.type === 'retreat' || unit.order?.type === 'move' || unit.order?.type === 'hold' && !unit.order.targetId) continue;
+      const existingTarget = current.regiments.find((candidate) => candidate.id === unit.order?.targetId &&
+        candidate.side !== unit.side && candidate.count > 0 && !['routed', 'withdrawn'].includes(candidate.state));
+      if ((unit.order?.type === 'attack' || unit.order?.type === 'hold') && existingTarget) continue;
+      const target = current.regiments.filter((candidate) => candidate.side !== unit.side && candidate.count > 0 &&
+        !['routed', 'withdrawn'].includes(candidate.state)).sort((a, b) =>
+        Math.hypot(a.position.x - unit.position.x, a.position.y - unit.position.y) -
+        Math.hypot(b.position.x - unit.position.x, b.position.y - unit.position.y) || a.id.localeCompare(b.id))[0];
+      if (target) current = issueOrder(current, unit.id, { type: 'attack', targetId: target.id });
+    }
+    current.paused = false;
+    current = stepBattle(current);
+  }
+  return current;
+}

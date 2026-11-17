@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import test from 'node:test';
 import { Window } from 'happy-dom';
 import * as BattleSimulation from '../src/battle_simulation.mjs';
+import * as BattleContract from '../src/battle_contract.mjs';
 
 const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('../viewer/game.html', import.meta.url), 'utf8');
@@ -35,6 +36,7 @@ async function launchGame(saveData) {
   window.addEventListener('unhandledrejection', (event) => errors.push(event.reason));
   window.HTMLCanvasElement.prototype.getContext = makeCanvasContext;
   window.BattleSimulation = BattleSimulation;
+  window.BattleContract = BattleContract;
   window.requestAnimationFrame = (callback) => { window.__frameCallback = callback; return 1; };
   window.confirm = () => true;
   window.fetch = async (request) => {
@@ -236,6 +238,28 @@ test('browser DOM smoke: a long tactical battle resolves and saves its campaign 
     before.units.map(({ cls, count, enemy }) => `${cls}:${enemy}:${count}`),
     'battle losses or routed enemies are written back to the campaign save',
   );
+  assert.deepEqual(errors, []);
+});
+
+test('browser DOM smoke: headless autobattle uses the JSON contract and applies its result to the campaign', async (t) => {
+  const { window, errors } = await launchGame();
+  t.after(() => window.happyDOM.abort());
+  window.Math.random = () => 0.5;
+  const archer = [...window.document.querySelectorAll('#armyRoster [data-roster]')]
+    .find((button) => button.closest('.roster-card')?.textContent.includes('Лучник'))
+    || window.document.querySelector('#armyRoster [data-roster]');
+  assert.ok(archer);
+  archer.click();
+  window.document.querySelector('#battleBtn').click();
+  const autobattle = window.document.querySelector('#battleModal [data-action="autobattle"]');
+  assert.ok(autobattle && !autobattle.disabled, 'autobattle is available while both armies have active regiments');
+  autobattle.click();
+  assert.equal(window.document.querySelector('#battleOutcome').classList.contains('show'), true,
+    'headless simulation returns a campaign battle outcome');
+  assert.equal(window.document.querySelector('#battleOverlay').classList.contains('show'), false);
+  assert.match(window.document.querySelector('#battleOutcome').textContent, /Потери короны:/);
+  const saved = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.ok(saved.units.some((unit) => !unit.enemy && unit.count >= 0), 'headless casualties are persisted to the campaign');
   assert.deepEqual(errors, []);
 });
 
