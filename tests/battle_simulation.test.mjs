@@ -6,6 +6,7 @@ import {
   BATTLE_TICK_HZ,
   createBattle,
   issueOrder,
+  previewBattleAttack,
   setBattlePaused,
   setBattleSpeed,
 } from '../src/battle_simulation.mjs';
@@ -54,6 +55,41 @@ test('battle outcome and casualties are repeatable for the same seed and orders'
   assert.ok(first.result.durationSeconds > 0);
   assert.deepEqual(Object.keys(first.result.casualties).sort(), ['crown-vanguard', 'frontier-guard']);
   assert.ok(Object.values(first.result.casualties).every((loss) => loss >= 0 && loss <= 8));
+});
+
+test('attack preview matches expected damage and ranged hold orders fire without advancing', () => {
+  const battle = createBattle({
+    seed: 9,
+    map: { width: 7, height: 3 },
+    attacker: { regiments: [{
+      id: 'archers', class: 'archer', count: 100, position: { x: 1, y: 1 },
+      morale: 100, stats: { attack: 100, defense: 20, range: 3, speed: 3 },
+    }] },
+    defender: { regiments: [{
+      id: 'target', class: 'infantry', count: 100, position: { x: 2.5, y: 1 },
+      stats: { attack: 30, defense: 30, range: 1, speed: 2 },
+    }] },
+  });
+  const preview = previewBattleAttack(battle, 'archers', 'target');
+  assert.equal(preview.inRange, true);
+  assert.equal(preview.distance, 1.5);
+  assert.ok(preview.expectedDamage > 0);
+
+  const outOfRange = createBattle({
+    attacker: { regiments: [{ id: 'archers', count: 10, position: { x: 1, y: 1 }, stats: { range: 1 } }] },
+    defender: { regiments: [{ id: 'target', count: 10, position: { x: 4, y: 1 } }] },
+  });
+  assert.equal(previewBattleAttack(outOfRange, 'archers', 'target').inRange, false);
+  assert.equal(previewBattleAttack(outOfRange, 'archers', 'target').expectedDamage, 0);
+
+  const ordered = issueOrder(battle, 'archers', { type: 'hold', targetId: 'target' });
+  const initialPosition = ordered.regiments.find((unit) => unit.id === 'archers').position;
+  const fired = advanceBattle(setBattlePaused(ordered, false), 5);
+  assert.deepEqual(fired.regiments.find((unit) => unit.id === 'archers').position, initialPosition,
+    'hold-fire orders do not move the regiment toward a target');
+  assert.equal(fired.regiments.find((unit) => unit.id === 'archers').state, 'holding');
+  assert.ok(fired.regiments.find((unit) => unit.id === 'target').count < 100,
+    'a held ranged regiment fires while its target remains in range');
 });
 
 test('pause freezes state and resuming continues from the same tick', () => {

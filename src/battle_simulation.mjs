@@ -155,12 +155,25 @@ export function issueOrder(state, regimentId, order) {
     if (order.flank) normalizedOrder.flank = true;
     regiment.target_id = target.id;
     regiment.facing = Math.atan2(target.position.y - regiment.position.y, target.position.x - regiment.position.x);
+  } else if (order.type === 'hold') {
+    normalizedOrder = { type: 'hold' };
+    if (order.targetId != null) {
+      const target = next.regiments.find((unit) => unit.id === String(order.targetId));
+      if (!target || target.side === regiment.side || target.count <= 0 || ['routed', 'withdrawn'].includes(target.state)) {
+        throw new Error(`Invalid hold target: ${order.targetId}`);
+      }
+      normalizedOrder.targetId = target.id;
+      regiment.target_id = target.id;
+      regiment.facing = Math.atan2(target.position.y - regiment.position.y, target.position.x - regiment.position.x);
+    } else {
+      regiment.target_id = null;
+    }
   } else {
     normalizedOrder = { type: order.type };
     regiment.target_id = null;
   }
   regiment.order = normalizedOrder;
-  regiment.state = order.type === 'hold' ? 'ready' : order.type === 'retreat' ? 'retreating' : 'moving';
+  regiment.state = order.type === 'hold' ? 'holding' : order.type === 'retreat' ? 'retreating' : 'moving';
   next.orders.push({ tick: next.tick, regimentId: regiment.id, ...normalizedOrder });
   return next;
 }
@@ -226,6 +239,31 @@ function hasFrontRankSupport(state, attacker, target) {
     const across = Math.abs(ax * dy - ay * dx) / attackDistance;
     return along > 0.15 && along < attackDistance - 0.15 && across <= 0.55;
   });
+}
+
+function expectedAttackDamage(state, unit, target, variation = 1, consumeCharge = false) {
+  const moraleFactor = 0.5 + unit.morale / 200;
+  const targetTerrain = terrainAt(state, target.position.x, target.position.y);
+  const attackerTerrain = terrainAt(state, unit.position.x, unit.position.y);
+  const rankCover = hasFrontRankSupport(state, unit, target) ? 0.88 : 1;
+  const defenseFactor = 1 / (1 + target.stats.defense / 100 + terrainDefense(targetTerrain)) * formationDamageTaken(target) * rankCover;
+  const rangedCover = attackerTerrain === 'woods' && unit.stats.range > 1.5 ? 1.08 : 1;
+  const formationFactor = 1 + formationAttack(unit);
+  const roleCounter = unit.class === '06_spearman_shield' && target.class === '08_cavalryman' ? 1.25 : 1;
+  const flankBonus = flankMultiplier(unit, target);
+  const chargeBonus = unit.stats.charge > 0 && !unit.has_charged ? unit.count * Math.min(0.05, unit.stats.charge * 0.02) : 0;
+  if (consumeCharge && unit.stats.charge > 0) unit.has_charged = true;
+  return unit.count * unit.stats.attack * DAMAGE_SCALE * moraleFactor * defenseFactor * rangedCover * formationFactor * roleCounter * flankBonus * variation + chargeBonus;
+}
+
+export function previewBattleAttack(state, attackerId, targetId) {
+  const attacker = state?.regiments?.find((unit) => unit.id === String(attackerId));
+  const target = state?.regiments?.find((unit) => unit.id === String(targetId));
+  if (!attacker || !target || attacker.side === target.side || attacker.count <= 0 || target.count <= 0 ||
+      ['routed', 'withdrawn'].includes(attacker.state) || ['routed', 'withdrawn'].includes(target.state)) return null;
+  const distance = Math.hypot(attacker.position.x - target.position.x, attacker.position.y - target.position.y);
+  const inRange = distance <= attacker.stats.range;
+  return { distance, range: attacker.stats.range, inRange, expectedDamage: inRange ? expectedAttackDamage(state, attacker, target) : 0 };
 }
 
 function cellKey(x, y) {
@@ -298,7 +336,8 @@ export function stepBattle(state) {
   for (const unit of units) {
     if (unit.count <= 0 || ['routed', 'withdrawn'].includes(unit.state)) continue;
     const order = unit.order;
-    if (!order || order.type === 'hold') continue;
+    if (!order || (order.type === 'hold' && !order.targetId)) continue;
+    const holdingPosition = order.type === 'hold';
     if (order.type === 'retreat') {
       const exit = { x: unit.side === 'attacker' ? 0 : next.map.width - 1, y: unit.position.y };
       moveToward(next, unit, exit, unit.stats.speed * BATTLE_FIXED_DT);
@@ -311,7 +350,7 @@ export function stepBattle(state) {
       unit.state = distance(unit.position, order) < 0.08 ? 'ready' : 'moving';
       continue;
     }
-    if (order.type !== 'attack') continue;
+    if (order.type !== 'attack' && !holdingPosition) continue;
     const target = units.find((candidate) => candidate.id === order.targetId && candidate.count > 0 && !['routed', 'withdrawn'].includes(candidate.state));
     if (!target) {
       unit.order = null;
@@ -327,24 +366,17 @@ export function stepBattle(state) {
       continue;
     }
     if (currentDistance > range) {
-      moveToward(next, unit, order.flank ? flankWaypoint(next, unit, target) : target.position, unit.stats.speed * BATTLE_FIXED_DT);
-      unit.state = 'moving';
+      if (!holdingPosition) {
+        moveToward(next, unit, order.flank ? flankWaypoint(next, unit, target) : target.position, unit.stats.speed * BATTLE_FIXED_DT);
+        unit.state = 'moving';
+      } else {
+        unit.state = 'holding';
+      }
       continue;
     }
-    unit.state = 'engaged';
-    const moraleFactor = 0.5 + unit.morale / 200;
-    const targetTerrain = terrainAt(next, target.position.x, target.position.y);
-    const attackerTerrain = terrainAt(next, unit.position.x, unit.position.y);
-    const rankCover = hasFrontRankSupport(next, unit, target) ? 0.88 : 1;
-    const defenseFactor = 1 / (1 + target.stats.defense / 100 + terrainDefense(targetTerrain)) * formationDamageTaken(target) * rankCover;
-    const rangedCover = attackerTerrain === 'woods' && unit.stats.range > 1.5 ? 1.08 : 1;
-    const formationFactor = 1 + formationAttack(unit);
-    const roleCounter = unit.class === '06_spearman_shield' && target.class === '08_cavalryman' ? 1.25 : 1;
-    const flankBonus = flankMultiplier(unit, target);
-    const chargeBonus = unit.stats.charge > 0 && !unit.has_charged ? unit.count * Math.min(0.05, unit.stats.charge * 0.02) : 0;
-    unit.has_charged = unit.has_charged || unit.stats.charge > 0;
+    unit.state = holdingPosition ? 'holding' : 'engaged';
     const variation = 0.9 + nextRandom(next) * 0.2;
-    const damage = unit.count * unit.stats.attack * DAMAGE_SCALE * moraleFactor * defenseFactor * rangedCover * formationFactor * roleCounter * flankBonus * variation + chargeBonus;
+    const damage = expectedAttackDamage(next, unit, target, variation, true);
     intents.push({ targetId: target.id, damage });
   }
 

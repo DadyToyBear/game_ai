@@ -166,6 +166,15 @@ test('browser DOM smoke: tactical battle renders and resolves a player turn', as
   assert.ok(window.document.querySelector('#battleModal .unit-morale'), 'simulation roster exposes live morale');
   assert.match(window.document.querySelector('#battleModal .unit-morale').textContent, /резерв|передний ряд/,
     'each regiment is labeled as front rank or reserve');
+  assert.ok(window.document.querySelector('#battleTacticalPreview'), 'selected regiment gets a range and damage preview panel');
+  assert.ok(window.document.querySelector('#battleModal .sim-in-range'), 'selected regiment range is highlighted on the battlefield');
+  const holdPosition = window.document.querySelector('#battleModal [data-action="hold-position"]');
+  assert.equal(holdPosition.disabled, false, 'selected archers can receive a hold-position order');
+  holdPosition.click();
+  assert.match(window.document.querySelector('#battleModal .unit-state').textContent, /Держит позицию/);
+  assert.match(window.document.querySelector('#battleModal .battle-command-help').textContent, /Щёлкни по врагу/);
+  window.document.querySelector('#battleModal [aria-label*="отряд противника"]')?.click();
+  assert.match(window.document.querySelector('#battleModal .feed').textContent, /держит позицию и обстреливает выбранную цель/);
   const frame = window.__frameCallback;
   assert.equal(typeof frame, 'function', 'the campaign animation loop schedules frames');
   let frameTime = window.performance.now();
