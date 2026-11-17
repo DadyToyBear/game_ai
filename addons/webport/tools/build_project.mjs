@@ -16,7 +16,7 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, copyFileSync } from "node:fs";
-import { join, dirname, resolve, relative, extname, basename } from "node:path";
+import { join, dirname, resolve, relative, extname, basename, isAbsolute, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { extractScripts } from "../core/html_scripts.mjs";
@@ -106,6 +106,10 @@ export function buildProject(options = {}) {
   const sourceRoot = resolve(opts.source);
   const outRoot = resolve(opts.out);
   if (!existsSync(sourceRoot)) throw new Error(`нет каталога исходников: ${sourceRoot}`);
+  const outFromSource = relative(sourceRoot, outRoot);
+  if (outFromSource === "" || !(outFromSource === ".." || outFromSource.startsWith(`..${sep}`)) || isAbsolute(outFromSource)) {
+    throw new Error("каталог вывода должен находиться вне каталога исходников — выберите соседний каталог");
+  }
   const log = opts.log ?? (() => {});
   const DEFAULT_EXCLUDE = [/\.test\./, /^examples\//, /(^|\/)server\.m?js$/, /(^|\/)serve\.m?js$/, /(^|\/)vite\.config/, /(^|\/)webpack/];
   const exclude = opts.exclude ?? DEFAULT_EXCLUDE;

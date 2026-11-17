@@ -33,6 +33,7 @@ func _exit_tree() -> void:
 func _register_settings() -> void:
 	_add_setting("webport/source_path", "", PROPERTY_HINT_GLOBAL_DIR, "путь к каталогу веб-игры")
 	_add_setting("webport/out_path", "", PROPERTY_HINT_GLOBAL_DIR, "каталог проекта Redot для сборки")
+	_add_setting("webport/only_filter", "", PROPERTY_HINT_NONE, "подстрока для выбора HTML-экранов; пусто — все")
 	_add_setting("webport/copy_assets", true, PROPERTY_HINT_NONE, "копировать картинки и звук в проект")
 	_add_setting("webport/reload_after_build", true, PROPERTY_HINT_NONE, "обновлять файловую систему после сборки")
 	_add_setting("webport/serve_port", 8123, PROPERTY_HINT_RANGE, "порт локальной страницы проверки")

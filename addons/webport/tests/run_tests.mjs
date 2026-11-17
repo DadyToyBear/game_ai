@@ -286,6 +286,14 @@ check("--only фильтрует HTML-экраны, но сохраняет мо
   eq(report.assets.copied, 1, "ассеты сохранены");
   eq(report.data.length, 1, "JSON сохранён");
   eq(existsSync(join(out, "assets", "pixel.png")), true, "файл ассета скопирован");
+  let refusedNestedOutput = false;
+  try {
+    buildProject({ source, out: join(source, "generated"), only: "index.html", log: () => {} });
+  } catch (error) {
+    refusedNestedOutput = error.message.includes("вне каталога исходников");
+  }
+  eq(refusedNestedOutput, true, "опасная вложенная сборка отклонена");
+  eq(existsSync(join(source, "generated")), false, "исходники не изменены");
 });
 
 console.log("GDScript-линт сгенерированного кода");

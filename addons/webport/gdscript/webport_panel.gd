@@ -13,6 +13,7 @@ const SETTINGS_SECTION := "webport"
 
 var _source_edit: LineEdit
 var _out_edit: LineEdit
+var _only_edit: LineEdit
 var _build_button: Button
 var _report_button: Button
 var _serve_button: Button
@@ -48,12 +49,19 @@ func _build_ui() -> void:
 
 	_source_edit = _add_path_row("Веб-игра (HTML/JS):", "webport/source_path", _pick_source)
 	_out_edit = _add_path_row("Проект Redot (куда):", "webport/out_path", _pick_out)
+	_only_edit = LineEdit.new()
+	_only_edit.placeholder_text = "Все экраны или фильтр, например viewer/game.html"
+	_only_edit.tooltip_text = "Оставьте пустым для всех HTML-страниц. Модули, JSON и ассеты сохраняются."
+	_only_edit.text = str(ProjectSettings.get_setting("webport/only_filter", ""))
+	_only_edit.text_changed.connect(func(value: String) -> void: _store_setting("webport/only_filter", value))
+	add_child(_labeled_control("HTML-экраны:", _only_edit))
 
 	var options := HBoxContainer.new()
 	_copy_assets = CheckBox.new()
 	_copy_assets.text = "копировать ассеты"
 	_copy_assets.button_pressed = true
 	_copy_assets.tooltip_text = "Выключите для быстрой проверки структуры: сборка станет в разы быстрее."
+	_copy_assets.toggled.connect(func(value: bool) -> void: _store_setting("webport/copy_assets", value))
 	options.add_child(_copy_assets)
 	add_child(options)
 
@@ -118,6 +126,17 @@ func _add_path_row(label_text: String, setting_key: String, picker: Callable) ->
 	return edit
 
 
+func _labeled_control(label_text: String, control: Control) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	var label := Label.new()
+	label.text = label_text
+	label.custom_minimum_size = Vector2(150, 0)
+	row.add_child(label)
+	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(control)
+	return row
+
+
 func _pick_source(edit: LineEdit) -> void:
 	var dialog := EditorFileDialog.new()
 	dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_DIR
@@ -146,10 +165,13 @@ func _on_build_pressed() -> void:
 		_set_status("Укажите каталог проекта Redot", Color(0.9, 0.6, 0.35))
 		return
 	var extra := PackedStringArray()
+	var only_filter := _only_edit.text.strip_edges()
+	if not only_filter.is_empty():
+		extra.append_array(PackedStringArray(["--only", only_filter]))
 	if not _copy_assets.button_pressed:
 		extra.append("--no-copy-assets")
 	_build_button.disabled = true
-	_set_status("Сборка… (Node работает в отдельном процессе)", Color(0.8, 0.75, 0.55))
+	_set_status("Сборка… редактор ожидает завершения Node.js", Color(0.8, 0.75, 0.55))
 	_log.clear()
 	var result: Dictionary = load("res://addons/webport/gdscript/webport_cli.gd").build(
 		_plugin_dir, _source_edit.text.strip_edges(), out_path, extra)
@@ -193,11 +215,11 @@ func _refresh_summary(report_path: String) -> void:
 	_summary.text = (
 		"[b]Экранов:[/b] %s   [b]Модулей:[/b] %s   [b]Строк GDScript:[/b] %s\n"
 		+ "[b]Ассетов:[/b] %s   [b]Данных:[/b] %s\n"
-		+ "[b]Требует внимания:[/b] [color=#e0b866]%s[/color]   [b]Ошибок линтера:[/b] [color=#df8074]%s[/color]"
+		+ "[b]TODO:[/b] [color=#e0b866]%s[/color]   [b]Предупреждений:[/b] %s   [b]Ошибок линтера:[/b] [color=#df8074]%s[/color]"
 	) % [
 		str(summary.get("screens", 0)), str(summary.get("modules", 0)), str(summary.get("gdLines", 0)),
 		str(summary.get("assetsCopied", 0)), str(summary.get("dataFiles", 0)),
-		str(summary.get("manual", 0)), str(summary.get("lintErrors", 0)),
+		str(summary.get("todo", 0)), str(summary.get("warnings", 0)), str(summary.get("lintErrors", 0)),
 	]
 
 
@@ -224,6 +246,7 @@ func _colorize(output: String) -> String:
 func _restore_settings() -> void:
 	_source_edit.text = str(ProjectSettings.get_setting("webport/source_path", ""))
 	_out_edit.text = str(ProjectSettings.get_setting("webport/out_path", ""))
+	_only_edit.text = str(ProjectSettings.get_setting("webport/only_filter", ""))
 	_copy_assets.button_pressed = bool(ProjectSettings.get_setting("webport/copy_assets", true))
 	if not _out_edit.text.is_empty():
 		_refresh_summary(_out_edit.text.path_join("webport/report.json"))

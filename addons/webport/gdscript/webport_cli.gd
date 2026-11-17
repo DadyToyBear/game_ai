@@ -20,6 +20,11 @@ static func probe(plugin_dir: String) -> Dictionary:
 	var version: String = "?"
 	if out.size() > 0:
 		version = str(out[0]).strip_edges()
+	var version_parts := version.trim_prefix("v").split(".")
+	if version_parts.is_empty() or not version_parts[0].is_valid_int():
+		return {"ok": false, "node": version, "message": "Не удалось определить версию Node.js: " + version}
+	if int(version_parts[0]) < 18:
+		return {"ok": false, "node": version, "message": "Нужен Node.js 18 или новее; найден " + version}
 	return {"ok": true, "node": version, "message": "Node доступен"}
 
 
