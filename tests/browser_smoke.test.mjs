@@ -338,6 +338,47 @@ test('browser DOM smoke: clicking a friendly settlement opens its council contro
   assert.deepEqual(errors, []);
 });
 
+test('browser DOM smoke: touch drag pans the map and two-finger pinch zooms', async (t) => {
+  const { window, errors, canvasContexts } = await launchGame();
+  t.after(() => window.happyDOM.abort());
+  const world = window.document.querySelector('#world');
+  const minimap = window.document.querySelector('#minimap');
+  Object.defineProperties(minimap, { clientWidth: { configurable: true, value: 100 }, clientHeight: { configurable: true, value: 80 } });
+  Object.defineProperties(world, { clientWidth: { configurable: true, value: 400 }, clientHeight: { configurable: true, value: 300 } });
+  world.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300 });
+  minimap.getBoundingClientRect = () => ({ left: 100, top: 200, width: 100, height: 80, right: 200, bottom: 280 });
+  world.setPointerCapture = () => {};
+  const viewports = [];
+  canvasContexts.get('minimap').strokeRect = (...rect) => viewports.push(rect);
+  const renderFrame = () => window.__frameCallback(window.performance.now() + 16);
+  const pointer = (type, id, x, y) => {
+    const event = new window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
+    Object.defineProperties(event, { pointerId: { value: id }, pointerType: { value: 'touch' } });
+    world.dispatchEvent(event);
+  };
+
+  renderFrame();
+  const initial = viewports.at(-1);
+  pointer('pointerdown', 1, 100, 100);
+  pointer('pointermove', 1, 145, 125);
+  renderFrame();
+  const panned = viewports.at(-1);
+  assert.notDeepEqual(panned, initial, 'one-finger drag moves the camera instead of drawing a selection box');
+  pointer('pointerup', 1, 145, 125);
+
+  pointer('pointerdown', 2, 140, 150);
+  pointer('pointerdown', 3, 240, 150);
+  pointer('pointermove', 3, 300, 150);
+  renderFrame();
+  const zoomed = viewports.at(-1);
+  assert.ok(zoomed[2] < panned[2], 'pinching outward zooms into the map');
+  pointer('pointerup', 3, 300, 150);
+  pointer('pointerup', 2, 140, 150);
+  assert.match(html, /перетаскивание — обзор · двумя пальцами — масштаб/);
+  assert.match(html, /min-height:44px/);
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: wheel zoom keeps its map anchor under the pointer', async (t) => {
   const { window, errors, canvasContexts } = await launchGame();
   t.after(() => window.happyDOM.abort());
