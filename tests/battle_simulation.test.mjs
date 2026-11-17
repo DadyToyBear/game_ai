@@ -7,6 +7,7 @@ import {
   createBattle,
   issueOrder,
   setBattlePaused,
+  setBattleSpeed,
 } from '../src/battle_simulation.mjs';
 
 const encounter = (seed = 73) => createBattle({
@@ -63,6 +64,17 @@ test('pause freezes state and resuming continues from the same tick', () => {
 
   const resumed = advanceBattle(setBattlePaused(frozen, false), 7);
   assert.equal(resumed.tick, paused.tick + 7);
+});
+
+test('battle speed changes are immutable, validated, and do not alter the fixed tick', () => {
+  const initial = encounter();
+  const doubled = setBattleSpeed(initial, 2);
+  assert.equal(initial.speed, 1);
+  assert.equal(doubled.speed, 2);
+  assert.equal(doubled.tick_hz, BATTLE_TICK_HZ);
+  assert.throws(() => setBattleSpeed(initial, 3), /x1 or x2/);
+  const paused = setBattlePaused(doubled, true);
+  assert.equal(setBattleSpeed(paused, 1).paused, true);
 });
 
 test('scenario terrain slows movement and improves cover against incoming attacks', () => {
@@ -148,6 +160,30 @@ test('spearmen counter cavalry and cavalry charge adds a one-time first-hit bonu
   assert.ok(resolveSingleAttacker({ attackerClass: '08_cavalryman', targetClass: '03_sword_and_shield', charge: 1 }) <
     resolveSingleAttacker({ attackerClass: '08_cavalryman', targetClass: '03_sword_and_shield', charge: 0 }),
   'the cavalry charge improves its first contact');
+});
+
+test('front rank protects a rear regiment from direct attacks, but not a flank', () => {
+  const resolve = ({ withScreen, flanking = false }) => {
+    const targetPosition = flanking ? { x: 7, y: 2 } : { x: 8, y: 2 };
+    const attackerPosition = flanking ? { x: 7, y: 1 } : { x: 4.5, y: 2 };
+    const initial = createBattle({
+      seed: 63,
+      attacker: { regiments: [{
+        id: 'attacker', count: 100, position: attackerPosition,
+        stats: { attack: 80, range: 5, speed: 0 },
+      }] },
+      defender: { regiments: [
+        ...(withScreen ? [{ id: 'screen', count: 100, rank: 'front', position: { x: 6, y: 2 }, stats: { defense: 30 } }] : []),
+        { id: 'rear', count: 100, rank: 'rear', position: targetPosition, stats: { defense: 30 } },
+      ] },
+    });
+    return advanceBattle(setBattlePaused(issueOrder(initial, 'attacker', { type: 'attack', targetId: 'rear' }), false), 20)
+      .regiments.find((unit) => unit.id === 'rear').count;
+  };
+  assert.ok(resolve({ withScreen: true }) > resolve({ withScreen: false }),
+    'a front-rank ally reduces direct damage to the reserve');
+  assert.equal(resolve({ withScreen: true, flanking: true }), resolve({ withScreen: false, flanking: true }),
+    'a side attack bypasses a screen that is not on its line of approach');
 });
 
 test('rear and flank attacks deal more damage than a frontal attack', () => {

@@ -28,6 +28,7 @@ function normalizedRegiment(input, side, index, map) {
     },
     facing: finite(input.facing, side === 'attacker' ? 0 : Math.PI),
     formation: String(input.formation ?? 'line'),
+    rank: input.rank === 'rear' ? 'rear' : 'front',
     state: count > 0 ? 'ready' : 'destroyed',
     target_id: null,
     order: null,
@@ -45,6 +46,27 @@ function normalizedRegiment(input, side, index, map) {
       charge: Math.max(0, finite(stats.charge, 0)),
     },
   };
+}
+
+export function battleTerrainAt(scenario, x, y) {
+  const cellX = Math.floor(finite(x, -1));
+  const cellY = Math.floor(finite(y, -1));
+  if (cellX < 0 || cellX >= 9 || cellY < 0 || cellY >= 5) return '';
+  if (scenario === 'river_crossing') return cellX === 4 ? (cellY === 2 ? 'ford' : 'river') : cellY === 2 ? 'road' : '';
+  if (scenario === 'forest_ambush') return (cellX <= 1 || cellX >= 7) && cellY !== 2 ? 'woods' : cellY === 2 ? 'road' : '';
+  if (scenario === 'fortress_siege') return cellX === 6 && cellY === 2 ? 'gate' : cellX === 6 || cellX === 5 && cellY !== 2 ? 'rampart' : cellY === 2 ? 'road' : cellX === 5 ? 'river' : '';
+  return cellX === 4 ? 'bridge' : cellX === 3 || cellX === 5 ? 'river' : cellY === 2 ? 'road' : cellX >= 6 && cellY > 0 && cellY < 4 ? 'rampart' : '';
+}
+
+export function createScenarioTerrain(scenario, width = 9, height = 5) {
+  const cells = [];
+  for (let y = 0; y < Math.min(5, Math.max(0, Math.floor(height))); y += 1) {
+    for (let x = 0; x < Math.min(9, Math.max(0, Math.floor(width))); x += 1) {
+      const type = battleTerrainAt(scenario, x, y);
+      if (type) cells.push({ x, y, type });
+    }
+  }
+  return cells;
 }
 
 function normalizeMap(input = {}) {
@@ -98,6 +120,15 @@ export function setBattlePaused(state, paused) {
   if (state.result && !paused) return state;
   const next = clone(state);
   next.paused = Boolean(paused);
+  return next;
+}
+
+export function setBattleSpeed(state, speed) {
+  if (!state || typeof state !== 'object') throw new TypeError('Battle state is required');
+  if (![1, 2].includes(Number(speed))) throw new RangeError('Battle speed must be x1 or x2');
+  if (state.result) return state;
+  const next = clone(state);
+  next.speed = Number(speed);
   return next;
 }
 
@@ -179,6 +210,22 @@ function flankMultiplier(attacker, target) {
   if (difference >= Math.PI * 2 / 3) return 1.3;
   if (difference >= Math.PI / 3) return 1.15;
   return 1;
+}
+
+function hasFrontRankSupport(state, attacker, target) {
+  if (target.rank !== 'rear' || flankMultiplier(attacker, target) > 1) return false;
+  const dx = attacker.position.x - target.position.x;
+  const dy = attacker.position.y - target.position.y;
+  const attackDistance = Math.hypot(dx, dy);
+  if (attackDistance < 1e-9) return false;
+  return state.regiments.some((ally) => {
+    if (ally.id === target.id || ally.side !== target.side || ally.rank !== 'front' || ally.count <= 0 || ['routed', 'withdrawn'].includes(ally.state)) return false;
+    const ax = ally.position.x - target.position.x;
+    const ay = ally.position.y - target.position.y;
+    const along = (ax * dx + ay * dy) / attackDistance;
+    const across = Math.abs(ax * dy - ay * dx) / attackDistance;
+    return along > 0.15 && along < attackDistance - 0.15 && across <= 0.55;
+  });
 }
 
 function cellKey(x, y) {
@@ -288,7 +335,8 @@ export function stepBattle(state) {
     const moraleFactor = 0.5 + unit.morale / 200;
     const targetTerrain = terrainAt(next, target.position.x, target.position.y);
     const attackerTerrain = terrainAt(next, unit.position.x, unit.position.y);
-    const defenseFactor = 1 / (1 + target.stats.defense / 100 + terrainDefense(targetTerrain)) * formationDamageTaken(target);
+    const rankCover = hasFrontRankSupport(next, unit, target) ? 0.88 : 1;
+    const defenseFactor = 1 / (1 + target.stats.defense / 100 + terrainDefense(targetTerrain)) * formationDamageTaken(target) * rankCover;
     const rangedCover = attackerTerrain === 'woods' && unit.stats.range > 1.5 ? 1.08 : 1;
     const formationFactor = 1 + formationAttack(unit);
     const roleCounter = unit.class === '06_spearman_shield' && target.class === '08_cavalryman' ? 1.25 : 1;

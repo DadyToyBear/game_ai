@@ -144,13 +144,13 @@ def main() -> int:
 
     password = os.environ.get("REDOT_BUNDLE_PASSWORD")
     if password is None:
-        password = getpass.getpass("Set archive password (minimum 12 characters): ")
+        password = getpass.getpass("Set archive password (minimum 11 characters): ")
         confirmation = getpass.getpass("Confirm archive password: ")
         if password != confirmation:
             print("Passwords do not match.", file=sys.stderr)
             return 2
-    if len(password) < 12:
-        print("Archive password must be at least 12 characters.", file=sys.stderr)
+    if len(password) < 11:
+        print("Archive password must be at least 11 characters.", file=sys.stderr)
         return 2
     try:
         import pyzipper

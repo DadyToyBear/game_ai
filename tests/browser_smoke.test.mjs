@@ -164,12 +164,22 @@ test('browser DOM smoke: tactical battle renders and resolves a player turn', as
   assert.equal(window.document.querySelector('#battleModal').dataset.battleMode, 'simulation');
   assert.match(window.document.querySelector('#battleModal .battle-briefing').textContent, /15 обновлений/);
   assert.ok(window.document.querySelector('#battleModal .unit-morale'), 'simulation roster exposes live morale');
+  assert.match(window.document.querySelector('#battleModal .unit-morale').textContent, /резерв|передний ряд/,
+    'each regiment is labeled as front rank or reserve');
   const frame = window.__frameCallback;
   assert.equal(typeof frame, 'function', 'the campaign animation loop schedules frames');
   let frameTime = window.performance.now();
   for (let i = 0; i < 4; i += 1) { window.__frameCallback(frameTime += 100); }
   const advancedTick = Number(window.document.querySelector('#battleModal').dataset.tick);
   assert.ok(advancedTick > 0, 'battle state advances through the animation loop at fixed ticks');
+  window.document.querySelector('#battleModal [data-action="speed"]').click();
+  assert.match(window.document.querySelector('#battleModal [data-action="speed"]').textContent, /x2/);
+  let speedFrameTime = frameTime;
+  const x2Tick = Number(window.document.querySelector('#battleModal').dataset.tick);
+  for (let i = 0; i < 2; i += 1) { window.__frameCallback(speedFrameTime += 100); }
+  assert.ok(Number(window.document.querySelector('#battleModal').dataset.tick) >= x2Tick + 2, 'x2 advances at twice the fixed-tick rate');
+  window.document.querySelector('#battleModal [data-action="speed"]').click();
+  assert.match(window.document.querySelector('#battleModal [data-action="speed"]').textContent, /x1/);
   window.document.querySelector('#battleModal [data-action="attack"]').click();
   assert.match(window.document.querySelector('#battleModal .feed').textContent, /наступают/);
   window.document.querySelector('#battleModal [data-action="pause"]').click();
@@ -180,6 +190,43 @@ test('browser DOM smoke: tactical battle renders and resolves a player turn', as
   window.document.querySelector('#battleModal [aria-label*="ваш отряд"]')?.click();
   window.document.querySelector('#battleModal [data-cell-x="4"][data-cell-y="4"]')?.click();
   assert.match(window.document.querySelector('#battleModal .feed').textContent, /приказ двигаться к выбранной клетке/);
+  assert.deepEqual(errors, []);
+});
+
+test('browser DOM smoke: a long tactical battle resolves and saves its campaign outcome', async (t) => {
+  const { window, errors } = await launchGame();
+  t.after(() => window.happyDOM.abort());
+  window.Math.random = () => 0.5;
+  const archer = [...window.document.querySelectorAll('#armyRoster [data-roster]')]
+    .find((button) => button.closest('.roster-card')?.textContent.includes('Лучник'))
+    || window.document.querySelector('#armyRoster [data-roster]');
+  assert.ok(archer);
+  archer.click();
+  const before = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  window.document.querySelector('#battleBtn').click();
+  assert.match(window.document.querySelector('#battleModal .unit-morale').textContent, /резерв/,
+    'ranged regiments start behind the front rank');
+  window.document.querySelector('#battleModal [data-action="attack"]').click();
+  window.document.querySelector('#battleModal [data-action="speed"]').click();
+
+  let frameTime = window.performance.now();
+  for (let frame = 0; frame < 1200 && !window.document.querySelector('#battleOutcome').classList.contains('show'); frame += 1) {
+    const callback = window.__frameCallback;
+    assert.equal(typeof callback, 'function', 'battle keeps scheduling simulation/render frames');
+    callback(frameTime += 50);
+  }
+
+  assert.equal(window.document.querySelector('#battleOverlay').classList.contains('show'), false, 'battle closes when the simulation produces a result');
+  const outcome = window.document.querySelector('#battleOutcome');
+  assert.equal(outcome.classList.contains('show'), true, 'a battle result is presented to the player');
+  assert.match(outcome.textContent, /Потери короны:/);
+  const saved = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.ok(saved.units.some((unit) => !unit.enemy && unit.count >= 0), 'post-battle troop state is persisted');
+  assert.notDeepEqual(
+    saved.units.map(({ cls, count, enemy }) => `${cls}:${enemy}:${count}`),
+    before.units.map(({ cls, count, enemy }) => `${cls}:${enemy}:${count}`),
+    'battle losses or routed enemies are written back to the campaign save',
+  );
   assert.deepEqual(errors, []);
 });
 

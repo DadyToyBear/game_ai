@@ -34,7 +34,7 @@
 .venv/bin/python scripts/package_redot_bundle.py --output artifacts/redot_game_migration_pack.zip
 ```
 
-Нужны Python 3, Pillow и `pyzipper` (`python -m pip install Pillow pyzipper`). ZIP защищается WinZip AES-256. При создании пароль запрашивается интерактивно; для автоматизации можно передать его через переменную `REDOT_BUNDLE_PASSWORD`. Используйте пароль длиной не менее 12 символов и храните его отдельно от репозитория.
+Нужны Python 3, Pillow и `pyzipper` (`python -m pip install Pillow pyzipper`). ZIP защищается WinZip AES-256. При создании пароль запрашивается интерактивно; для автоматизации можно передать его через переменную `REDOT_BUNDLE_PASSWORD`. Используйте пароль длиной не менее 11 символов и храните его отдельно от репозитория.
 
 Pillow уменьшает крупные текстуры только внутри архива. Значение 384 px сохраняет читаемость карточек и портретов; для более детального архива можно указать `--max-image-dimension 768`. Дополнительные GIF-превью включаются флагом `--keep-gif-previews`.
 
