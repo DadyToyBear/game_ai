@@ -309,7 +309,7 @@ function convertElement(el, ctx, htmlPath) {
         htmlTag: "texture_rect",
       });
       ctx.todo.push({
-        message: `<canvas${id ? ` #${id}` : ""}>: data-overlay-image статичен; динамическое выделение/смена владения не синхронизируется`,
+        message: `<canvas${id ? ` #${id}` : ""}>: data-overlay-image статичен; маркеры объектов, выбор и смена владения не синхронизируются`,
       });
     }
     node.children.push({

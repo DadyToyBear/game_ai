@@ -99,7 +99,19 @@ function renderTerritoryOverlay(worldData, colors) {
     const coordinates = points.map(([x, y]) => `${(Number(x) * width).toFixed(2)},${(Number(y) * height).toFixed(2)}`).join(" ");
     return `<polygon points="${coordinates}" fill="${color}" fill-opacity="0.07" stroke="${color}" stroke-opacity="0.58" stroke-width="3" stroke-dasharray="14 10" vector-effect="non-scaling-stroke"/>`;
   }).join("\n  ");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  ${polygons}\n</svg>\n`;
+  const cols = Number(worldData.grid?.cols) || 45;
+  const rows = Number(worldData.grid?.rows) || 30;
+  const landmarks = (worldData.objects ?? []).map((object) => {
+    const x = ((Number(object.x) + 0.5) / cols * width).toFixed(2);
+    const y = ((Number(object.y) + 0.5) / rows * height).toFixed(2);
+    const color = /^#[0-9a-f]{6}$/i.test(colors[object.faction] ?? "") ? colors[object.faction] : "#d8bd7d";
+    const radius = ["castle", "keep"].includes(object.type) ? 8 : object.type === "town" ? 6 : 4.5;
+    const name = String(object.name ?? object.id ?? "Объект")
+      .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+    return `<g><title>${name}</title><circle cx="${x}" cy="${y}" r="${radius}" fill="#171b16" fill-opacity="0.88" stroke="${color}" stroke-width="2.5"/><circle cx="${x}" cy="${y}" r="2" fill="#f6e8c7"/><text x="${(Number(x) + radius + 4).toFixed(2)}" y="${(Number(y) - radius - 1).toFixed(2)}" font-family="sans-serif" font-size="13" fill="#f3e4c4" stroke="#171b16" stroke-width="3" paint-order="stroke" stroke-linejoin="round">${name}</text></g>`;
+  }).join("\n  ");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  ${polygons}\n  ${landmarks}\n</svg>\n`;
 }
 
 /** Имя узла из URL страницы: viewer/game.html → Game. */
@@ -191,7 +203,7 @@ export function buildProject(options = {}) {
         const svg = renderTerritoryOverlay(worldData, colors);
         writeOut(outRoot, imageRel, svg);
         generatedAssetPaths.add(imageRel);
-        report.generatedAssets.push({ source: sourceRel, target: imageRel, kind: "static territory overlay (SVG)" });
+        report.generatedAssets.push({ source: sourceRel, target: imageRel, kind: "static world overlay: territories and landmarks (SVG)" });
       } catch (error) {
         report.warnings.push({ message: `${pageRel}: не удалось собрать SVG-слой ${imageRel}: ${error.message}` });
       }
