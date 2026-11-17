@@ -1,0 +1,132 @@
+{
+  "source": "/home/user/game_ai/examples/webgame_min",
+  "out": "/home/user/game_ai/demo/webport_min",
+  "screens": [
+    {
+      "page": "index.html",
+      "scene": "scenes/Index.tscn",
+      "script": "scripts/Index.gd",
+      "nodes": 8,
+      "cssRules": 12,
+      "todo": [],
+      "warnings": []
+    }
+  ],
+  "modules": [
+    {
+      "source": "index.html:inline",
+      "target": "scripts/Index.gd",
+      "lines": 18,
+      "todo": [
+        {
+          "line": 7,
+          "file": "index.html:inline",
+          "message": "#gold.textContent = … — перенесите в WebportLinks.set_prop(\"gold\", \"text\")"
+        },
+        {
+          "line": 8,
+          "file": "index.html:inline",
+          "message": "#army.textContent = … — перенесите в WebportLinks.set_prop(\"army\", \"text\")"
+        },
+        {
+          "line": 9,
+          "file": "index.html:inline",
+          "message": "#log.innerHTML = … — перенесите в WebportLinks.set_prop(\"log\", \"text\")"
+        },
+        {
+          "line": 12,
+          "message": "getElementById() — используйте WebportDom/узлы сцены",
+          "file": "index.html:inline"
+        },
+        {
+          "line": 12,
+          "message": "анонимная функция/стрелка вне вызова — вынесите в отдельный func",
+          "file": "index.html:inline"
+        },
+        {
+          "line": 12,
+          "message": ".addEventListener(\"click\") — подключите через WebportEvents или сигнал сцены",
+          "file": "index.html:inline"
+        }
+      ],
+      "warnings": [],
+      "helpers": [
+        "set_dom",
+        "map"
+      ]
+    },
+    {
+      "source": "src/campaign.mjs",
+      "target": "webport/src/campaign.gd",
+      "lines": 33,
+      "todo": [],
+      "warnings": [],
+      "helpers": [
+        "num",
+        "is_array",
+        "merge",
+        "reduce"
+      ]
+    }
+  ],
+  "data": [],
+  "assets": {
+    "copied": 0,
+    "skipped": 0,
+    "missing": 0,
+    "bytes": 0
+  },
+  "todo": [
+    {
+      "line": 7,
+      "file": "index.html:inline",
+      "message": "#gold.textContent = … — перенесите в WebportLinks.set_prop(\"gold\", \"text\")"
+    },
+    {
+      "line": 8,
+      "file": "index.html:inline",
+      "message": "#army.textContent = … — перенесите в WebportLinks.set_prop(\"army\", \"text\")"
+    },
+    {
+      "line": 9,
+      "file": "index.html:inline",
+      "message": "#log.innerHTML = … — перенесите в WebportLinks.set_prop(\"log\", \"text\")"
+    },
+    {
+      "line": 12,
+      "message": "getElementById() — используйте WebportDom/узлы сцены",
+      "file": "index.html:inline"
+    },
+    {
+      "line": 12,
+      "message": "анонимная функция/стрелка вне вызова — вынесите в отдельный func",
+      "file": "index.html:inline"
+    },
+    {
+      "line": 12,
+      "message": ".addEventListener(\"click\") — подключите через WebportEvents или сигнал сцены",
+      "file": "index.html:inline"
+    }
+  ],
+  "warnings": [],
+  "excluded": [],
+  "lint": {
+    "available": true,
+    "errors": 0,
+    "checked": 2
+  },
+  "startedAt": "2026-11-17T19:57:20.785Z",
+  "finishedAt": "2026-11-17T19:57:21.288Z",
+  "summary": {
+    "screens": 1,
+    "modules": 2,
+    "gdLines": 51,
+    "dataFiles": 0,
+    "assetsCopied": 0,
+    "assetsMB": 0,
+    "todo": 6,
+    "manual": 0,
+    "warnings": 0,
+    "lintErrors": 0
+  }
+}

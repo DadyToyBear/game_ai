@@ -1,0 +1,30 @@
+; Проект собран WebPort из браузерной игры.
+; Ориентир: Redot 26.x LTS (совместим с Godot 4.5, config_version=5).
+config_version=5
+
+[application]
+
+config/name="WebPort demo"
+run/main_scene="res://scenes/Index.tscn"
+config/features=PackedStringArray("4.5", "GL Compatibility")
+
+[autoload]
+
+WebportLinks="*res://webport/WebportLinks.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=1
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=false

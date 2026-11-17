@@ -1,0 +1,12 @@
+{
+  "scenes/Index.tscn": {
+    "game": "Game",
+    "gold": "Gold",
+    "army": "Army",
+    "endTurn": "EndTurn",
+    "layout": "Layout",
+    "field": "Field",
+    "sidebar": "Sidebar",
+    "log": "Log"
+  }
+}

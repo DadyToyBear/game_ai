@@ -1,0 +1,266 @@
+[gd_scene load_steps=16 format=3]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+bg_color = Color(0.153, 0.173, 0.161, 1)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
+border_color = Color(0.294, 0.329, 0.298, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3"]
+border_color = Color(0.294, 0.329, 0.298, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4"]
+bg_color = Color(0.227, 0.255, 0.184, 1)
+border_color = Color(0.49, 0.416, 0.271, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5"]
+bg_color = Color(0.173, 0.227, 0.173, 1)
+border_color = Color(0.286, 0.337, 0.247, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6"]
+bg_color = Color(0.173, 0.227, 0.173, 1)
+border_color = Color(0.286, 0.337, 0.247, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_7"]
+bg_color = Color(0.173, 0.227, 0.173, 1)
+border_color = Color(0.286, 0.337, 0.247, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8"]
+bg_color = Color(0.173, 0.227, 0.173, 1)
+border_color = Color(0.286, 0.337, 0.247, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_9"]
+bg_color = Color(0.173, 0.227, 0.173, 1)
+border_color = Color(0.286, 0.337, 0.247, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_10"]
+bg_color = Color(0.173, 0.227, 0.173, 1)
+border_color = Color(0.286, 0.337, 0.247, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_11"]
+bg_color = Color(0.173, 0.227, 0.173, 1)
+border_color = Color(0.286, 0.337, 0.247, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_12"]
+bg_color = Color(0.173, 0.227, 0.173, 1)
+border_color = Color(0.286, 0.337, 0.247, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_13"]
+bg_color = Color(0.173, 0.227, 0.173, 1)
+border_color = Color(0.286, 0.337, 0.247, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_14"]
+bg_color = Color(0.133, 0.165, 0.141, 1)
+border_color = Color(0.302, 0.341, 0.282, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_15"]
+bg_color = Color(0.133, 0.165, 0.141, 1)
+border_color = Color(0.302, 0.341, 0.282, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+[node name="Index" type="VBoxContainer"]
+anchors_preset = 15
+anchor_right = 1
+anchor_bottom = 1
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Game" type="VBoxContainer" parent="Index"]
+
+[node name="Header" type="HBoxContainer" parent="Index/Game"]
+theme_override_constants/separation = 12
+alignment = 1
+# padding в CSS: top=8 right=14 bottom=8 left=14
+theme_override_styles/normal = SubResource("StyleBoxFlat_1")
+
+[node name="Brand" type="Label" parent="Index/Game/Header"]
+text = "Мини-пример WebPort"
+
+[node name="Res" type="Label" parent="Index/Game/Header"]
+theme_override_font_sizes/font_size = 12
+text = "Золото:"
+theme_override_styles/normal = SubResource("StyleBoxFlat_2")
+
+[node name="Gold" type="Label" parent="Index/Game/Header/Res"]
+text = "120"
+
+[node name="Res2" type="Label" parent="Index/Game/Header"]
+theme_override_font_sizes/font_size = 12
+text = "Войско:"
+theme_override_styles/normal = SubResource("StyleBoxFlat_3")
+
+[node name="Army" type="Label" parent="Index/Game/Header/Res2"]
+text = "2"
+
+[node name="EndTurn" type="Button" parent="Index/Game/Header"]
+text = "Завершить день"
+theme_override_styles/normal = SubResource("StyleBoxFlat_4")
+
+[node name="Layout" type="HBoxContainer" parent="Index/Game"]
+custom_minimum_size = Vector2(0, 0)
+
+[node name="Field" type="GridContainer" parent="Index/Game/Layout"]
+columns = 3
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+
+[node name="Cell" type="Panel" parent="Index/Game/Layout/Field"]
+custom_minimum_size = Vector2(0, 96)
+theme_override_styles/panel = SubResource("StyleBoxFlat_5")
+
+[node name="Cell2" type="Panel" parent="Index/Game/Layout/Field"]
+custom_minimum_size = Vector2(0, 96)
+theme_override_styles/panel = SubResource("StyleBoxFlat_6")
+
+[node name="Cell3" type="Panel" parent="Index/Game/Layout/Field"]
+custom_minimum_size = Vector2(0, 96)
+theme_override_styles/panel = SubResource("StyleBoxFlat_7")
+
+[node name="Cell4" type="Panel" parent="Index/Game/Layout/Field"]
+custom_minimum_size = Vector2(0, 96)
+theme_override_styles/panel = SubResource("StyleBoxFlat_8")
+
+[node name="Cell5" type="Panel" parent="Index/Game/Layout/Field"]
+custom_minimum_size = Vector2(0, 96)
+theme_override_styles/panel = SubResource("StyleBoxFlat_9")
+
+[node name="Cell6" type="Panel" parent="Index/Game/Layout/Field"]
+custom_minimum_size = Vector2(0, 96)
+theme_override_styles/panel = SubResource("StyleBoxFlat_10")
+
+[node name="Cell7" type="Panel" parent="Index/Game/Layout/Field"]
+custom_minimum_size = Vector2(0, 96)
+theme_override_styles/panel = SubResource("StyleBoxFlat_11")
+
+[node name="Cell8" type="Panel" parent="Index/Game/Layout/Field"]
+custom_minimum_size = Vector2(0, 96)
+theme_override_styles/panel = SubResource("StyleBoxFlat_12")
+
+[node name="Cell9" type="Panel" parent="Index/Game/Layout/Field"]
+custom_minimum_size = Vector2(0, 96)
+theme_override_styles/panel = SubResource("StyleBoxFlat_13")
+
+[node name="Sidebar" type="VBoxContainer" parent="Index/Game/Layout"]
+custom_minimum_size = Vector2(260, 0)
+# padding в CSS: top=12 right=12 bottom=12 left=12
+
+[node name="H2" type="Label" parent="Index/Game/Layout/Sidebar"]
+text = "Отряды"
+
+[node name="UnitCard" type="Panel" parent="Index/Game/Layout/Sidebar"]
+theme_override_styles/panel = SubResource("StyleBoxFlat_14")
+
+[node name="B" type="Label" parent="Index/Game/Layout/Sidebar/UnitCard"]
+text = "Мечники"
+
+[node name="Small" type="Label" parent="Index/Game/Layout/Sidebar/UnitCard"]
+text = "120 воинов, строй «стена щитов»"
+
+[node name="UnitCard2" type="Panel" parent="Index/Game/Layout/Sidebar"]
+theme_override_styles/panel = SubResource("StyleBoxFlat_15")
+
+[node name="B2" type="Label" parent="Index/Game/Layout/Sidebar/UnitCard2"]
+text = "Лучники"
+
+[node name="Small2" type="Label" parent="Index/Game/Layout/Sidebar/UnitCard2"]
+text = "80 стрелков, залп по площади"
+
+[node name="Log" type="Control" parent="Index/Game/Layout/Sidebar"]
+metadata/webport_dynamic = true
+size_flags_horizontal = 1
