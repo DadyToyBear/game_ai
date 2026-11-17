@@ -31,10 +31,14 @@ async function launchGame(saveData) {
     settings: { disableCSSFileLoading: true, disableJavaScriptFileLoading: true },
   });
   const errors = [];
+  const canvasContexts = new Map();
   window.document.write(html.replace(/<script>[\s\S]*?<\/script>/, '<script></script>'));
   window.addEventListener('error', (event) => errors.push(event.error || event.message));
   window.addEventListener('unhandledrejection', (event) => errors.push(event.reason));
-  window.HTMLCanvasElement.prototype.getContext = makeCanvasContext;
+  window.HTMLCanvasElement.prototype.getContext = function getContext() {
+    if (!canvasContexts.has(this.id)) canvasContexts.set(this.id, makeCanvasContext());
+    return canvasContexts.get(this.id);
+  };
   window.BattleSimulation = BattleSimulation;
   window.BattleContract = BattleContract;
   window.requestAnimationFrame = (callback) => { window.__frameCallback = callback; return 1; };
@@ -53,7 +57,7 @@ async function launchGame(saveData) {
   if (saveData) window.localStorage.setItem('crown-banner-save-v2', JSON.stringify(saveData));
   window.eval(inlineScript);
   await new Promise((resolveBoot) => setTimeout(resolveBoot, 60));
-  return { window, errors };
+  return { window, errors, canvasContexts };
 }
 
 function advanceDay(window) {
@@ -127,6 +131,42 @@ test('browser DOM smoke: campaign loads, tabs work, and a daily turn is saved', 
   const saved = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
   assert.equal(saved.day, 2);
   assert.equal(saved.food, 118);
+  assert.deepEqual(errors, []);
+});
+
+test('browser DOM smoke: minimap click and drag move the world camera', async (t) => {
+  const { window, errors, canvasContexts } = await launchGame();
+  t.after(() => window.happyDOM.abort());
+  const minimap = window.document.querySelector('#minimap');
+  const world = window.document.querySelector('#world');
+  assert.match(minimap.getAttribute('aria-label'), /перетащите/);
+  Object.defineProperties(minimap, { clientWidth: { configurable: true, value: 100 }, clientHeight: { configurable: true, value: 80 } });
+  Object.defineProperties(world, { clientWidth: { configurable: true, value: 400 }, clientHeight: { configurable: true, value: 300 } });
+  minimap.getBoundingClientRect = () => ({ left: 100, top: 200, width: 100, height: 80, right: 200, bottom: 280 });
+
+  const viewportRects = [];
+  canvasContexts.get('minimap').strokeRect = (...rect) => viewportRects.push(rect);
+  const renderFrame = () => window.__frameCallback(window.performance.now() + 16);
+  renderFrame();
+  const before = viewportRects.at(-1);
+
+  const pointer = (type, x, y, pointerId = 7) => {
+    const event = new window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y });
+    Object.defineProperty(event, 'pointerId', { value: pointerId });
+    minimap.dispatchEvent(event);
+  };
+  pointer('pointerdown', 120, 220);
+  pointer('pointermove', 180, 260);
+  renderFrame();
+  const afterDrag = viewportRects.at(-1);
+  assert.ok(afterDrag[0] > before[0], 'dragging right pans the map viewport right');
+  assert.ok(afterDrag[1] > before[1], 'dragging down pans the map viewport down');
+
+  pointer('pointerup', 180, 260);
+  pointer('pointermove', 110, 210);
+  renderFrame();
+  const afterRelease = viewportRects.at(-1);
+  assert.deepEqual(afterRelease, afterDrag, 'pointer movement after release does not continue panning');
   assert.deepEqual(errors, []);
 });
 
