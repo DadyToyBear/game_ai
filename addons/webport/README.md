@@ -5,7 +5,7 @@
 
 | В веб-версии | В проекте Redot |
 |---|---|
-| `viewer/game.html` (разметка + CSS) | `scenes/Game.tscn` — настоящая сцена, которую видно в редакторе |
+| `viewer/game.html` (разметка + CSS + JS) | `scenes/Game.tscn` и `scripts/Game.gd`, GDScript подключён к корневому узлу сцены |
 | стили из `<style>` | `StyleBoxFlat`, размеры, цвета, `HBoxContainer`/`VBoxContainer`/`GridContainer` |
 | `src/battle_simulation.mjs`, `battle_contract.mjs` | `webport/src/battle_simulation.gd` — GDScript-модуль с теми же функциями |
 | `data/*.json` | `data/*.json` без изменений (`JSON.parse_string`) |

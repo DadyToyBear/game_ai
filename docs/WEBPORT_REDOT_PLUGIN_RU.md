@@ -27,7 +27,7 @@
 ```
 viewer/game.html ──┬── HTML ──► html_dom.mjs ──► html_to_scene.mjs ──► scenes/Game.tscn
                    ├── CSS  ──► parseCss ──────► StyleBoxFlat / контейнеры
-                   └── JS   ──► acorn ─────────► js_to_gd.mjs ──► scripts/Game.gd
+                   └── JS   ──► acorn ─────────► js_to_gd.mjs ──► scripts/Game.gd ──► скрипт корневого узла
 src/*.mjs ─────────────────────────────────────────────────────────► webport/src/*.gd
 data/*.json ──────────────────────────────────────────────────────► data/*.json
 assets/** ────────────────────────────────────────────────────────► assets/** (без изменений)
@@ -118,12 +118,12 @@ cp -r addons/webport /path/to/redot-project/addons/
 ## 6. Проверки, которые уже прогнаны
 
 ```bash
-node addons/webport/tests/run_tests.mjs     # 32 проверки, 0 провалов
+node addons/webport/tests/run_tests.mjs     # 33 проверки, 0 провалов
 gdparse addons/webport/runtime/*.gd addons/webport/gdscript/*.gd
 ```
 
 * `npm test`: 66/66 тестов браузерной игры.
-* WebPort: 32/32 теста; проверена и сборка тестового проекта, включая сохранение
+* WebPort: 33/33 теста; проверена и сборка тестового проекта, включая сохранение
   модулей/JSON/ассетов при `--only` и запрет выходного каталога внутри исходников.
 * Сборка выбранного экрана игры: gdparse проверил три сгенерированных файла,
   синтаксических ошибок нет. В Redot сам проект не запускался — движок недоступен

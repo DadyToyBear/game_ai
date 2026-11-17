@@ -600,6 +600,13 @@ function serializeScene(rootNode, ctx, options) {
     const path = parentPath ? `${parentPath}/${node.name}` : node.name;
     if (ctx.options.trackPaths) ctx.options.trackPaths.set(node.name, path);
     lines.push(`[node name="${node.name}" type="${node.type}"${parentPath ? ` parent="${parentPath}"` : ""}]`);
+    if (node === rootNode && options.rootScript) {
+      const scriptPath = String(options.rootScript).startsWith("res://")
+        ? String(options.rootScript)
+        : `res://${options.rootScript}`;
+      const scriptId = addExternal(scriptPath, "Script");
+      lines.push(`script = ExtResource("${scriptId}_${basename(scriptPath)}")`);
+    }
 
     let styleboxId = null;
     if (node.stylebox && (node.stylebox.bg || node.stylebox.radius || node.stylebox.border)) {

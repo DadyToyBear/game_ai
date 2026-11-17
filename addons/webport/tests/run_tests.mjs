@@ -187,6 +187,15 @@ check("теги → узлы с путями", () => {
   eq(res.nodePaths.get("ok"), "Ok", "путь по id");
 });
 
+check("скрипт экрана подключается к корневому узлу сцены", () => {
+  const res = convertHtml('<html><body><div id="game">Игра</div></body></html>', {
+    rootName: "Game",
+    rootScript: "scripts/Game.gd",
+  });
+  includes(res.scene, '[ext_resource type="Script" path="res://scripts/Game.gd"');
+  includes(res.scene, 'script = ExtResource("1_Game.gd")');
+});
+
 check("вложенные id собираются в таблицу", () => {
   const html = '<html><body><section id="a"><div id="b"><span id="c">x</span></div></section></body></html>';
   const res = convertHtml(html, {});

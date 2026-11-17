@@ -160,16 +160,21 @@ export function buildProject(options = {}) {
       concat: true,
       readFile: (relPath) => readFileSync(join(sourceRoot, relPath), "utf8"),
     });
+    const screenScriptRel = scripts.code.trim() ? `scripts/${sceneName}.gd` : "";
 
     // Scope discovered IDs to this page; sharing one global set across several
     // HTML screens creates hundreds of false "missing node" warnings.
     const dynamicIds = collectDynamicIds(`${html}\n${scripts.code}`);
-    const scene = convertHtml(html, { assetExists, rootName: sceneName, dynamicIds });
+    const scene = convertHtml(html, {
+      assetExists,
+      rootName: sceneName,
+      dynamicIds,
+      rootScript: screenScriptRel,
+    });
     const sceneRel = `scenes/${sceneName}.tscn`;
     writeOut(outRoot, sceneRel, scene.scene);
 
-    // 3. JS страницы → GDScript-модель экрана
-    let screenScriptRel = "";
+    // 3. JS страницы → GDScript-модель экрана, подключённая к корневому узлу
     if (scripts.code.trim()) {
       if (scripts.code.length > 120000) {
         report.warnings.push({
@@ -182,7 +187,6 @@ export function buildProject(options = {}) {
         classMode: true,
         baseClass: "Node",
       });
-      screenScriptRel = `scripts/${sceneName}.gd`;
       writeOut(outRoot, screenScriptRel, gd.code + "\n" + BINDINGS_SEPARATOR + "\n" + buildBindings(scene.nodePaths));
       report.modules.push({
         source: `${pageRel}:inline`,
