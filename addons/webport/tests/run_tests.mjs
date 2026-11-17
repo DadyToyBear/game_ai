@@ -194,6 +194,15 @@ check("теги → узлы с путями", () => {
   eq(res.nodePaths.get("ok"), "Ok", "путь по id");
 });
 
+check("canvas получает контейнер и SubViewport, а JS-рисование — TODO", () => {
+  const res = convertHtml('<html><body><canvas id="world" width="640" height="360"></canvas></body></html>', {});
+  includes(res.scene, '[node name="World" type="SubViewportContainer"');
+  includes(res.scene, 'stretch = true');
+  includes(res.scene, '[node name="CanvasViewport" type="SubViewport" parent="GameRoot/World"]');
+  includes(res.scene, "size = Vector2i(640, 360)");
+  eq(res.todo.some((item) => item.message.includes("#world") && item.message.includes("JavaScript-рисование")), true);
+});
+
 check("скрипт экрана подключается к корневому узлу сцены", () => {
   const res = convertHtml('<html><body><div id="game">Игра</div></body></html>', {
     rootName: "Game",

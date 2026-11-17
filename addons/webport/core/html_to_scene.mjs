@@ -20,7 +20,7 @@ import { parseHtml, collectIds, findAll, classList, hasClass } from "./html_dom.
 const TAGS = {
   div: "Panel", section: "Panel", main: "Panel", aside: "Panel", header: "Panel",
   footer: "Panel", nav: "Panel", article: "Panel", form: "Panel", figure: "Panel",
-  button: "Button", select: "OptionButton", textarea: "LineEdit", canvas: "Viewport",
+  button: "Button", select: "OptionButton", textarea: "LineEdit", canvas: "SubViewportContainer",
   img: "TextureRect", span: "Label", b: "Label", strong: "Label", small: "Label",
   i: "Label", em: "Label", label: "Label", p: "Label", h1: "Label", h2: "Label",
   h3: "Label", h4: "Label", h5: "Label", h6: "Label", li: "Label", td: "Label", th: "Label",
@@ -258,6 +258,25 @@ function convertElement(el, ctx, htmlPath) {
   }
   if (el.attrs?.["data-tip"]) {
     node.props.push(["tooltip_text", el.attrs["data-tip"]]);
+  }
+
+  if (el.tag === "canvas") {
+    const widthAttr = String(el.attrs?.width ?? "");
+    const heightAttr = String(el.attrs?.height ?? "");
+    const width = /^[1-9]\d*$/.test(widthAttr) ? Number(widthAttr) : 300;
+    const height = /^[1-9]\d*$/.test(heightAttr) ? Number(heightAttr) : 150;
+    node.props.push(["stretch", true]);
+    node.children.push({
+      name: "CanvasViewport",
+      type: "SubViewport",
+      props: [["size", `Vector2i(${width}, ${height})`]],
+      children: [],
+      htmlPath: `${htmlNodePath}/CanvasViewport`,
+      htmlTag: "subviewport",
+    });
+    ctx.todo.push({
+      message: `<canvas${id ? ` #${id}` : ""}>: JavaScript-рисование и ввод не переносятся; реализуйте _draw() или собственные узлы внутри SubViewport`,
+    });
   }
 
   // дети (для script/style уже отфильтровано)
@@ -688,7 +707,7 @@ function formatValue(value) {
   if (value === false) return "false";
   if (typeof value === "number") return Number.isInteger(value) ? String(value) : String(value);
   if (typeof value === "string") {
-    if (/^(Vector2|Color|SubResource|ExtResource)\(/.test(value)) return value;
+    if (/^(Vector2i?|Color|SubResource|ExtResource)\(/.test(value)) return value;
     return JSON.stringify(value);
   }
   return String(value);

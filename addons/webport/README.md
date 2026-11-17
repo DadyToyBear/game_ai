@@ -8,6 +8,7 @@
 | `viewer/game.html` (разметка + CSS + JS) | `scenes/Game.tscn` и `scripts/Game.gd`, GDScript подключён к корневому узлу сцены |
 | стили из `<style>` | `StyleBoxFlat`, размеры, цвета, `HBoxContainer`/`VBoxContainer`/`GridContainer` |
 | `src/battle_simulation.mjs`, `battle_contract.mjs` | `webport/src/battle_simulation.gd` — GDScript-модуль с теми же функциями |
+| `<canvas>` | `SubViewportContainer` + `SubViewport`; JS-рисование и ввод остаются ручным TODO |
 | `data/*.json` | `data/*.json` без изменений (`JSON.parse_string`) |
 | `assets/**` | `assets/**` (пути сохраняются, `url('/assets/…')` становится `res://assets/…`) |
 | `id="resourceBar"` | `webport/dom_links.json`: `resourceBar → ResourceBar`, доступ через `WebportLinks.ui("resourceBar")` |
