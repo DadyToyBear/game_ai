@@ -19,8 +19,10 @@ const MIME = {
 };
 
 function resolveSafe(baseDir, relPath) {
-  const target = path.resolve(baseDir, '.' + relPath);
-  if (!target.startsWith(path.resolve(baseDir))) return null;
+  const base = path.resolve(baseDir);
+  const target = path.resolve(base, '.' + relPath);
+  const relative = path.relative(base, target);
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
   return target;
 }
 
@@ -47,6 +49,8 @@ const server = http.createServer((req, res) => {
     filePath = resolveSafe(path.join(__dirname, 'assets'), pathname.slice('/assets'.length));
   } else if (pathname.startsWith('/data/')) {
     filePath = resolveSafe(path.join(__dirname, 'data'), pathname.slice('/data'.length));
+  } else if (pathname.startsWith('/src/')) {
+    filePath = resolveSafe(path.join(__dirname, 'src'), pathname.slice('/src'.length));
   } else {
     filePath = resolveSafe(path.join(__dirname, 'viewer'), pathname);
   }

@@ -49,9 +49,22 @@ def add_tree(files: set[Path], base: Path, *, omit_gifs: bool = True) -> None:
                 files.add(path)
 
 
+def sync_browser_runtime() -> Path:
+    """Refresh the standalone runtime from the authoritative inline game script."""
+    source = (ROOT / "viewer/game.html").read_text(encoding="utf-8")
+    match = re.search(r"<script>([\s\S]*?)</script>", source)
+    if not match:
+        raise RuntimeError("Could not find the inline game runtime in viewer/game.html")
+    target = ROOT / "build/_game_runtime.js"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(match.group(1).strip() + "\n", encoding="utf-8")
+    return target
+
+
 def collect_files(omit_gifs: bool = True) -> list[Path]:
-    files: set[Path] = set()
-    for directory in ("assets", "data", "viewer", "docs", "scripts"):
+    runtime = sync_browser_runtime()
+    files: set[Path] = {runtime}
+    for directory in ("assets", "data", "src", "viewer", "docs", "scripts", "tests"):
         add_tree(files, ROOT / directory, omit_gifs=omit_gifs)
     for relative in (
         "README.md", "package.json", "package-lock.json", "server.mjs",
