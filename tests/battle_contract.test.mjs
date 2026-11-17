@@ -89,7 +89,7 @@ test('manual and headless auto duels match exactly on the same seed and orders a
   }
 });
 
-test('manual tactical orders and headless auto stay in exact parity with two regiments per side', () => {
+test('manual tactical orders and headless auto match 2v2 with a delayed reserve on all scenarios', () => {
   for (const scenarioId of ['river_crossing', 'forest_ambush', 'bridge_defense', 'fortress_siege']) {
     const request = createBattleRequest({
       battleId: `parity-multiregiment-${scenarioId}-91`,
@@ -104,6 +104,10 @@ test('manual tactical orders and headless auto stay in exact parity with two reg
         { id: 'd-spears', class: '06_spearman_shield', count: 80, position: { x: 7.75, y: 1 }, stats: { attack: 62, defense: 48, range: 1.2, speed: 3 } },
         { id: 'd-cavalry', class: '08_cavalryman', count: 45, position: { x: 7.75, y: 3 }, stats: { attack: 70, defense: 35, range: 1.2, speed: 3.6, charge: 1 } },
       ] },
+      reinforcements: [{ side: 'attacker', arrivalTick: 18, regiment: {
+        id: 'a-reserve', class: '08_cavalryman', count: 35, position: { x: 0.5, y: 2 },
+        stats: { attack: 72, defense: 38, range: 1.2, speed: 3.6, charge: 1 },
+      } }],
     });
     let manual = setBattlePaused(createBattle(request), false);
     for (let tick = 0; tick < 15 * 60 * 10 && !manual.result; tick += 1) {
@@ -123,8 +127,9 @@ test('manual tactical orders and headless auto stay in exact parity with two reg
     assert.ok(manual.result, 'the manual control loop resolves the multi-regiment engagement');
     assert.equal(automatic.status, 'resolved');
     assert.equal(automatic.winner, manual.result.winner);
-    assert.equal(automatic.durationTicks, manual.result.durationTicks);
-    for (const unit of manual.regiments) {
+      assert.equal(automatic.durationTicks, manual.result.durationTicks);
+      assert.ok(automatic.regiments.some(unit => unit.id === 'a-reserve'), `${scenarioId} includes the arrived reserve`);
+      for (const unit of manual.regiments) {
       const result = automatic.regiments.find(candidate => candidate.id === unit.id);
       assert.ok(result, `headless result preserves ${unit.id}`);
       assert.equal(result.count, unit.count, `${unit.id} losses match`);
