@@ -111,7 +111,7 @@ export function createBattle(input = {}) {
   }
 
   const seed = Math.floor(finite(input.seed, 1)) >>> 0;
-  return {
+  let state = {
     seed,
     rng_state: seed || 0x6d2b79f5,
     tick: 0,
@@ -124,6 +124,15 @@ export function createBattle(input = {}) {
     reinforcement_queue: reinforcementQueue,
     result: null,
   };
+  for (const [side, sourceUnits] of [['attacker', attacker], ['defender', defender]]) {
+    sourceUnits.forEach((source, index) => {
+      if (source.order) {
+        const regimentId = String(source.id ?? `${side}-${index + 1}`);
+        state = issueOrder(state, regimentId, source.order);
+      }
+    });
+  }
+  return state;
 }
 
 export function queueBattleReinforcements(state, reinforcements) {

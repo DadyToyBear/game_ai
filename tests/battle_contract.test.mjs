@@ -38,6 +38,21 @@ test('battle_request validates stable regiment IDs and preserves its versioned J
   assert.throws(() => createBattleRequest({ ...request, schemaVersion: 2 }), /Unsupported battle request schemaVersion/);
 });
 
+test('battle_request preserves explicit opening orders and validates their targets', () => {
+  const input = battleRequest();
+  input.attacker.regiments[0].order = { type: 'attack', targetId: 'border-spears', flank: true };
+  input.defender.regiments[0].order = { type: 'hold', targetId: 'crown-swords' };
+  const request = createBattleRequest(input);
+  assert.deepEqual(request.attacker.regiments[0].order, { type: 'attack', targetId: 'border-spears', flank: true });
+  const state = createBattle(request);
+  assert.deepEqual(state.regiments.find(unit => unit.id === 'crown-swords').order, request.attacker.regiments[0].order);
+  assert.deepEqual(state.regiments.find(unit => unit.id === 'border-spears').order, request.defender.regiments[0].order);
+  assert.throws(() => createBattleRequest({
+    ...request,
+    attacker: { ...request.attacker, regiments: [{ ...request.attacker.regiments[0], order: { type: 'attack', targetId: 'missing' } }] },
+  }), /Invalid attack target/);
+});
+
 test('battle_result is a deterministic, serializable resolution from the shared simulation core', () => {
   const request = battleRequest();
   const first = resolveBattleRequest(request);
@@ -97,12 +112,12 @@ test('manual tactical orders and headless auto match 2v2 with a delayed reserve 
       scenarioId,
       map: { width: 9, height: 5, terrain: createScenarioTerrain(scenarioId) },
       attacker: { regiments: [
-        { id: 'a-swords', class: '03_sword_and_shield', count: 90, position: { x: 1.25, y: 1 }, stats: { attack: 68, defense: 45, range: 1.2, speed: 3.2 } },
-        { id: 'a-archers', class: '01_archer', count: 60, position: { x: 1.25, y: 3 }, rank: 'rear', stats: { attack: 58, defense: 28, range: 3.2, speed: 2.8 } },
+        { id: 'a-swords', class: '03_sword_and_shield', count: 90, position: { x: 1.25, y: 1 }, formation: 'shieldwall', order: { type: 'attack', targetId: 'd-spears' }, stats: { attack: 68, defense: 45, range: 1.2, speed: 3.2 } },
+        { id: 'a-archers', class: '01_archer', count: 60, position: { x: 1.25, y: 3 }, rank: 'rear', order: { type: 'hold', targetId: 'd-cavalry' }, stats: { attack: 58, defense: 28, range: 3.2, speed: 2.8 } },
       ] },
       defender: { regiments: [
-        { id: 'd-spears', class: '06_spearman_shield', count: 80, position: { x: 7.75, y: 1 }, stats: { attack: 62, defense: 48, range: 1.2, speed: 3 } },
-        { id: 'd-cavalry', class: '08_cavalryman', count: 45, position: { x: 7.75, y: 3 }, stats: { attack: 70, defense: 35, range: 1.2, speed: 3.6, charge: 1 } },
+        { id: 'd-spears', class: '06_spearman_shield', count: 80, position: { x: 7.75, y: 1 }, formation: 'shieldwall', order: { type: 'attack', targetId: 'a-swords' }, stats: { attack: 62, defense: 48, range: 1.2, speed: 3 } },
+        { id: 'd-cavalry', class: '08_cavalryman', count: 45, position: { x: 7.75, y: 3 }, formation: 'wedge', order: { type: 'attack', targetId: 'a-archers', flank: true }, stats: { attack: 70, defense: 35, range: 1.2, speed: 3.6, charge: 1 } },
       ] },
       reinforcements: [{ side: 'attacker', arrivalTick: 18, regiment: {
         id: 'a-reserve', class: '08_cavalryman', count: 35, position: { x: 0.5, y: 2 },

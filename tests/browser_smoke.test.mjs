@@ -241,7 +241,7 @@ test('browser DOM smoke: a long tactical battle resolves and saves its campaign 
   assert.deepEqual(errors, []);
 });
 
-test('browser DOM smoke: headless autobattle uses the JSON contract and applies its result to the campaign', async (t) => {
+test('browser DOM smoke: headless autobattle preserves issued orders through the JSON contract', async (t) => {
   const { window, errors } = await launchGame();
   t.after(() => window.happyDOM.abort());
   window.Math.random = () => 0.5;
@@ -251,6 +251,9 @@ test('browser DOM smoke: headless autobattle uses the JSON contract and applies 
   assert.ok(archer);
   archer.click();
   window.document.querySelector('#battleBtn').click();
+  const attack = window.document.querySelector('#battleModal [data-action="attack"]');
+  assert.ok(attack && !attack.disabled);
+  attack.click();
   const autobattle = window.document.querySelector('#battleModal [data-action="autobattle"]');
   assert.ok(autobattle && !autobattle.disabled, 'autobattle is available while both armies have active regiments');
   autobattle.click();
