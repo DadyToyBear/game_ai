@@ -331,7 +331,7 @@ check("сборщик генерирует SVG-ориентиры и натив�
   const out = join(tmp, "territory-fixture-out");
   mkdirSync(join(source, "data"), { recursive: true });
   writeFileSync(join(source, "game.html"), `<html><body><canvas id="world" width="100" height="50" data-overlay-image="/assets/worldmap/world_overlay.svg" data-overlay-source="/data/worldmap.json" data-territory-colors='{"faction_a":"#4f8550"}'></canvas></body></html>`);
-  writeFileSync(join(source, "data/worldmap.json"), JSON.stringify({ art_size: [100, 50], grid: { cols: 2, rows: 2 }, territories: { faction_a: [[0, 0], [1, 0], [1, 1]] }, objects: [{ id: "fort", name: "Крепость", type: "castle", x: 0, y: 1, faction: "faction_a" }] }));
+  writeFileSync(join(source, "data/worldmap.json"), JSON.stringify({ art_size: [100, 50], grid: { cols: 2, rows: 2 }, territories: { faction_a: [[0, 0], [1, 0], [1, 1]] }, objects: [{ id: "fort", name: "Крепость", type: "castle", x: 0, y: 1, faction: "faction_a", resource: "gold" }] }));
   const { report } = buildProject({ source, out, only: "game.html", noCopyAssets: true, log: () => {} });
   const overlay = readFileSync(join(out, "assets/worldmap/world_overlay.svg"), "utf8");
   const project = readFileSync(join(out, "project.godot"), "utf8");
@@ -362,6 +362,8 @@ check("сборщик генерирует SVG-ориентиры и натив�
   includes(overlayScript, "event is InputEventMouseMotion");
   includes(overlayScript, "Control.CURSOR_POINTING_HAND if not _landmark_at(event.position).is_empty()");
   includes(overlayScript, "func _landmark_at(local_position: Vector2) -> Dictionary");
+  includes(overlayScript, 'var resources := {"food": "зерно", "wood": "древесина", "stone": "камень", "gold": "золото"}');
+  includes(overlayScript, 'description += "\\nРесурс: "');
   includes(overlayScript, "_landmark_at(event.position)");
   includes(reportText, "Сгенерированные статические ресурсы");
   includes(reportText, "Сгенерированные скрипты взаимодействия");

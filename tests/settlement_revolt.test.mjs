@@ -10,7 +10,7 @@ const sourceFiles = [
 const sources = sourceFiles.map(([label, url]) => [label, readFileSync(url, 'utf8')]);
 
 function extractLoyaltyFunction(source, label) {
-  const start = source.indexOf('function updateSettlementLoyalty(){');
+  const start = source.indexOf('function settlementLoyaltyTrend(s){');
   const end = source.indexOf('function buildingYield(', start);
   assert.notEqual(start, -1, `${label}: settlement loyalty function exists`);
   assert.notEqual(end, -1, `${label}: following function marker exists`);

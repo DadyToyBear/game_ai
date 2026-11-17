@@ -188,6 +188,30 @@ test('browser DOM smoke: local settlement loyalty changes its daily production',
     'positive settlement production is halved below 20% loyalty');
 });
 
+test('browser DOM smoke: loyalty forecast matches the next daily update', async (t) => {
+  const seedSession = await launchGame();
+  seedSession.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seedSession.window.localStorage.getItem('crown-banner-save-v2'));
+  seedSession.window.happyDOM.abort();
+  save.loyalty = 85;
+  save.food = 80;
+  save.structures.push({ id: 'forecast-town', type: 'town', name: 'Город надежды', x: 21, y: 12,
+    level: 2, owner: 'player', faction: save.faction });
+  save.settlementDevelopment = { ...(save.settlementDevelopment || {}),
+    'forecast-town': { loyalty: 40, specialty: 'none', governor: null } };
+
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  const card = [...window.document.querySelectorAll('.settlement-card')]
+    .find((entry) => entry.textContent.includes('Город надежды'));
+  assert.match(card.textContent, /Прогноз верности: \+1 в день/);
+  window.document.querySelector('#endTurn').click();
+  const afterTurn = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.equal(afterTurn.settlementDevelopment['forecast-town'].loyalty, 41,
+    'the displayed forecast equals the actual daily loyalty update');
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: settlement relief spends resources, raises loyalty, and observes its three-day cooldown', async (t) => {
   const seed = await launchGame();
   seed.window.document.querySelector('#saveBtn').click();

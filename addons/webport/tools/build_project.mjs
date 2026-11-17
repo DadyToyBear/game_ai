@@ -87,11 +87,16 @@ func _show_landmark(selected: Dictionary) -> void:
 		_dialog.queue_free()
 	var kinds := {"castle": "Замок", "keep": "Крепость", "town": "Город", "village": "Посёлок", "mine": "Рудник", "field": "Поля", "bridge": "Мост"}
 	var owners := {"player": "Под контролем короны", "enemy": "Вражеское владение", "neutral": "Нейтральное место"}
+	var resources := {"food": "зерно", "wood": "древесина", "stone": "камень", "gold": "золото"}
 	var kind := str(selected.get("type", "landmark"))
 	var owner := str(selected.get("owner", "neutral"))
+	var resource := str(selected.get("resource", ""))
+	var description := "%s · %s\nКлетка %s, %s" % [kinds.get(kind, "Ориентир"), owners.get(owner, owner), int(selected.get("x", 0)) + 1, int(selected.get("y", 0)) + 1]
+	if not resource.is_empty():
+		description += "\nРесурс: " + str(resources.get(resource, resource))
 	_dialog = AcceptDialog.new()
 	_dialog.title = str(selected.get("name", "Ориентир карты"))
-	_dialog.dialog_text = "%s · %s\nКлетка %s, %s" % [kinds.get(kind, "Ориентир"), owners.get(owner, owner), int(selected.get("x", 0)) + 1, int(selected.get("y", 0)) + 1]
+	_dialog.dialog_text = description
 	_dialog.ok_button_text = "Закрыть"
 	_dialog.confirmed.connect(_dialog.queue_free)
 	_dialog.close_requested.connect(_dialog.queue_free)
