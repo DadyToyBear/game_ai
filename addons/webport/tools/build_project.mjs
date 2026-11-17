@@ -206,6 +206,7 @@ export function buildProject(options = {}) {
   const report = {
     source: sourceRoot,
     out: outRoot,
+    engineCompatibility: "Godot 4.3+ / Redot 26.x",
     screens: [],
     modules: [],
     data: [],
@@ -590,6 +591,7 @@ export function renderReport(report) {
   lines.push("# Отчёт переноса в Redot", "");
   lines.push(`Источник: \`${report.source}\``);
   lines.push(`Проект: \`${report.out}\``);
+  lines.push(`Целевая совместимость: ${report.engineCompatibility ?? "не указана"}`);
   lines.push(`Собрано: ${report.startedAt}`, "");
   lines.push("## Итог", "");
   lines.push("| Показатель | Значение |", "|---|---|");

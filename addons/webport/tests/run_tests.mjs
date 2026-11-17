@@ -365,6 +365,7 @@ check("сборщик генерирует SVG-ориентиры и натив�
   includes(overlayScript, "_landmark_at(event.position)");
   includes(reportText, "Сгенерированные статические ресурсы");
   includes(reportText, "Сгенерированные скрипты взаимодействия");
+  includes(reportText, "Целевая совместимость: Godot 4.3+ / Redot 26.x");
   eq(report.generatedAssets.length, 1, "число созданных картографических слоёв");
   eq(report.generatedScripts.length, 1, "число созданных скриптов взаимодействия");
   if (hasLinter()) eq(lintGdscript(overlayScriptPath).ok, true, "GDScript клика по ориентирам");

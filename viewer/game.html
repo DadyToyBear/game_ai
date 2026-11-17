@@ -446,7 +446,9 @@ header,.bottom{background:linear-gradient(180deg,#302a20f5,#171a18fa);box-shadow
       let delta=governor.loyalty||0;
       if(state.loyalty<30)delta-=1;
       if(state.food<35)delta-=2;
-      if(d.loyalty<25&&!governor.loyalty)delta-=1;
+      const neglected=d.loyalty<25&&!governor.loyalty;
+      if(neglected)delta-=1;
+      if(state.loyalty>=80&&state.food>=35&&d.loyalty<50)delta+=neglected?2:1;
       const previous=d.loyalty;
       d.loyalty=Math.max(0,Math.min(100,d.loyalty+delta));
       if(d.loyalty!==previous)changed=true;

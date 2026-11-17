@@ -71,6 +71,26 @@ for (const [label, source] of sources) {
     assert.equal(scenario.news.length, 0);
   });
 
+  test(`${label}: a prosperous loyal realm restores its neglected settlements`, () => {
+    const keep = settlement('keep', 'Восточная крепость', 40);
+    const scenario = createScenario({ food: 80, crownLoyalty: 85, settlements: [keep] });
+
+    for (let day = 0; day < 10; day += 1) update(source, scenario);
+    assert.equal(keep.development.loyalty, 50);
+    assert.equal(keep.owner, 'player');
+    assert.equal(scenario.news.length, 0);
+  });
+
+  test(`${label}: strong crown loyalty overcomes local neglect below 25%`, () => {
+    const keep = settlement('keep', 'Восточная крепость', 10);
+    const scenario = createScenario({ food: 80, crownLoyalty: 85, settlements: [keep] });
+
+    for (let day = 0; day < 10; day += 1) update(source, scenario);
+    assert.equal(keep.development.loyalty, 20);
+    assert.equal(keep.owner, 'player');
+    assert.equal(scenario.news.length, 0);
+  });
+
   test(`${label}: prolonged famine triggers and records a settlement revolt`, () => {
     const keep = settlement('keep', 'Восточная крепость', 40);
     const scenario = createScenario({ food: 0, crownLoyalty: 20, settlements: [keep] });
