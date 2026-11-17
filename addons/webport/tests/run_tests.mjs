@@ -11,7 +11,9 @@ import { convertJs } from "../core/js_to_gd.mjs";
 import { parseHtml, summarize, collectIds } from "../core/html_dom.mjs";
 import { convertHtml, parseCss } from "../core/html_to_scene.mjs";
 import { lintGdscript, hasLinter } from "../core/gd_lint.mjs";
-import { writeFileSync, mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { extractScripts } from "../core/html_scripts.mjs";
+import { buildProject } from "../tools/build_project.mjs";
+import { writeFileSync, mkdirSync, mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -231,7 +233,7 @@ check("картинки: существующие ассеты → ext_resource,
 });
 
 check("HTML большой страницы парсится за разумное время", () => {
-  const src = readFileSync(new URL("../../../assets/SHOWCASE.html", import.meta.url), "utf8");
+  const src = readFileSync(new URL("../../../viewer/game.html", import.meta.url), "utf8");
   const t0 = Date.now();
   const res = convertHtml(src, {});
   const elapsed = Date.now() - t0;
@@ -241,11 +243,49 @@ check("HTML большой страницы парсится за разумно
   if (!res.scene.includes("[node name=")) throw new Error("сцена не собрана");
 });
 
-check("все id большой страницы попадают в таблицу путей", () => {
-  const src = readFileSync(new URL("../../../assets/SHOWCASE.html", import.meta.url), "utf8");
-  const ids = collectIds(parseHtml(src));
-  const res = convertHtml(src, {});
-  eq(res.nodePaths.size, ids.size, "все id в таблице");
+check("скрипты с угловыми скобками не обрезаются HTML-парсером", () => {
+  const src = readFileSync(new URL("../../../viewer/game.html", import.meta.url), "utf8");
+  const scripts = extractScripts(src);
+  if (scripts.code.length < 200000 || !scripts.code.includes("if(state.food")) {
+    throw new Error(`встроенный скрипт неожиданно обрезан: ${scripts.code.length} символов`);
+  }
+});
+
+check("статические id связаны, динамические id отмечены для ручной сцены", () => {
+  const src = readFileSync(new URL("../../../viewer/game.html", import.meta.url), "utf8");
+  const staticIds = collectIds(parseHtml(src));
+  const scene = convertHtml(src, {});
+  eq(scene.nodePaths.size, staticIds.size, "карта статических id");
+  const scripts = extractScripts(src).code;
+  const dynamicIds = new Set([...scripts.matchAll(/\bid\s*=\s*['\"]([A-Za-z0-9_-]+)['\"]/g)].map((m) => m[1]));
+  const missing = [...dynamicIds].filter((id) => !staticIds.has(id));
+  const res = convertHtml(src, { dynamicIds });
+  for (const id of missing) {
+    if (!res.warnings.some((warning) => warning.message.includes(`#${id}`))) {
+      throw new Error(`динамический узел #${id} не внесён в предупреждения`);
+    }
+  }
+  if (missing.length === 0) throw new Error("ожидались HTML-узлы, создаваемые игровым JavaScript");
+});
+
+check("--only фильтрует HTML-экраны, но сохраняет модули, данные и ассеты", () => {
+  const source = join(tmp, "build-fixture");
+  const out = join(tmp, "build-fixture-out");
+  mkdirSync(join(source, "src"), { recursive: true });
+  mkdirSync(join(source, "assets"), { recursive: true });
+  mkdirSync(join(source, "data"), { recursive: true });
+  writeFileSync(join(source, "index.html"), '<html><body><button id="go">Go</button></body></html>');
+  writeFileSync(join(source, "other.html"), '<html><body><div id="other">Other</div></body></html>');
+  writeFileSync(join(source, "src", "logic.mjs"), "export function add(a, b) { return a + b; }");
+  writeFileSync(join(source, "assets", "pixel.png"), Buffer.from([1, 2, 3]));
+  writeFileSync(join(source, "data", "game.json"), '{"ok":true}');
+  const { report } = buildProject({ source, out, only: "index.html", log: () => {} });
+  eq(report.screens.length, 1, "экранов");
+  eq(report.screens[0].page, "index.html", "выбранная страница");
+  eq(report.modules.some((module) => module.source === "src/logic.mjs"), true, "ES-модуль сохранён");
+  eq(report.assets.copied, 1, "ассеты сохранены");
+  eq(report.data.length, 1, "JSON сохранён");
+  eq(existsSync(join(out, "assets", "pixel.png")), true, "файл ассета скопирован");
 });
 
 console.log("GDScript-линт сгенерированного кода");

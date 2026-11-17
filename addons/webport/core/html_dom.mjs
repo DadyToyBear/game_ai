@@ -31,6 +31,23 @@ export function parseHtml(source) {
   };
 
   while (i < n) {
+    // HTML raw-text elements treat every `<` as text except their own closing
+    // tag. This matters for real game scripts/styles, where comparisons and
+    // template strings routinely contain angle brackets.
+    const rawTag = stack[stack.length - 1].tag;
+    if (RAW_TEXT_TAGS.has(rawTag)) {
+      const close = new RegExp(`<\\s*\\/\\s*${rawTag}\\s*>`, "ig");
+      close.lastIndex = i;
+      const match = close.exec(source);
+      if (!match) {
+        pushText(source.slice(i));
+        break;
+      }
+      pushText(source.slice(i, match.index));
+      i = match.index + match[0].length;
+      stack.pop();
+      continue;
+    }
     const lt = source.indexOf("<", i);
     if (lt === -1) {
       pushText(source.slice(i));

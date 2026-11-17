@@ -57,8 +57,8 @@ node addons/webport/tools/build_project.mjs \
   --name "Корона и знамя"
 ```
 
-Опции: `--only <подстрока>` (быстрая сборка части файлов), `--no-copy-assets`,
-`--main-scene viewer/game.html`, `--serve` (поднять страницу проверки).
+Опции: `--only <подстрока>` фильтрует только HTML-экраны (общие модули/JSON/ассеты остаются),
+`--no-copy-assets`, `--main-scene viewer/game.html`, `--serve` (поднять страницу проверки).
 
 После сборки проект открывается в Redot обычным способом:
 

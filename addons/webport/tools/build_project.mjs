@@ -107,7 +107,7 @@ export function buildProject(options = {}) {
   const outRoot = resolve(opts.out);
   if (!existsSync(sourceRoot)) throw new Error(`нет каталога исходников: ${sourceRoot}`);
   const log = opts.log ?? (() => {});
-  const DEFAULT_EXCLUDE = [/\.test\./, /(^|\/)server\.m?js$/, /(^|\/)serve\.m?js$/, /(^|\/)vite\.config/, /(^|\/)webpack/];
+  const DEFAULT_EXCLUDE = [/\.test\./, /^examples\//, /(^|\/)server\.m?js$/, /(^|\/)serve\.m?js$/, /(^|\/)vite\.config/, /(^|\/)webpack/];
   const exclude = opts.exclude ?? DEFAULT_EXCLUDE;
   opts.exclude = exclude;
   const report = {
@@ -144,11 +144,7 @@ export function buildProject(options = {}) {
     !/[\\/]package/.test(f) && !/[\\/]assets[\\/]/.test(rel(f)));
   const mediaFiles = files.filter((f) => TEXTURE_EXT.has(extname(f)) || COPY_EXT.has(extname(f)));
 
-  let staticScripts = "";
-  for (const page of htmlPages) staticScripts += readFileSync(page, "utf8");
-
   // 2. страницы → сцены
-  const dynamicIds = collectDynamicIds(staticScripts);
   const pageByScene = new Map();
   for (const page of htmlPages) {
     const pageRel = rel(page);
@@ -161,6 +157,9 @@ export function buildProject(options = {}) {
       readFile: (relPath) => readFileSync(join(sourceRoot, relPath), "utf8"),
     });
 
+    // Scope discovered IDs to this page; sharing one global set across several
+    // HTML screens creates hundreds of false "missing node" warnings.
+    const dynamicIds = collectDynamicIds(`${html}\n${scripts.code}`);
     const scene = convertHtml(html, { assetExists, rootName: sceneName, dynamicIds });
     const sceneRel = `scenes/${sceneName}.tscn`;
     writeOut(outRoot, sceneRel, scene.scene);
@@ -226,7 +225,6 @@ export function buildProject(options = {}) {
   const convertedModules = new Map();
   for (const module of jsModules) {
     const moduleRel = rel(module);
-    if (opts.only && !moduleRel.includes(opts.only)) continue;
     if (!/[\\/]src[\\/]/.test(moduleRel) && !/\.mjs$/.test(moduleRel)) continue;
     // серверные файлы и тесты не переносятся: они вне игрового клиента
     if (opts.exclude && opts.exclude.some((re) => re.test(moduleRel))) {
@@ -267,7 +265,6 @@ export function buildProject(options = {}) {
   if (!opts.noCopyAssets) {
     for (const file of mediaFiles) {
       const moduleRel = rel(file);
-      if (opts.only && !moduleRel.includes(opts.only)) continue;
       const bytes = statSync(file).size;
       copyOut(outRoot, moduleRel, file);
       report.assets.copied += 1;
@@ -291,7 +288,7 @@ export function buildProject(options = {}) {
   for (const screen of report.screens) {
     // повторный разбор нужен, чтобы получить nodePaths (в сцену они не пишутся)
     const html = readFileSync(join(sourceRoot, screen.page), "utf8");
-    const scene = convertHtml(html, { assetExists, rootName: screenName(screen.page), dynamicIds });
+    const scene = convertHtml(html, { assetExists, rootName: screenName(screen.page) });
     links[screen.scene] = Object.fromEntries(scene.nodePaths);
   }
   writeOut(outRoot, "webport/dom_links.json", JSON.stringify(links, null, 2) + "\n");
@@ -337,12 +334,17 @@ const BINDINGS_SEPARATOR = "# ── связка DOM → узлы Godot (ген
 
 function collectDynamicIds(source) {
   const ids = new Set();
-  const re = /\\$\(\s*['"]([A-Za-z0-9_-]+)['"]\s*\)\s*\.innerHTML|getElementById\(\s*['"]([A-Za-z0-9_-]+)['"]\s*\)\s*\.innerHTML/g;
-  let m;
-  while ((m = re.exec(source))) ids.add(m[1] ?? m[2]);
+  // Dynamic HTML templates often introduce IDs which do not exist in the
+  // original DOM tree. Discover literal id attributes throughout the page
+  // source so convertHtml can report each generated node that needs a manual
+  // scene counterpart, rather than silently omitting it from the binding map.
+  const idAttribute = /(?:^|[\s<])id\s*=\s*([\"\'])([A-Za-z0-9_-]+)\1/g;
+  let match;
+  while ((match = idAttribute.exec(source))) ids.add(match[2]);
+  const innerHtmlTarget = /\$\(\s*([\"\'])([A-Za-z0-9_-]+)\1\s*\)\s*\.innerHTML|getElementById\(\s*([\"\'])([A-Za-z0-9_-]+)\3\s*\)\s*\.innerHTML/g;
+  while ((match = innerHtmlTarget.exec(source))) ids.add(match[2] ?? match[4]);
   return ids;
 }
-
 function collectAutoloads(outRoot) {
   const hooks = join(outRoot, "webport", "autoloads.txt");
   if (!existsSync(hooks)) return [];
@@ -510,7 +512,7 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
   --out <dir>         каталог будущего проекта Redot (создаётся)
   --name "..."        имя проекта в окне движка
   --main-scene <file> главная сцена (по умолчанию viewer/game.html)
-  --only <подстрока>  собрать только файлы с этой подстрокой (для быстрых проверок)
+  --only <подстрока>  выбрать HTML-экраны; модули/данные/ассеты остаются общими
   --no-copy-assets    не копировать картинки/звук
   --serve             после сборки поднять сервер проверки (tools/serve.mjs)
 `);
