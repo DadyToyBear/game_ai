@@ -311,7 +311,7 @@ check("статические id связаны, динамические id о�
   if (missing.length === 0) throw new Error("ожидались HTML-узлы, создаваемые игровым JavaScript");
 });
 
-check("сборщик генерирует SVG-территории и метки объектов для SubViewport canvas", () => {
+check("сборщик генерирует SVG-ориентиры и нативный клик по ним в SubViewport", () => {
   const source = join(tmp, "territory-fixture");
   const out = join(tmp, "territory-fixture-out");
   mkdirSync(join(source, "data"), { recursive: true });
@@ -320,6 +320,8 @@ check("сборщик генерирует SVG-территории и метк�
   const { report } = buildProject({ source, out, only: "game.html", noCopyAssets: true, log: () => {} });
   const overlay = readFileSync(join(out, "assets/worldmap/world_overlay.svg"), "utf8");
   const scene = readFileSync(join(out, "scenes/Game.tscn"), "utf8");
+  const overlayScriptPath = join(out, "scripts/WebportCanvasOverlay.gd");
+  const overlayScript = readFileSync(overlayScriptPath, "utf8");
   const reportText = readFileSync(join(out, "webport/REPORT.md"), "utf8");
   includes(overlay, 'points="0.00,0.00 100.00,0.00 100.00,50.00"');
   includes(overlay, 'fill="#4f8550"');
@@ -327,8 +329,15 @@ check("сборщик генерирует SVG-территории и метк�
   includes(overlay, "<text x=\"37.00\" y=\"28.50\"");
   includes(scene, '[node name="StaticCanvasOverlay" type="TextureRect"');
   includes(scene, 'path="res://assets/worldmap/world_overlay.svg"');
+  includes(scene, 'path="res://scripts/WebportCanvasOverlay.gd"');
+  includes(scene, 'world_data_path = "res://data/worldmap.json"');
+  includes(overlayScript, "func _gui_input(event: InputEvent)");
+  includes(overlayScript, "_show_landmark(event.position)");
   includes(reportText, "Сгенерированные статические ресурсы");
+  includes(reportText, "Сгенерированные скрипты взаимодействия");
   eq(report.generatedAssets.length, 1, "число созданных картографических слоёв");
+  eq(report.generatedScripts.length, 1, "число созданных скриптов взаимодействия");
+  if (hasLinter()) eq(lintGdscript(overlayScriptPath).ok, true, "GDScript клика по ориентирам");
 });
 
 check("--only фильтрует HTML-экраны, но сохраняет модули, данные и ассеты", () => {

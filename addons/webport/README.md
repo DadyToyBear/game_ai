@@ -8,7 +8,7 @@
 | `viewer/game.html` (разметка + CSS + JS) | `scenes/Game.tscn` и `scripts/Game.gd`, GDScript подключён к корневому узлу сцены |
 | стили из `<style>` | `StyleBoxFlat`, размеры, цвета, `HBoxContainer`/`VBoxContainer`/`GridContainer` |
 | `src/battle_simulation.mjs`, `battle_contract.mjs` | `webport/src/battle_simulation.gd` — GDScript-модуль с теми же функциями |
-| `<canvas>` | `SubViewportContainer` + `SubViewport`; `data-background-image` и сгенерированный по `data-overlay-source` SVG-слой подключаются как `TextureRect`; динамика и ввод остаются ручным TODO |
+| `<canvas>` | `SubViewportContainer` + `SubViewport`; подложка и SVG-слой подключаются как `TextureRect`, метки открывают информационный диалог; динамическое состояние и камера остаются TODO |
 | `data/*.json` | `data/*.json` без изменений (`JSON.parse_string`) |
 | `assets/**` | `assets/**` (пути сохраняются, `url('/assets/…')` становится `res://assets/…`) |
 | `id="resourceBar"` | `webport/dom_links.json`: `resourceBar → ResourceBar`, доступ через `WebportLinks.ui("resourceBar")` |
@@ -46,7 +46,7 @@
 2. Выключите «копировать ассеты», если хотите сначала проверить структуру
    (в этой игре около 358 МБ ресурсов копируются вместе с остальным).
 3. Нажмите **Собрать проект**. Сборка выполняется в отдельном процессе, редактор остаётся отзывчивым; панель покажет итог и сводку по экранам, модулям и замечаниям.
-4. Для Canvas задайте `data-background-image` для подложки. Для статических границ задайте также `data-overlay-source="/data/worldmap.json"`, `data-overlay-image="/assets/worldmap/world_overlay.svg"` и `data-territory-colors='{"faction_id":"#668855"}'`: сборщик создаст SVG из территориальных полигонов и точек `objects` в JSON и включит его поверх фона в `SubViewport`. Это статичный снимок карты — смена владения, игровые постройки/отряды, анимация, камера и ввод требуют отдельной нативной реализации.
+4. Для Canvas задайте `data-background-image` для подложки. Для статических границ задайте также `data-overlay-source="/data/worldmap.json"`, `data-overlay-image="/assets/worldmap/world_overlay.svg"` и `data-territory-colors='{"faction_id":"#668855"}'`: сборщик создаст SVG из территориальных полигонов и точек `objects` в JSON, включит его поверх фона в `SubViewport` и добавит нативный GDScript-обработчик: клик по ориентиру открывает информационное окно с типом и координатами. Геометрия и владение остаются статичными — игровая смена владельца, управление поселением, игровые постройки/отряды, анимация и камера требуют отдельной реализации.
 5. Кнопка **Отчёт** открывает `webport/report.json`, кнопка **Проверка** —
    локальную страницу со структурой сцен.
 

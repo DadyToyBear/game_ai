@@ -269,6 +269,10 @@ function convertElement(el, ctx, htmlPath) {
     const viewportChildren = [];
     const canvasBackground = el.attrs?.["data-background-image"];
     const canvasOverlay = el.attrs?.["data-overlay-image"];
+    const overlaySource = String(el.attrs?.["data-overlay-source"] ?? "").replace(/^\/+/, "");
+    const nativeOverlayActive = Boolean(
+      canvasOverlay && ctx.options.nativeOverlayDataPaths?.has(overlaySource) && assetPath(canvasOverlay, ctx.options),
+    );
     if (canvasBackground) {
       viewportChildren.push({
         name: "StaticCanvasBackground",
@@ -290,20 +294,25 @@ function convertElement(el, ctx, htmlPath) {
       });
     }
     if (canvasOverlay) {
+      const overlayProps = [
+        ["__texture_src", canvasOverlay],
+        ["anchors_preset", 15],
+        ["anchor_right", 1.0],
+        ["anchor_bottom", 1.0],
+        ["grow_horizontal", 2],
+        ["grow_vertical", 2],
+        ["mouse_filter", nativeOverlayActive ? 0 : 2],
+        ["expand_mode", 0],
+        ["stretch_mode", 6],
+      ];
+      if (nativeOverlayActive) {
+        overlayProps.push(["__script_src", "scripts/WebportCanvasOverlay.gd"]);
+        overlayProps.push(["world_data_path", `res://${overlaySource}`]);
+      }
       viewportChildren.push({
         name: "StaticCanvasOverlay",
         type: "TextureRect",
-        props: [
-          ["__texture_src", canvasOverlay],
-          ["anchors_preset", 15],
-          ["anchor_right", 1.0],
-          ["anchor_bottom", 1.0],
-          ["grow_horizontal", 2],
-          ["grow_vertical", 2],
-          ["mouse_filter", 2],
-          ["expand_mode", 0],
-          ["stretch_mode", 6],
-        ],
+        props: overlayProps,
         children: [],
         htmlPath: `${htmlNodePath}/CanvasViewport/StaticCanvasOverlay`,
         htmlTag: "texture_rect",
@@ -711,6 +720,12 @@ function serializeScene(rootNode, ctx, options) {
     }
 
     for (const [key, value] of node.props) {
+      if (key === "__script_src") {
+        const scriptPath = String(value).startsWith("res://") ? String(value) : `res://${value}`;
+        const rid = addExternal(scriptPath, "Script");
+        lines.push(`script = ExtResource("${rid}_${basename(scriptPath)}")`);
+        continue;
+      }
       if (key === "__texture_src") {
         const resPath = assetPath(value, options);
         if (!resPath) {

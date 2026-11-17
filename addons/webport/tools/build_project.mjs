@@ -32,6 +32,66 @@ const ADDON_DIR = resolve(__dirname, "..");
 const TEXTURE_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".gif"]);
 const DATA_EXT = new Set([".json"]);
 const COPY_EXT = new Set([".ttf", ".otf", ".wav", ".ogg", ".mp3"]);
+const CANVAS_OVERLAY_SCRIPT = String.raw`extends TextureRect
+
+@export var world_data_path: String = ""
+var _world_data: Dictionary = {}
+var _dialog: AcceptDialog
+
+
+func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	if world_data_path.is_empty() or not FileAccess.file_exists(world_data_path):
+		return
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(world_data_path))
+	if parsed is Dictionary:
+		_world_data = parsed
+
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_show_landmark(event.position)
+		accept_event()
+
+
+func _show_landmark(local_position: Vector2) -> void:
+	if _world_data.is_empty() or size.x <= 0.0 or size.y <= 0.0:
+		return
+	var art_size: Array = _world_data.get("art_size", [1264, 848])
+	var grid: Dictionary = _world_data.get("grid", {})
+	var cols := max(1, int(grid.get("cols", 45)))
+	var rows := max(1, int(grid.get("rows", 30)))
+	var map_size := Vector2(float(art_size[0]), float(art_size[1]))
+	var tile_size := Vector2(map_size.x / cols, map_size.y / rows)
+	var map_position := Vector2(local_position.x / size.x * map_size.x, local_position.y / size.y * map_size.y)
+	var best_distance := max(tile_size.x, tile_size.y) * 0.8
+	var selected: Dictionary = {}
+	for value in _world_data.get("objects", []):
+		if not value is Dictionary:
+			continue
+		var center := Vector2((float(value.get("x", 0)) + 0.5) * tile_size.x, (float(value.get("y", 0)) + 0.5) * tile_size.y)
+		var distance := map_position.distance_to(center)
+		if distance <= best_distance:
+			best_distance = distance
+			selected = value
+	if selected.is_empty():
+		return
+	if is_instance_valid(_dialog):
+		_dialog.queue_free()
+	var kinds := {"castle": "Замок", "keep": "Крепость", "town": "Город", "village": "Посёлок", "mine": "Рудник", "field": "Поля", "bridge": "Мост"}
+	var owners := {"player": "Под контролем короны", "enemy": "Вражеское владение", "neutral": "Нейтральное место"}
+	var kind := str(selected.get("type", "landmark"))
+	var owner := str(selected.get("owner", "neutral"))
+	_dialog = AcceptDialog.new()
+	_dialog.title = str(selected.get("name", "Ориентир карты"))
+	_dialog.dialog_text = "%s · %s\nКлетка %s, %s" % [kinds.get(kind, "Ориентир"), owners.get(owner, owner), int(selected.get("x", 0)) + 1, int(selected.get("y", 0)) + 1]
+	_dialog.ok_button_text = "Закрыть"
+	_dialog.confirmed.connect(_dialog.queue_free)
+	_dialog.close_requested.connect(_dialog.queue_free)
+	get_tree().root.add_child(_dialog)
+	_dialog.popup_centered(Vector2i(420, 150))
+`;
 
 export function parseArgs(argv) {
   const args = {
@@ -144,6 +204,7 @@ export function buildProject(options = {}) {
     modules: [],
     data: [],
     generatedAssets: [],
+    generatedScripts: [],
     assets: { copied: 0, skipped: 0, missing: 0, bytes: 0 },
     todo: [],
     warnings: [],
@@ -175,12 +236,23 @@ export function buildProject(options = {}) {
 
   // 2. страницы → сцены
   const pageByScene = new Map();
+  let nativeOverlayScriptWritten = false;
   for (const page of htmlPages) {
     const pageRel = rel(page);
     if (opts.only && !pageRel.includes(opts.only)) continue;
     const html = readFileSync(page, "utf8");
     const sceneName = screenName(pageRel);
     const parsedPage = parseHtml(html);
+    const nativeOverlayDataPaths = new Set();
+    const markNativeOverlaySource = (sourceRel) => {
+      nativeOverlayDataPaths.add(sourceRel);
+      if (!nativeOverlayScriptWritten) {
+        const target = "scripts/WebportCanvasOverlay.gd";
+        writeOut(outRoot, target, CANVAS_OVERLAY_SCRIPT + "\n");
+        report.generatedScripts.push({ source: sourceRel, target, kind: "clickable static landmark info dialog" });
+        nativeOverlayScriptWritten = true;
+      }
+    };
     for (const canvasElement of findAll(parsedPage, (element) => element.tag === "canvas" && element.attrs?.["data-overlay-source"] && element.attrs?.["data-overlay-image"])) {
       const sourceRel = String(canvasElement.attrs["data-overlay-source"]).replace(/^\/+/, "");
       const imageRel = String(canvasElement.attrs["data-overlay-image"]).replace(/^\/+/, "");
@@ -188,10 +260,13 @@ export function buildProject(options = {}) {
         report.warnings.push({ message: `${pageRel}: небезопасный путь data-overlay-source/data-overlay-image — SVG-слой не собран` });
         continue;
       }
-      if (generatedAssetPaths.has(imageRel)) continue;
       const sourceFile = resolve(sourceRoot, sourceRel);
       if (!existsSync(sourceFile)) {
         report.warnings.push({ message: `${pageRel}: отсутствуют данные слоя карты ${sourceRel}` });
+        continue;
+      }
+      if (generatedAssetPaths.has(imageRel)) {
+        markNativeOverlaySource(sourceRel);
         continue;
       }
       try {
@@ -204,6 +279,7 @@ export function buildProject(options = {}) {
         writeOut(outRoot, imageRel, svg);
         generatedAssetPaths.add(imageRel);
         report.generatedAssets.push({ source: sourceRel, target: imageRel, kind: "static world overlay: territories and landmarks (SVG)" });
+        markNativeOverlaySource(sourceRel);
       } catch (error) {
         report.warnings.push({ message: `${pageRel}: не удалось собрать SVG-слой ${imageRel}: ${error.message}` });
       }
@@ -223,6 +299,7 @@ export function buildProject(options = {}) {
       rootName: sceneName,
       dynamicIds,
       rootScript: screenScriptRel,
+      nativeOverlayDataPaths,
     });
     const sceneRel = `scenes/${sceneName}.tscn`;
     writeOut(outRoot, sceneRel, scene.scene);
@@ -502,6 +579,11 @@ export function renderReport(report) {
   if (report.generatedAssets?.length) {
     lines.push("## Сгенерированные статические ресурсы", "");
     for (const asset of report.generatedAssets) lines.push(`- \`${asset.target}\` — ${asset.kind} из \`${asset.source}\`.`);
+    lines.push("");
+  }
+  if (report.generatedScripts?.length) {
+    lines.push("## Сгенерированные скрипты взаимодействия", "");
+    for (const script of report.generatedScripts) lines.push(`- \`${script.target}\` — ${script.kind} для данных \`${script.source}\`.`);
     lines.push("");
   }
 
