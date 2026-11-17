@@ -90,6 +90,33 @@ test('siege gate assault has integrity, a breach state, counterplay time, and ex
     'breaching opens the gate passage through the fortress wall');
 });
 
+test('siege defenders can destroy a lightly protected gate assault before breaching the wall', () => {
+  const request = createBattleRequest({
+    battleId: 'siege-gate-counterplay-45', seed: 45, scenarioId: 'fortress_siege',
+    map: { width: 9, height: 5, terrain: createScenarioTerrain('fortress_siege') },
+    attacker: { regiments: [{
+      id: 'raiders', class: '03_sword_and_shield', count: 20, morale: 70, position: { x: 5.45, y: 2.5 },
+      order: { type: 'attack_gate' }, stats: { attack: 25, defense: 20, range: 1.2, speed: 2 },
+    }] },
+    defender: { regiments: [{
+      id: 'gate-guard', class: '06_spearman_shield', count: 100, morale: 100, position: { x: 7.5, y: 2.5 },
+      order: { type: 'attack', targetId: 'raiders' }, stats: { attack: 95, defense: 50, range: 1.2, speed: 3 },
+    }] },
+  });
+  let manual = setBattlePaused(createBattle(request), false);
+  while (!manual.result && manual.tick < 300) manual = advanceBattle(manual, 1);
+  const automatic = resolveBattleRequest(request);
+  assert.equal(manual.result.winner, 'defender');
+  assert.equal(manual.siege.gate.status, 'intact');
+  assert.ok(manual.siege.gate.integrity > 99, 'the assault stops before materially damaging the gate');
+  assert.equal(manual.regiments.find(unit => unit.id === 'raiders').count, 0);
+  assert.equal(automatic.winner, manual.result.winner);
+  assert.equal(automatic.durationTicks, manual.result.durationTicks);
+  assert.deepEqual(automatic.siege, manual.siege);
+  assert.deepEqual(automatic.regiments.map(unit => [unit.id, unit.count, unit.morale, unit.state]),
+    manual.regiments.map(unit => [unit.id, unit.count, unit.morale, unit.state]));
+});
+
 test('same-seed duels resolve reproducibly on all four battlefield layouts', () => {
   const metrics = [];
   const defenderSurvivors = new Map();
