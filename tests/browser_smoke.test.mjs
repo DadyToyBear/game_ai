@@ -304,6 +304,41 @@ test('browser DOM smoke: settlement relief spends resources, raises loyalty, and
   assert.deepEqual(errors, []);
 });
 
+test('browser DOM smoke: army roster filters track selected, resting, and moving units', async (t) => {
+  const seed = await launchGame();
+  seed.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seed.window.localStorage.getItem('crown-banner-save-v2'));
+  seed.window.happyDOM.abort();
+  save.units = [
+    { cls: '03_sword_and_shield', x: 18 * 64, y: 12 * 64, faction: save.faction, count: 12, capacity: 12, morale: 30, fatigue: 0, illDays: 0, enemy: false, gear: {}, formation: 'line', marchMode: 'normal' },
+    { cls: '06_spearman_shield', x: 20 * 64, y: 12 * 64, faction: save.faction, count: 12, capacity: 12, morale: 70, fatigue: 82, illDays: 0, enemy: false, gear: {}, formation: 'line', marchMode: 'normal' },
+    { cls: '01_archer', x: 22 * 64, y: 12 * 64, faction: save.faction, count: 12, capacity: 12, morale: 78, fatigue: 5, illDays: 0, enemy: false, gear: {}, formation: 'line', marchMode: 'normal' },
+  ];
+
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  window.document.querySelector('[data-tab="army"]').click();
+  const filter = id => window.document.querySelector(`[data-roster-filter="${id}"]`);
+  const cards = () => [...window.document.querySelectorAll('#armyRoster .roster-card')];
+  assert.equal(cards().length, 3);
+  assert.match(filter('all').textContent, /3/);
+  assert.match(filter('rest').textContent, /2/);
+
+  filter('rest').click();
+  assert.equal(cards().length, 2, 'low-morale and exhausted units appear in the recovery filter');
+  cards()[0].querySelector('[data-roster]').click();
+  filter('selected').click();
+  assert.equal(cards().length, 1, 'the selected filter follows map and roster selection');
+  assert.equal(cards()[0].classList.contains('selected'), true);
+
+  filter('all').click();
+  assert.equal(cards().length, 3, 'returning to all restores the complete roster');
+  filter('moving').click();
+  assert.equal(cards().length, 0);
+  assert.match(window.document.querySelector('#armyRoster').textContent, /В этой категории пока нет отрядов/);
+  assert.deepEqual(errors, []);
+});
+
 test('browser DOM smoke: campaign loads, tabs work, and a daily turn is saved', async (t) => {
   const { window, errors } = await launchGame();
   t.after(() => window.happyDOM.abort());
