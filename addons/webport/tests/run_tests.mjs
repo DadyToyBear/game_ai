@@ -335,6 +335,8 @@ check("сборщик генерирует SVG-ориентиры и натив�
   const { report } = buildProject({ source, out, only: "game.html", noCopyAssets: true, log: () => {} });
   const overlay = readFileSync(join(out, "assets/worldmap/world_overlay.svg"), "utf8");
   const project = readFileSync(join(out, "project.godot"), "utf8");
+  includes(project, "pointing/emulate_mouse_from_touch=true");
+  includes(project, 'window/stretch/aspect="expand"');
   const linksRuntime = readFileSync(join(out, "addons/webport/runtime/webport_links.gd"), "utf8");
   const scene = readFileSync(join(out, "scenes/Game.tscn"), "utf8");
   const overlayScriptPath = join(out, "scripts/WebportCanvasOverlay.gd");

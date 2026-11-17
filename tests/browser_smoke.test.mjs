@@ -619,9 +619,17 @@ test('browser DOM smoke: selected spearmen can brace and release their pikes in 
   pikePick.click();
   window.document.querySelector('#battleBtn').click();
   assert.equal(window.document.querySelector('#battleModal').dataset.battleMode, 'simulation');
+  const actionDock = window.document.querySelector('#battleModal .battle-actions');
+  assert.equal(actionDock.getAttribute('role'), 'toolbar', 'battle orders are exposed as an accessible command toolbar');
+  assert.match(window.document.querySelector('style').textContent,
+    /@media\(max-width:820px\)\{#battleModal\[data-battle-mode="simulation"\] \.battle-actions\{position:sticky/,
+    'touch layouts keep battle commands in a sticky, horizontally scrollable dock');
+  actionDock.scrollLeft = 80;
   const brace = window.document.querySelector('#battleModal [data-action="brace"]');
   assert.equal(brace.disabled, false, 'the brace action is enabled for a selected spearman');
   brace.click();
+  assert.equal(window.document.querySelector('#battleModal .battle-actions').scrollLeft, 80,
+    'redrawing the tactical state preserves the touch command dock scroll position');
   assert.equal(window.document.querySelector('#battleModal [data-action="brace"]').textContent, 'Снять упор');
   assert.match(window.document.querySelector('#battleTacticalPreview').textContent, /Упёр копья/);
   assert.ok(window.document.querySelector('#battleModal .battle-cell.unit-braced'),

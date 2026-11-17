@@ -569,6 +569,7 @@ function renderProjectGodot({ name, mainScene, autoloads }) {
     "[input_devices]",
     "",
     "pointing/emulate_touch_from_mouse=false",
+    "pointing/emulate_mouse_from_touch=true",
     "",
   ];
   return lines.join("\n");
