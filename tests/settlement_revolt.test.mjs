@@ -155,6 +155,6 @@ test('browser and packaged runtime keep settlement revolt logic synchronized', {
 test('the daily game turn runs settlement loyalty processing', () => {
   for (const [label, source] of sources) {
     const compact = source.replace(/\s+/g, ' ');
-    assert.match(compact, /processArmyDaily\(\);updateSettlementLoyalty\(\);processNeighborDiplomacy\(\)/, label);
+    assert.match(compact, /processArmyDaily\(\);processRoutedReturns\(\);updateSettlementLoyalty\(\);processNeighborDiplomacy\(\)/, label);
   }
 });

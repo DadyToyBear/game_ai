@@ -263,6 +263,54 @@ test('browser DOM smoke: headless autobattle uses the JSON contract and applies 
   assert.deepEqual(errors, []);
 });
 
+test('browser DOM smoke: routed survivors leave the campaign roster and return after two saved days', async (t) => {
+  const seedSession = await launchGame();
+  t.after(() => seedSession.window.happyDOM.abort());
+  seedSession.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seedSession.window.localStorage.getItem('crown-banner-save-v2'));
+  for (const unit of save.units) unit.count = 0;
+  const crown = save.units.find((unit) => !unit.enemy && unit.cls === '03_sword_and_shield');
+  const foe = save.units.find((unit) => unit.enemy && unit.cls === '03_sword_and_shield');
+  assert.ok(crown && foe);
+  crown.count = 10;
+  crown.morale = 10;
+  foe.count = 32;
+  foe.morale = 100;
+
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  window.Math.random = () => 0.5;
+  const swordsmen = [...window.document.querySelectorAll('#armyRoster [data-roster]')]
+    .find((button) => button.closest('.roster-card')?.textContent.includes('Мечник'));
+  assert.ok(swordsmen);
+  swordsmen.click();
+  window.document.querySelector('#battleBtn').click();
+  window.document.querySelector('#battleModal [data-action="autobattle"]').click();
+
+  let saved = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.equal(saved.routedReturns.length, 1, 'surviving routed regiment is stored in the campaign return queue');
+  const pending = saved.routedReturns[0];
+  assert.equal(pending.enemy, false);
+  assert.ok(pending.count > 0, 'routed survivors are distinguished from casualties');
+  assert.equal(pending.returnTurn, saved.campaignTurn + 2);
+  assert.match(window.document.querySelector('#battleOutcome').textContent, /вернутся в кампанию через 2 дня/);
+  assert.equal(saved.units.some((unit) => !unit.enemy && unit.cls === pending.cls && unit.count > 0), false,
+    'routed soldiers are temporarily absent from active campaign armies');
+
+  window.document.querySelector('#endTurn').click();
+  saved = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.equal(saved.routedReturns.length, 1, 'the return queue survives the first saved campaign day');
+  window.happyDOM.abort();
+  const resumed = await launchGame(saved);
+  t.after(() => resumed.window.happyDOM.abort());
+  resumed.window.document.querySelector('#endTurn').click();
+  saved = JSON.parse(resumed.window.localStorage.getItem('crown-banner-save-v2'));
+  assert.equal(saved.routedReturns.length, 0, 'due return entry is removed after restoration from the saved campaign');
+  assert.ok(saved.units.some((unit) => !unit.enemy && unit.cls === pending.cls && unit.count === pending.count),
+    'survivors rejoin the campaign roster with their remaining count');
+  assert.deepEqual([...errors, ...resumed.errors], []);
+});
+
 test('browser DOM smoke: slingers can be recruited and use the ranged command', async (t) => {
   const { window, errors } = await launchGame();
   t.after(() => window.happyDOM.abort());
