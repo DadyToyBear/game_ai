@@ -311,18 +311,21 @@ test('browser DOM smoke: routed survivors leave the campaign roster and return a
   assert.deepEqual([...errors, ...resumed.errors], []);
 });
 
-test('browser DOM smoke: nearby friendly regiments arrive after a signalled travel delay', async (t) => {
+test('browser DOM smoke: separate reinforcement waves arrive at their individual ETAs', async (t) => {
   const seedSession = await launchGame();
   t.after(() => seedSession.window.happyDOM.abort());
   seedSession.window.document.querySelector('#saveBtn').click();
   const save = JSON.parse(seedSession.window.localStorage.getItem('crown-banner-save-v2'));
   const reserve = save.units.find((unit) => !unit.enemy && unit.cls === '06_spearman_shield');
-  assert.ok(reserve);
+  const secondReserve = save.units.find((unit) => !unit.enemy && unit.cls === '08_cavalryman');
+  assert.ok(reserve && secondReserve);
   reserve.x = 35.5 * 64;
   reserve.y = 11.5 * 64;
+  secondReserve.x = 37.5 * 64;
+  secondReserve.y = 11.5 * 64;
   for (const foe of save.units.filter((unit) => unit.enemy)) {
-    foe.count = 100;
-    foe.capacity = 100;
+    foe.count = 500;
+    foe.capacity = 500;
   }
   const { window, errors } = await launchGame(save);
   t.after(() => window.happyDOM.abort());
@@ -331,31 +334,72 @@ test('browser DOM smoke: nearby friendly regiments arrive after a signalled trav
   assert.ok(sword);
   sword.click();
   window.document.querySelector('#battleBtn').click();
-  const signalBeforeChoice = window.document.querySelector('#battleModal [data-action="signal-reinforcements"]');
-  assert.ok(signalBeforeChoice && signalBeforeChoice.disabled, 'a reinforcement must be chosen before dispatch');
-  const goldDisplay = [...window.document.querySelectorAll('#resourceBar .res')]
-    .find((item) => item.title === 'Золото')?.querySelector('b');
-  assert.ok(goldDisplay);
-  const goldBefore = Number(goldDisplay.textContent);
-  const costText = window.document.querySelector('#battleModal .reinforcement-option small').textContent;
-  const dispatchCost = Number(costText.match(/(\d+) зол\./)?.[1]);
-  assert.ok(dispatchCost > 0, 'each candidate displays its dispatch cost');
-  window.document.querySelector('#battleModal [data-reinforcement-id]').click();
-  const signal = window.document.querySelector('#battleModal [data-action="signal-reinforcements"]');
-  assert.ok(signal && !signal.disabled, 'selecting a nearby regiment enables dispatch');
-  assert.match(signal.textContent, new RegExp(`Послать · ${dispatchCost} зол\\.`));
-  signal.click();
-  const goldAfter = Number([...window.document.querySelectorAll('#resourceBar .res')]
+  const gold = () => Number([...window.document.querySelectorAll('#resourceBar .res')]
     .find((item) => item.title === 'Золото')?.querySelector('b')?.textContent);
-  assert.equal(goldBefore - goldAfter, dispatchCost, 'the quoted dispatch cost is paid exactly once');
-  assert.match(window.document.querySelector('#battleModal .feed').textContent, /отправлены по сигнальному огню/);
-  assert.match(window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').textContent, /Подкрепления/);
+  const goldBefore = gold();
+  const dispatch = (className) => {
+    const input = [...window.document.querySelectorAll('#battleModal [data-reinforcement-id]')]
+      .find((candidate) => candidate.closest('.reinforcement-option')?.textContent.includes(className));
+    assert.ok(input, `reinforcement ${className} is offered for selection`);
+    const cost = Number(input.closest('.reinforcement-option').querySelector('small').textContent.match(/(\d+) зол\./)?.[1]);
+    assert.ok(cost > 0);
+    input.click();
+    const signal = window.document.querySelector('#battleModal [data-action="signal-reinforcements"]');
+    assert.ok(signal && !signal.disabled, 'selecting a regiment enables the next signal');
+    signal.click();
+    return cost;
+  };
+  const firstCost = dispatch('Копейщик');
+  assert.equal(window.document.querySelectorAll('#battleModal [data-reinforcement-id]').length, 1,
+    'a dispatched regiment cannot be selected into another wave');
+  const secondCost = dispatch('Кавалерист');
+  assert.equal(goldBefore - gold(), firstCost + secondCost, 'each wave deducts exactly its displayed price');
+  assert.match(window.document.querySelector('#battleModal .feed').textContent, /Волна 2/);
+
   for (let frame = 1; frame <= 48; frame += 1) window.__frameCallback(window.performance.now() + frame * 50);
-  assert.ok(Number(window.document.querySelector('#battleModal').dataset.tick) >= 30, `simulation advanced to tick ${window.document.querySelector('#battleModal').dataset.tick}`);
-  assert.match(window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').textContent, /Прибыли/,
-    'the reinforcement arrives after simulation ticks elapse');
-  assert.match(window.document.querySelector('#battleModal .armycard').textContent, /Копейщик/,
-    'the reinforcement joins the live tactical roster');
+  assert.ok(Number(window.document.querySelector('#battleModal').dataset.tick) >= 30);
+  assert.equal(window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').textContent.includes('В пути'), true,
+    'the farther reserve remains in transit after the first wave arrives');
+  for (let frame = 49; frame <= 100; frame += 1) window.__frameCallback(window.performance.now() + frame * 50);
+  assert.match(window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').textContent, /Прибыли · 2/,
+    'each wave arrives at its own scheduled tick');
+  assert.deepEqual(errors, []);
+});
+
+test('browser DOM smoke: headless autobattle preserves a delayed reinforcement in the result', async (t) => {
+  const seedSession = await launchGame();
+  t.after(() => seedSession.window.happyDOM.abort());
+  seedSession.window.document.querySelector('#saveBtn').click();
+  const save = JSON.parse(seedSession.window.localStorage.getItem('crown-banner-save-v2'));
+  const reserve = save.units.find((unit) => !unit.enemy && unit.cls === '06_spearman_shield');
+  assert.ok(reserve);
+  reserve.x = 35.5 * 64;
+  reserve.y = 11.5 * 64;
+  reserve.count = 800;
+  reserve.capacity = 800;
+  for (const foe of save.units.filter((unit) => unit.enemy)) {
+    foe.count = 120;
+    foe.capacity = 120;
+  }
+  const { window, errors } = await launchGame(save);
+  t.after(() => window.happyDOM.abort());
+  const sword = [...window.document.querySelectorAll('#armyRoster [data-roster]')]
+    .find((button) => button.closest('.roster-card')?.textContent.includes('Мечник'));
+  sword.click();
+  window.document.querySelector('#battleBtn').click();
+  const reserveInput = [...window.document.querySelectorAll('#battleModal [data-reinforcement-id]')]
+    .find((input) => input.closest('.reinforcement-option')?.textContent.includes('Копейщик'));
+  assert.ok(reserveInput);
+  const reserveId = reserveInput.dataset.reinforcementId;
+  reserveInput.click();
+  window.document.querySelector('#battleModal [data-action="signal-reinforcements"]').click();
+  window.document.querySelector('#battleModal [data-action="autobattle"]').click();
+  assert.equal(window.document.querySelector('#battleOutcome').classList.contains('show'), true,
+    `headless resolution completes with an in-flight reserve: ${window.document.querySelector('#toast').textContent}`);
+  const result = JSON.parse(window.localStorage.getItem('crown-banner-save-v2'));
+  assert.ok(result.units.some((unit) => unit.cls === reserve.cls && unit.count > 0)
+    || result.routedReturns.some((item) => String(item.id) === reserveId),
+  'the headless result retains the reinforcement as an active or routed campaign regiment');
   assert.deepEqual(errors, []);
 });
 

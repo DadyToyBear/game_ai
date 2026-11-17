@@ -115,16 +115,23 @@ test('signalled reinforcements remain off-field until their travel tick, then jo
 test('headless contract accepts and resolves delayed reinforcements', () => {
   const request = createBattleRequest({
     ...battleRequest(),
-    reinforcements: [{ side: 'attacker', arrivalTick: 45, regiment: {
-      id: 'reserve', class: '03_sword_and_shield', count: 36,
-      position: { x: 0.5, y: 1.5 }, stats: { attack: 70, defense: 40, range: 1.2, speed: 3.2 },
-    } }],
+    reinforcements: [
+      { side: 'attacker', arrivalTick: 45, regiment: {
+        id: 'reserve', class: '03_sword_and_shield', count: 36,
+        position: { x: 0.5, y: 1.5 }, stats: { attack: 70, defense: 40, range: 1.2, speed: 3.2 },
+      } },
+      { side: 'attacker', arrivalTick: 80, regiment: {
+        id: 'reserve-two', class: '06_spearman_shield', count: 30,
+        position: { x: 0.5, y: 3.5 }, stats: { attack: 65, defense: 45, range: 1.2, speed: 3 },
+      } },
+    ],
   });
   assert.equal(request.reinforcements[0].arrivalTick, 45);
   const result = resolveBattleRequest(request);
   assert.equal(result.status, 'resolved');
   assert.ok(result.regiments.some((unit) => unit.id === 'reserve'));
-  assert.ok(result.durationTicks >= 45, 'the battle cannot finish before a scheduled friendly reserve can arrive');
+  assert.ok(result.regiments.some((unit) => unit.id === 'reserve-two'));
+  assert.ok(result.durationTicks >= 80, 'the battle cannot finish before the last scheduled wave can arrive');
 });
 
 test('headless resolution reports its tick limit rather than inventing a winner', () => {
