@@ -118,12 +118,12 @@ cp -r addons/webport /path/to/redot-project/addons/
 ## 6. Проверки, которые уже прогнаны
 
 ```bash
-node addons/webport/tests/run_tests.mjs     # 33 проверки, 0 провалов
+node addons/webport/tests/run_tests.mjs     # 34 проверки, 0 провалов
 gdparse addons/webport/runtime/*.gd addons/webport/gdscript/*.gd
 ```
 
 * `npm test`: 66/66 тестов браузерной игры.
-* WebPort: 33/33 теста; проверена и сборка тестового проекта, включая сохранение
+* WebPort: 34/34 теста; проверена и сборка тестового проекта, включая сохранение
   модулей/JSON/ассетов при `--only` и запрет выходного каталога внутри исходников.
 * Сборка выбранного экрана игры: gdparse проверил три сгенерированных файла,
   синтаксических ошибок нет. В Redot сам проект не запускался — движок недоступен

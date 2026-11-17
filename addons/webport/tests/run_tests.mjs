@@ -160,6 +160,13 @@ check("sync-модуль без функций: код верхнего уров
   includes(r.code, "func webport_top_level():");
 });
 
+check("IIFE остаётся явным TODO, а не превращается в вызов null()", () => {
+  const r = convertJs("(() => { document.title = 'game'; })();", { filename: "inline.mjs" });
+  includes(r.code, "pass  # TODO(webport): немедленно вызываемая функция (IIFE)");
+  eq(r.code.includes("null()"), false, "нет ошибочного вызова null");
+  eq(r.todo.some((item) => item.message.includes("IIFE")), true, "IIFE отражена в TODO");
+});
+
 check("приоритет операторов: скобки расставлены по правилам GDScript", () => {
   includes(convertJs("function f(a,b){ return (a + 1) % b; }", { filename: "t.mjs" }).code, "(a + 1) % b");
   includes(convertJs("function f(a,b,c){ return a - (b - c); }", { filename: "t.mjs" }).code, "a - (b - c)");

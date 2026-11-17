@@ -1076,6 +1076,9 @@ export class Converter {
   }
 
   call(node) {
+    if (["ArrowFunctionExpression", "FunctionExpression"].includes(node.callee?.type)) {
+      return this.fail(node, "немедленно вызываемая функция (IIFE) не развёрнута; перенесите тело вручную");
+    }
     const calleeText = this.calleeText(node.callee);
 
     const GLOBAL_OBJECTS = /^(Math|Object|Number|JSON|String|Array|Date)\./;
