@@ -319,6 +319,8 @@ check("сборщик генерирует SVG-ориентиры и натив�
   writeFileSync(join(source, "data/worldmap.json"), JSON.stringify({ art_size: [100, 50], grid: { cols: 2, rows: 2 }, territories: { faction_a: [[0, 0], [1, 0], [1, 1]] }, objects: [{ id: "fort", name: "Крепость", type: "castle", x: 0, y: 1, faction: "faction_a" }] }));
   const { report } = buildProject({ source, out, only: "game.html", noCopyAssets: true, log: () => {} });
   const overlay = readFileSync(join(out, "assets/worldmap/world_overlay.svg"), "utf8");
+  const project = readFileSync(join(out, "project.godot"), "utf8");
+  const linksRuntime = readFileSync(join(out, "addons/webport/runtime/webport_links.gd"), "utf8");
   const scene = readFileSync(join(out, "scenes/Game.tscn"), "utf8");
   const overlayScriptPath = join(out, "scripts/WebportCanvasOverlay.gd");
   const overlayScript = readFileSync(overlayScriptPath, "utf8");
@@ -331,6 +333,11 @@ check("сборщик генерирует SVG-ориентиры и натив�
   includes(scene, 'path="res://assets/worldmap/world_overlay.svg"');
   includes(scene, 'path="res://scripts/WebportCanvasOverlay.gd"');
   includes(scene, 'world_data_path = "res://data/worldmap.json"');
+  includes(project, 'WebportLinks="*res://addons/webport/runtime/webport_links.gd"');
+  includes(project, 'config/features=PackedStringArray("4.3", "GL Compatibility")');
+  eq(existsSync(join(out, "addons/webport/runtime/webport_links.gd")), true, "autoload script exists at the generated project path");
+  includes(linksRuntime, 'path.split("/")[-1]');
+  eq(linksRuntime.includes('.back()'), false, "the links runtime avoids Godot 4.4-only Array.back()");
   includes(readFileSync(overlayScriptPath, "utf8"), "mouse_filter = Control.MOUSE_FILTER_PASS");
   includes(readFileSync(overlayScriptPath, "utf8"), "if not selected.is_empty():");
   includes(readFileSync(overlayScriptPath, "utf8"), "accept_event()");

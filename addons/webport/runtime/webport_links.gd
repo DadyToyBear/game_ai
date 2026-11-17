@@ -48,7 +48,7 @@ func ui(id: String) -> Node:
 		if not table.has(id):
 			continue
 		var path: String = str(table[id])
-		var found := current.find_child(path.split("/").back(), true, false)
+		var found := current.find_child(path.split("/")[-1], true, false)
 		if found != null:
 			return found
 	return null

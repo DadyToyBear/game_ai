@@ -423,7 +423,7 @@ export function buildProject(options = {}) {
   const projectText = renderProjectGodot({
     name: opts.name,
     mainScene: mainScene?.scene,
-    autoloads: ["WebportLinks", ...autoloads],
+    autoloads: ["WebportLinks=res://addons/webport/runtime/webport_links.gd", ...autoloads],
   });
   writeFileSync(existingProject, projectText);
 
@@ -510,14 +510,14 @@ function pickMainScene(screens, preferred) {
 function renderProjectGodot({ name, mainScene, autoloads }) {
   const lines = [
     "; Проект собран WebPort из браузерной игры.",
-    "; Ориентир: Redot 26.x LTS (совместим с Godot 4.5, config_version=5).",
+    "; Ориентир: Redot 26.x LTS / Godot 4.3+ (config_version=5).",
     "config_version=5",
     "",
     "[application]",
     "",
     `config/name="${name.replace(/"/g, "'")}"`,
     mainScene ? `run/main_scene="res://${mainScene}"` : "run/main_scene=\"\"",
-    "config/features=PackedStringArray(\"4.5\", \"GL Compatibility\")",
+    "config/features=PackedStringArray(\"4.3\", \"GL Compatibility\")",
     "",
     "[autoload]",
     "",

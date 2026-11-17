@@ -163,6 +163,11 @@ test('browser DOM smoke: local settlement loyalty changes its daily production',
     save.settlementDevelopment = { ...(save.settlementDevelopment || {}),
       'loyalty-test-town': { loyalty, specialty: 'none', governor: null } };
     const { window, errors } = await launchGame(save);
+    const townCard = [...window.document.querySelectorAll('.settlement-card')]
+      .find((card) => card.textContent.includes('Опытный город'));
+    assert.ok(townCard, 'the controlled settlement is shown in the local management panel');
+    const expectedProductivity = loyalty < 20 ? 50 : loyalty < 50 ? 75 : 100;
+    assert.match(townCard.textContent, new RegExp(`Выработка поселения: ${expectedProductivity}%`));
     const before = JSON.parse(window.localStorage.getItem('crown-banner-save-v2')).gold;
     window.document.querySelector('#endTurn').click();
     const after = JSON.parse(window.localStorage.getItem('crown-banner-save-v2')).gold;
