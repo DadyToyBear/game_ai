@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#131214" />
+    <meta name="description" content="Локальный конвертер анимированных FBX-моделей в GIF: выбор клипа, ракурса, фрагмента и прозрачности." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>FBX → GIF — Кузница</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <div class="brand" aria-label="Кузница, студия анимации">
+          <span class="brand-emblem" aria-hidden="true">
+            <svg viewBox="0 0 30 30" fill="none"><path d="M15 2.5 25.9 8.8v12.4L15 27.5 4.1 21.2V8.8L15 2.5Z" stroke="currentColor" stroke-opacity=".55"/><path d="M15 6v13.7m-3.4-2.9h6.8m-3.4 2.9v3.5M10 11.7l5 5 5-5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/><path d="m15 6-1.5 3.7h3L15 6Z" fill="currentColor"/></svg>
+          </span>
+          <div class="brand-copy"><span class="brand-name">Кузница</span><span class="brand-tag">Студия анимации</span></div>
+        </div>
+        <div class="privacy"><span data-icon="lock"></span><span>Файлы остаются на устройстве</span></div>
+      </div>
+    </header>
+
+    <main class="shell workspace">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow intro-eyebrow"><i aria-hidden="true"></i> Конвертер 3D-анимаций</p>
+          <h1 id="page-title" aria-label="FBX в GIF"><span>FBX</span><span class="title-arrow" data-icon="arrow-right" aria-hidden="true"></span><span class="title-accent">GIF</span></h1>
+          <p class="intro-description">Выберите движение в 3D-модели, настройте ракурс и сохраните анимацию как GIF.</p>
+        </div>
+        <ol class="pipeline" aria-label="Этапы работы">
+          <li><span>01</span> Импорт</li>
+          <li><span>02</span> Настройка</li>
+          <li><span>03</span> Экспорт</li>
+        </ol>
+      </section>
+
+      <div class="editor">
+        <section class="viewer" aria-label="Проигрыватель 3D-анимаций">
+          <div id="viewport" class="viewport" tabindex="-1" aria-busy="true">
+            <div id="stage-surface" class="stage-surface" role="img" aria-label="Сцена предпросмотра 3D-модели"></div>
+            <div class="stage-vignette" aria-hidden="true"></div>
+            <div class="frame-guide" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+            <div class="scene-top">
+              <span class="scene-badge eyebrow"><i aria-hidden="true"></i> 3D-предпросмотр</span>
+              <div class="scene-actions">
+                <button id="reframe" class="scene-button icon-button" type="button" aria-label="Сбросить ракурс" title="Сбросить ракурс" data-icon="target" disabled></button>
+                <button id="fullscreen" class="scene-button icon-button" type="button" aria-label="Во весь экран" title="Во весь экран" aria-pressed="false" data-icon="maximize"></button>
+              </div>
+            </div>
+            <p id="scene-message" class="scene-message" role="status">Загружаем демомодель…</p>
+            <div class="scene-bottom" aria-hidden="true">
+              <div class="gizmo">
+                <svg viewBox="0 0 34 31" width="33" height="30" fill="none"><path d="M13 20V5" stroke="#b5b582"/><path d="m13 20 14 6" stroke="#d59373"/><path d="M13 20 4 26" stroke="#8d9cae"/><circle cx="13" cy="20" r="2" fill="#e4c6b2"/><circle cx="13" cy="4" r="2" fill="#b5b582"/><circle cx="28" cy="26" r="2" fill="#d59373"/><circle cx="4" cy="26" r="2" fill="#8d9cae"/></svg>
+                <span id="stage-caption">Сцена · 01</span>
+              </div>
+              <span class="orbit-hint"><span data-icon="mouse"></span> Перетаскивайте для вращения</span>
+            </div>
+          </div>
+          <div class="transport">
+            <div class="timeline">
+              <span id="time-now" class="timecode" aria-hidden="true">00:00.0</span>
+              <input id="seek" class="seek" type="range" aria-label="Позиция воспроизведения" min="0" max="1" step="any" value="0" disabled />
+              <span id="time-end" class="timecode" aria-hidden="true">00:00.0</span>
+            </div>
+            <div class="transport-bar">
+              <div class="playback-actions" aria-label="Воспроизведение">
+                <button id="play" class="play-button icon-button" type="button" aria-label="Воспроизвести" title="Воспроизвести (Пробел)" data-icon="play" disabled></button>
+                <button id="restart" class="transport-button icon-button" type="button" aria-label="Начать сначала" title="Начать сначала" data-icon="restart" disabled></button>
+                <button id="loop" class="transport-button icon-button" type="button" aria-label="Повторять анимацию" aria-pressed="true" title="Повторять анимацию в предпросмотре и GIF" data-icon="repeat" disabled></button>
+                <span class="transport-divider" aria-hidden="true"></span>
+                <label class="transport-select">
+                  <select id="speed" aria-label="Скорость предпросмотра" title="Скорость предпросмотра" disabled>
+                    <option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="1.5">1,5×</option><option value="2">2×</option>
+                  </select>
+                  <span data-icon="chevron-down"></span>
+                </label>
+              </div>
+              <label class="transport-select angle-control">
+                <span class="angle-icon" data-icon="cube"></span>
+                <select id="angle" aria-label="Ракурс камеры" title="Ракурс камеры" disabled>
+                  <option value="quarter">Ракурс ¾</option><option value="front">Спереди</option><option value="side">Сбоку</option><option value="back">Сзади</option><option value="custom" disabled>Свой ракурс</option>
+                </select>
+                <span data-icon="chevron-down"></span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <aside class="converter" aria-label="Импорт FBX и настройки GIF">
+          <section class="source-section" aria-labelledby="source-title">
+            <div class="section-heading">
+              <div><p class="eyebrow section-eyebrow">01 / Источник</p><h2 id="source-title">Модель FBX</h2></div>
+              <button id="demo" class="text-button" type="button" hidden>Вернуть демо</button>
+            </div>
+            <input id="file" type="file" accept=".fbx,.png,.jpg,.jpeg,.webp,.bmp" multiple hidden />
+            <button id="upload" class="dropzone" type="button" aria-describedby="upload-hint">
+              <span class="drop-icon" data-icon="upload"></span>
+              <span class="drop-copy"><strong>Выберите файл FBX</strong><small id="upload-hint">или перетащите сюда · до 80 МБ</small></span>
+              <span class="drop-arrow" data-icon="arrow-up-right"></span>
+            </button>
+            <div class="asset-line" id="asset-line" hidden>
+              <span data-icon="file" class="asset-icon"></span>
+              <div class="asset-copy"><strong id="asset-name"></strong><span id="asset-meta"></span></div>
+              <span id="demo-tag" class="tag">Демо</span>
+            </div>
+            <p class="texture-hint">Если текстуры отдельные, выберите их вместе с FBX.</p>
+            <p id="import-notice" class="import-notice" role="status" hidden></p>
+          </section>
+
+          <section class="settings-section" aria-labelledby="settings-title">
+            <div class="section-heading settings-heading">
+              <div><p class="eyebrow section-eyebrow">02 / Экспорт</p><h2 id="settings-title">Настройки GIF</h2></div>
+              <span class="tag format-tag">.GIF</span>
+            </div>
+            <label class="field full-field">
+              <span>Анимация</span>
+              <span class="select-wrap"><select id="clip" disabled><option>Нет загруженного клипа</option></select><span data-icon="chevron-down"></span></span>
+            </label>
+            <div class="field-grid">
+              <label class="field">
+                <span>Размер кадра</span>
+                <span class="select-wrap"><select id="size"><option value="256">256 × 256</option><option value="384">384 × 384</option><option value="512" selected>512 × 512</option><option value="640">640 × 640</option><option value="768">768 × 768</option></select><span data-icon="chevron-down"></span></span>
+              </label>
+              <label class="field">
+                <span>Частота кадров</span>
+                <span class="select-wrap"><select id="fps"><option value="10">10 кадров/с</option><option value="15">15 кадров/с</option><option value="20" selected>20 кадров/с</option><option value="24">24 кадра/с</option><option value="30">30 кадров/с</option></select><span data-icon="chevron-down"></span></span>
+              </label>
+            </div>
+            <details id="trim" class="trim">
+              <summary><span data-icon="scissors"></span><span>Обрезать фрагмент</span><small id="trim-label">Весь клип</small><span data-icon="chevron-down"></span></summary>
+              <div class="trim-fields field-grid">
+                <label class="field"><span>Начало, с</span><input id="trim-start" type="number" min="0" step="0.01" value="0" disabled /></label>
+                <label class="field"><span>Конец, с</span><input id="trim-end" type="number" min="0" step="0.01" value="0" disabled /></label>
+              </div>
+            </details>
+            <div class="background-row">
+              <label class="background-switch"><span data-icon="checker"></span><span>Прозрачный фон</span><input id="transparent" class="switch" type="checkbox" role="switch" checked /></label>
+              <label id="color-wrap" class="color-control" title="Цвет фона GIF" hidden><input id="background" type="color" aria-label="Цвет фона GIF" value="#262227" /></label>
+            </div>
+            <div class="export-section">
+              <button id="export" class="export-button" type="button" disabled><span data-icon="film"></span><span id="export-label">Создать GIF</span></button>
+              <a id="save-result" class="export-button" download hidden><span data-icon="download"></span><span>Скачать GIF</span></a>
+              <div id="progress-line" class="progress-line" hidden>
+                <progress id="progress" max="1" value="0" aria-label="Прогресс создания GIF"></progress>
+                <button id="cancel" class="text-button" type="button">Отменить</button>
+              </div>
+              <div id="result" class="result" hidden>
+                <div class="result-main">
+                  <img id="result-image" class="result-image" width="68" height="68" alt="Предпросмотр готового GIF" />
+                  <div class="result-copy">
+                    <p class="result-title"><span data-icon="check"></span><span id="result-label"></span></p>
+                    <p id="result-name" class="result-name"></p>
+                    <div class="result-links">
+                      <a id="save-previous" download hidden>Скачать последний</a>
+                      <a id="open-result" target="_blank" rel="noopener">Открыть GIF <span data-icon="arrow-up-right"></span></a>
+                    </div>
+                  </div>
+                </div>
+                <p class="result-hint">Не скачивается? Откройте GIF или выберите «Сохранить изображение» в меню на картинке.</p>
+              </div>
+              <p id="export-detail" class="export-detail">512 × 512 px · Прозрачный GIF</p>
+              <p id="export-announcement" class="sr-only" role="status"></p>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <footer class="workspace-footer">
+        <span class="footer-note"><span data-icon="layers"></span><span>В GIF попадает только модель, без сетки и интерфейса.</span></span>
+        <span class="shortcuts"><kbd>Пробел</kbd> Пауза <span class="footer-divider">·</span> Колесо мыши — масштаб</span>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
