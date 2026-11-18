@@ -48,7 +48,12 @@ func ui(id: String) -> Node:
 		if not table.has(id):
 			continue
 		var path: String = str(table[id])
-		var found := current.find_child(path.split("/")[-1], true, false)
+		var found := current.get_node_or_null(NodePath(path))
+		if found != null:
+			return found
+		# Older dom_links.json snapshots stored only a node name; keep that
+		# fallback while preferring exact paths for nested and scroll-wrapped IDs.
+		found = current.find_child(path.split("/")[-1], true, false)
 		if found != null:
 			return found
 	return null

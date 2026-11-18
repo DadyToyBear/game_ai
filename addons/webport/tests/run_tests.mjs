@@ -149,10 +149,13 @@ check("уникальные имена вынесенных лямбд", () => {
   eq(new Set(names).size, names.length, "уникальность имён");
 });
 
-check("импорт → preload", () => {
-  const r = convertJs("import { step } from './battle_simulation.mjs';\nexport function f(){ return step(1); }", { filename: "t.mjs" });
+check("импорт → preload после extends в GDScript класса", () => {
+  const r = convertJs("import { step } from './battle_simulation.mjs';\nexport function f(){ return step(1); }", { filename: "t.mjs", classMode: true, baseClass: "Node" });
   includes(r.code, 'const battle_simulation := preload("res://webport/src/battle_simulation.gd")');
   includes(r.code, "battle_simulation.step(1)");
+  if (r.code.indexOf("extends Node") > r.code.indexOf("const battle_simulation")) {
+    throw new Error("extends должен предшествовать preload в объявлении класса");
+  }
 });
 
 check("sync-модуль без функций: код верхнего уровня → webport_top_level", () => {
@@ -187,11 +190,57 @@ console.log("HTML → сцена");
 
 check("теги → узлы с путями", () => {
   const res = convertHtml('<html><body><div id="root"><button id="ok" disabled>Готово</button></div></body></html>', {});
-  includes(res.scene, '[node name="Root"');
-  includes(res.scene, '[node name="Ok" type="Button" parent="GameRoot/Root"]');
+  includes(res.scene, '[node name="Root" type="VBoxContainer" parent="."]');
+  includes(res.scene, '[node name="Ok" type="Button" parent="Root"]');
   includes(res.scene, 'text = "Готово"');
   includes(res.scene, "disabled = true");
-  eq(res.nodePaths.get("ok"), "Ok", "путь по id");
+  eq(res.nodePaths.get("ok"), "Root/Ok", "вложенный путь по id");
+});
+
+check("overflow-y:auto становится вертикальным ScrollContainer с путями ID через обёртку", () => {
+  const res = convertHtml('<html><head><style>#list{height:120px;overflow-y:auto}</style></head><body><div id="list"><div id="first">Первый</div><div id="second">Второй</div></div></body></html>', {});
+  includes(res.scene, '[node name="List" type="ScrollContainer"');
+  includes(res.scene, 'horizontal_scroll_mode = 0');
+  includes(res.scene, 'vertical_scroll_mode = 1');
+  includes(res.scene, 'custom_minimum_size = Vector2(0, 120)');
+  includes(res.scene, '[node name="WebportScrollContent" type="VBoxContainer" parent="List"]');
+  eq(res.nodePaths.get("list"), "List", "путь списка");
+  eq(res.nodePaths.get("second"), "List/WebportScrollContent/Second", "динамический id внутри прокрутки");
+  eq(res.scene.includes("clip_contents = true"), false, "нет подмены прокрутки клиппингом");
+});
+
+check("overflow:auto включает прокрутку по обеим осям без растягивания содержимого", () => {
+  const res = convertHtml('<html><head><style>#box{width:180px;height:90px;overflow:auto}</style></head><body><div id="box"><div id="content">Содержимое</div></div></body></html>', {});
+  includes(res.scene, 'horizontal_scroll_mode = 1');
+  includes(res.scene, 'vertical_scroll_mode = 1');
+  eq(res.scene.includes('size_flags_horizontal = 3'), false, "ширина остаётся прокручиваемой");
+  eq(res.scene.includes('size_flags_vertical = 3'), false, "высота остаётся прокручиваемой");
+});
+
+check("сборщик сохраняет пути DOM ID внутри ScrollContainer в скрипте и dom_links.json", () => {
+  const source = join(tmp, "scroll-build-fixture");
+  const out = join(tmp, "scroll-build-fixture-out");
+  mkdirSync(source, { recursive: true });
+  writeFileSync(join(source, "game.html"), '<html><head><style>#list{height:120px;overflow-y:auto}</style></head><body><div id="list"><button id="second">Второй</button></div><script>function lookup(){return ui("second")}</script></body></html>');
+  buildProject({ source, out, only: "game.html", noCopyAssets: true, log: () => {} });
+  const scene = readFileSync(join(out, "scenes/Game.tscn"), "utf8");
+  const script = readFileSync(join(out, "scripts/Game.gd"), "utf8");
+  const linksRuntime = readFileSync(join(out, "addons/webport/runtime/webport_links.gd"), "utf8");
+  const links = JSON.parse(readFileSync(join(out, "webport/dom_links.json"), "utf8"));
+  includes(scene, '[node name="WebportScrollContent" type="VBoxContainer" parent="List"]');
+  includes(script, '"second": "List/WebportScrollContent/Second"');
+  includes(script, 'str(get_path()) + "/" + path');
+  includes(linksRuntime, 'current.get_node_or_null(NodePath(path))');
+  eq(links["scenes/Game.tscn"].second, "List/WebportScrollContent/Second", "путь из dom_links.json");
+});
+
+check("overflow-x:scroll задаёт постоянную горизонтальную прокрутку", () => {
+  const res = convertHtml('<html><head><style>#row{overflow-x:scroll;overflow-y:hidden;display:flex}</style></head><body><div id="row"><button id="one">Один</button><button id="two">Два</button></div></body></html>', {});
+  includes(res.scene, '[node name="Row" type="ScrollContainer"');
+  includes(res.scene, 'horizontal_scroll_mode = 2');
+  includes(res.scene, 'vertical_scroll_mode = 0');
+  includes(res.scene, '[node name="WebportScrollContent" type="HBoxContainer" parent="Row"]');
+  eq(res.nodePaths.get("two"), "Row/WebportScrollContent/Two", "путь кнопки в горизонтальном списке");
 });
 
 check("canvas получает SubViewport, статическую текстуру и TODO о JS-рисовании", () => {
@@ -200,13 +249,28 @@ check("canvas получает SubViewport, статическую тексту�
   });
   includes(res.scene, '[node name="World" type="SubViewportContainer"');
   includes(res.scene, 'stretch = true');
-  includes(res.scene, '[node name="CanvasViewport" type="SubViewport" parent="GameRoot/World"]');
+  includes(res.scene, 'size_flags_horizontal = 3');
+  includes(res.scene, 'size_flags_vertical = 3');
+  includes(res.scene, 'custom_minimum_size = Vector2(640, 360)');
+  includes(res.scene, '[node name="CanvasViewport" type="SubViewport" parent="World"]');
   includes(res.scene, "size = Vector2i(640, 360)");
   includes(res.scene, 'path="res://assets/worldmap/overland_map.png"');
-  includes(res.scene, '[node name="StaticCanvasBackground" type="TextureRect" parent="GameRoot/World/CanvasViewport"]');
+  includes(res.scene, '[node name="StaticCanvasBackground" type="TextureRect" parent="World/CanvasViewport"]');
   includes(res.scene, 'path="res://assets/worldmap/world_overlay.svg"');
-  includes(res.scene, '[node name="StaticCanvasOverlay" type="TextureRect" parent="GameRoot/World/CanvasViewport"]');
+  includes(res.scene, '[node name="StaticCanvasOverlay" type="TextureRect" parent="World/CanvasViewport"]');
   eq(res.todo.some((item) => item.message.includes("#world") && item.message.includes("JavaScript-рисование")), true);
+});
+
+check("absolute-оверлей карты не включается в поток, а грид считает fr-колонки", () => {
+  const html = '<html><head><style>#worldbox{display:flex}#world{width:100%;height:100%}#mini{position:absolute;left:12px;bottom:12px;width:154px;height:108px}.layout{display:grid;grid-template-columns:1fr 292px}</style></head><body><div id="worldbox"><canvas id="world" width="640" height="360"></canvas><div id="mini"></div></div><div class="layout"><div>A</div><div>B</div></div></body></html>';
+  const res = convertHtml(html, {});
+  includes(res.scene, '[node name="Worldbox" type="Control" parent="."]');
+  includes(res.scene, 'custom_minimum_size = Vector2(640, 360)');
+  includes(res.scene, 'size_flags_horizontal = 3');
+  includes(res.scene, 'size_flags_vertical = 3');
+  includes(res.scene, '[node name="Mini" type="Control" parent="Worldbox"]');
+  includes(res.scene, 'type="GridContainer"');
+  includes(res.scene, 'columns = 2');
 });
 
 check("скрипт экрана подключается к корневому узлу сцены", () => {
@@ -241,8 +305,8 @@ check("CSS background-image превращается в дочерний Texture
     '<body><div id="world"><canvas id="map" width="640" height="360"></canvas></div></body></html>';
   const res = convertHtml(html, { assetExists: (p) => p === "assets/worldmap/overland_map.png" });
   includes(res.scene, 'path="res://assets/worldmap/overland_map.png"');
-  includes(res.scene, 'node name="BackgroundTexture" type="TextureRect" parent="GameRoot/World"');
-  includes(res.scene, 'node name="CanvasViewport" type="SubViewport" parent="GameRoot/World/Map"');
+  includes(res.scene, 'node name="BackgroundTexture" type="TextureRect" parent="World"');
+  includes(res.scene, 'node name="CanvasViewport" type="SubViewport" parent="World/Map"');
   if (res.scene.indexOf('node name="BackgroundTexture"') > res.scene.indexOf('node name="Map"')) {
     throw new Error("фоновая текстура должна идти раньше содержимого контейнера");
   }
@@ -364,6 +428,9 @@ check("сборщик генерирует SVG-ориентиры и натив�
   includes(overlayScript, "event is InputEventMouseMotion");
   includes(overlayScript, "Control.CURSOR_POINTING_HAND if not _landmark_at(event.position).is_empty()");
   includes(overlayScript, "func _landmark_at(local_position: Vector2) -> Dictionary");
+  includes(overlayScript, "var cols: int = max(");
+  includes(overlayScript, "var rows: int = max(");
+  includes(overlayScript, "var best_distance: float = max(");
   includes(overlayScript, 'var resources := {"food": "зерно", "wood": "древесина", "stone": "камень", "gold": "золото"}');
   includes(overlayScript, 'description += "\\nРесурс: "');
   includes(overlayScript, "_landmark_at(event.position)");

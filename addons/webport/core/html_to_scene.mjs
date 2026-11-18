@@ -71,6 +71,7 @@ export function convertHtml(source, options = {}) {
   }
 
   applyLayout(rootNode, ctx);
+  rebuildNodePaths(rootNode, ctx.nodePaths);
   const scene = serializeScene(rootNode, ctx, options);
 
   for (const id of dynamicIds) {
@@ -214,7 +215,7 @@ function convertElement(el, ctx, htmlPath) {
 
   const name = makeNodeName(el, ctx);
   const htmlNodePath = `${htmlPath}/${id ? "#" + id : el.tag + "[" + name + "]"}`;
-  const node = { name, type, props: [], children: [], htmlPath: htmlNodePath, htmlTag: el.tag, attrs: el.attrs };
+  const node = { name, type, props: [], children: [], htmlPath: htmlNodePath, htmlTag: el.tag, htmlId: id, attrs: el.attrs };
 
   if (id) ctx.nodePaths.set(id, name);
   node.path = ctx.nodePathString ? `${ctx.nodePathString}/${name}` : name;
@@ -266,6 +267,14 @@ function convertElement(el, ctx, htmlPath) {
     const width = /^[1-9]\d*$/.test(widthAttr) ? Number(widthAttr) : 300;
     const height = /^[1-9]\d*$/.test(heightAttr) ? Number(heightAttr) : 150;
     node.props.push(["stretch", true]);
+    // A SubViewportContainer inside a BoxContainer otherwise collapses to zero
+    // height. Preserve CSS pixel sizing when present (e.g. the minimap), and use
+    // the canvas buffer dimensions as a useful minimum-size fallback.
+    node.props.push(["size_flags_horizontal", 3]);
+    node.props.push(["size_flags_vertical", 3]);
+    if (!node.props.some(([key]) => key === "custom_minimum_size")) {
+      node.props.push(["custom_minimum_size", `Vector2(${width}, ${height})`]);
+    }
     const viewportChildren = [];
     const canvasBackground = el.attrs?.["data-background-image"];
     const canvasOverlay = el.attrs?.["data-overlay-image"];
@@ -500,9 +509,8 @@ function applyDecls(node, decls, el, ctx) {
   const minWidth = px(decls["min-width"]);
   const maxWidth = px(decls["max-width"]);
   const minHeight = px(decls["min-height"]);
-  if (width != null) set("custom_minimum_size", `Vector2(${Math.round(width)}, ${Math.round(height ?? 0)})`);
-  else if (minWidth != null || minHeight != null) {
-    set("custom_minimum_size", `Vector2(${Math.round(minWidth ?? 0)}, ${Math.round(minHeight ?? 0)})`);
+  if (width != null || height != null || minWidth != null || minHeight != null) {
+    set("custom_minimum_size", `Vector2(${Math.round(width ?? minWidth ?? 0)}, ${Math.round(height ?? minHeight ?? 0)})`);
   }
   if (maxWidth != null) node.maxWidth = maxWidth;
 
@@ -522,7 +530,13 @@ function applyDecls(node, decls, el, ctx) {
       top: px(decls.top), right: px(decls.right), bottom: px(decls.bottom), left: px(decls.left),
     };
   }
-  if (decls.overflow === "auto" || decls["overflow-y"] === "auto") node.scroll = true;
+  const overflow = decls.overflow;
+  const overflowX = decls["overflow-x"] ?? overflow;
+  const overflowY = decls["overflow-y"] ?? overflow;
+  const scrollMode = (value) => value === "scroll" ? 2 : value === "auto" ? 1 : 0;
+  if ([overflowX, overflowY].some((value) => value === "auto" || value === "scroll")) {
+    node.scroll = { horizontal: scrollMode(overflowX), vertical: scrollMode(overflowY) };
+  }
   if (decls.cursor === "pointer" && node.type === "Panel") node.pointer = true;
 
   // фон-картинка
@@ -578,6 +592,24 @@ function applyLayout(node, ctx) {
       ctx.usedLayout.add("VBoxContainer");
     }
   }
+  const absoluteChildren = node.children.filter((child) => child.absolute &&
+    Object.values(child.absolute).some((value) => value != null));
+  const hasCanvasChild = node.children.some((child) => child.type === "SubViewportContainer");
+  if (absoluteChildren.length && hasCanvasChild &&
+      ["VBoxContainer", "HBoxContainer", "GridContainer"].includes(node.type)) {
+    // Map overlays with position:absolute must stack on top of the canvas,
+    // not participate in the VBox/Grid flow and inflate the map's minimum size.
+    node.type = "Control";
+    node.props.push(["size_flags_horizontal", 3]);
+    node.props.push(["size_flags_vertical", 3]);
+    ctx.usedLayout.add("Control");
+    const canvas = node.children.find((child) => child.type === "SubViewportContainer");
+    const canvasMin = canvas?.props.find(([key]) => key === "custom_minimum_size");
+    if (canvasMin && !node.props.some(([key]) => key === "custom_minimum_size")) {
+      node.props.push(["custom_minimum_size", canvasMin[1]]);
+    }
+  }
+
   if (node.type === "VBoxContainer" || node.type === "HBoxContainer") {
     // Внутренние отступы и margin показываем комментарием: в Control нет
     // margin-констант, а MarginContainer вставлять автоматически нельзя —
@@ -613,6 +645,47 @@ function applyLayout(node, ctx) {
   if (node.type === "Panel" && children.length === 0 && !node.children.length) {
     // ничего: пустой контейнер остаётся панелью (может заполняться из JS)
   }
+
+  if (node.scroll) {
+    const contentType = ["VBoxContainer", "HBoxContainer", "GridContainer"].includes(node.type)
+      ? node.type
+      : "VBoxContainer";
+    const originalChildren = node.children;
+    const wrapperName = uniqueChildName(originalChildren, "WebportScrollContent");
+    const contentProps = [];
+    if (node.scroll.vertical && !node.scroll.horizontal) contentProps.push(["size_flags_horizontal", 3]);
+    if (node.scroll.horizontal && !node.scroll.vertical) contentProps.push(["size_flags_vertical", 3]);
+    node.children = [{
+      name: wrapperName,
+      type: contentType,
+      props: contentProps,
+      children: originalChildren,
+      htmlPath: `${node.htmlPath}/scroll-content`,
+      htmlTag: "scroll_content",
+    }];
+    node.type = "ScrollContainer";
+    node.props.push(["horizontal_scroll_mode", node.scroll.horizontal]);
+    node.props.push(["vertical_scroll_mode", node.scroll.vertical]);
+    delete node.scroll;
+  }
+}
+
+function uniqueChildName(children, preferred) {
+  const names = new Set(children.map((child) => child.name));
+  if (!names.has(preferred)) return preferred;
+  let index = 2;
+  while (names.has(`${preferred}${index}`)) index += 1;
+  return `${preferred}${index}`;
+}
+
+function rebuildNodePaths(root, nodePaths) {
+  nodePaths.clear();
+  const visit = (node, parentPath = "") => {
+    const path = parentPath ? `${parentPath}/${node.name}` : node.name;
+    if (node.htmlId) nodePaths.set(node.htmlId, path);
+    for (const child of node.children) visit(child, path);
+  };
+  for (const child of root.children) visit(child);
 }
 
 /**
@@ -639,7 +712,9 @@ function applySizebox(node, decls) {
     const minW = px(decls["min-width"]) ?? 0;
     const minH = px(decls["min-height"]) ?? 0;
     if (minW || minH) node.props.push(["custom_minimum_size", `Vector2(${Math.round(minW)}, ${Math.round(minH)})`]);
-    node.props.push(["size_flags_horizontal", 1 ^ 0 || 1]);
+    if (!node.props.some(([key]) => key === "size_flags_horizontal")) {
+      node.props.push(["size_flags_horizontal", 1]);
+    }
     return;
   }
 
@@ -666,7 +741,7 @@ function hasFlexibleChildren(node) {
 function countColumns(value) {
   const repeat = /repeat\(\s*(\d+)/.exec(value);
   if (repeat) return Number(repeat[1]);
-  const parts = value.split(/\s+/).filter((p) => p && !/^(1fr|auto)$/.test(p));
+  const parts = value.split(/\s+/).filter(Boolean);
   return Math.max(1, parts.length || 1);
 }
 
@@ -691,10 +766,10 @@ function serializeScene(rootNode, ctx, options) {
     return "Resource";
   };
 
-  const walk = (node, parentPath, depth) => {
-    const path = parentPath ? `${parentPath}/${node.name}` : node.name;
+  const walk = (node, parentPath, depth, isRoot = false) => {
+    const path = isRoot ? "." : (parentPath === "." ? node.name : `${parentPath}/${node.name}`);
     if (ctx.options.trackPaths) ctx.options.trackPaths.set(node.name, path);
-    lines.push(`[node name="${node.name}" type="${node.type}"${parentPath ? ` parent="${parentPath}"` : ""}]`);
+    lines.push(`[node name="${node.name}" type="${node.type}"${isRoot ? "" : ` parent="${parentPath}"`}]`);
     if (node === rootNode && options.rootScript) {
       const scriptPath = String(options.rootScript).startsWith("res://")
         ? String(options.rootScript)
@@ -763,14 +838,13 @@ function serializeScene(rootNode, ctx, options) {
       }
     }
     if (node.hiddenByDefault) lines.push("visible = false");
-    if (node.scroll) lines.push("clip_contents = true");
     if (node.maxWidth != null) ctx.todo.push({ message: `max-width ${node.maxWidth}px у ${node.name} — замените на size_flags/скрипт` });
     lines.push("");
 
     for (const child of node.children) walk(child, path, depth + 1);
   };
 
-  walk(rootNode, "", 0);
+  walk(rootNode, "", 0, true);
 
   const header = [];
   header.push("[gd_scene load_steps=" + (externalResources.length + subResources.length + 1) + " format=3]");

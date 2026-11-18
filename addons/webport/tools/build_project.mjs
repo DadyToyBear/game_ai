@@ -64,12 +64,12 @@ func _landmark_at(local_position: Vector2) -> Dictionary:
 		return {}
 	var art_size: Array = _world_data.get("art_size", [1264, 848])
 	var grid: Dictionary = _world_data.get("grid", {})
-	var cols := max(1, int(grid.get("cols", 45)))
-	var rows := max(1, int(grid.get("rows", 30)))
+	var cols: int = max(1, int(grid.get("cols", 45)))
+	var rows: int = max(1, int(grid.get("rows", 30)))
 	var map_size := Vector2(float(art_size[0]), float(art_size[1]))
 	var tile_size := Vector2(map_size.x / cols, map_size.y / rows)
 	var map_position := Vector2(local_position.x / size.x * map_size.x, local_position.y / size.y * map_size.y)
-	var best_distance := max(tile_size.x, tile_size.y) * 0.8
+	var best_distance: float = max(tile_size.x, tile_size.y) * 0.8
 	var selected: Dictionary = {}
 	for value in _world_data.get("objects", []):
 		if not value is Dictionary:

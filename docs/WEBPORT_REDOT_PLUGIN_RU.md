@@ -44,8 +44,16 @@ assets/** ───────────────────────�
 | `display:grid` + `repeat(3, 1fr)` | `GridContainer` + `columns = 3` |
 | `button`, `select`, `input` | `Button`, `OptionButton`, `LineEdit` / `CheckBox` |
 | `img src="/assets/…"` | `TextureRect` + `ExtResource("res://assets/…")` |
+| `overflow: auto/scroll` и `overflow-x/y` | `ScrollContainer` с режимом прокрутки по указанным осям |
 | `<canvas>` | `SubViewportContainer` + `SubViewport`; код рисования/ввода — ручной TODO |
-| `id="resourceBar"` | `webport/dom_links.json` + `WebportLinks.ui("resourceBar")` |
+| `id="resourceBar"` | `webport/dom_links.json` + `WebportLinks.ui("resourceBar")`; вложенные пути учитывают обёртку прокручиваемого содержимого |
+
+Сцена сериализуется с путями `parent` относительно корня (`.` для прямых потомков),
+а не с именем корневого узла в начале пути. Канвасы получают размер по CSS либо
+fallback по атрибутам `width`/`height`; абсолютные элементы рядом с картой
+располагаются поверх Canvas, а не занимают место в потоке контейнера. В сгенерированном
+GDScript `preload` размещается после `extends`, а биндинг ID строится как полный
+путь узла и преобразует `get_path()` в строку для Godot 4.3.
 
 | JS | GDScript |
 |---|---|

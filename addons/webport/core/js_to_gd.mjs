@@ -292,15 +292,21 @@ export class Converter {
   }
 
   finish(body, exportedFns) {
-    let prelude = "";
+    let out = body;
     if (this.usedHelpers.size) {
-      prelude += `\nconst WebportRuntime := preload("res://addons/webport/runtime/webport_runtime.gd")\n`;
+      const prelude = `const WebportRuntime := preload("res://addons/webport/runtime/webport_runtime.gd")`;
+      const extendsMatch = /(^extends .*$)/m.exec(out);
+      if (extendsMatch) {
+        const insertAt = extendsMatch.index + extendsMatch[0].length;
+        out = out.slice(0, insertAt) + "\n" + prelude + out.slice(insertAt);
+      } else {
+        out = prelude + "\n" + out;
+      }
     }
     const tail = [];
     for (const kind of ["keys", "values", "entries"]) {
       if (this.usedHelpers.has(kind)) tail.push(this.staticHelper(kind));
     }
-    let out = prelude + "\n" + body;
     const deferred = this.computeDeferred();
     if (deferred.length) out += "\n\n" + deferred.join("\n\n");
     if (tail.length) out += "\n\n" + tail.join("\n\n");

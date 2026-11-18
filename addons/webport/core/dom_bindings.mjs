@@ -27,7 +27,7 @@ func ui(id: String) -> Node:
 		return null
 	var path: String = DOM_IDS[id]
 	if not path.begins_with("/"):
-		path = get_path() + "/" + path
+		path = str(get_path()) + "/" + path
 	return get_node_or_null(path)
 
 
