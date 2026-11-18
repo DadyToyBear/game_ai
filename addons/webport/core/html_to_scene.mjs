@@ -32,7 +32,10 @@ const SKIP_TAGS = new Set(["script", "style", "meta", "link", "title", "head", "
 export function convertHtml(source, options = {}) {
   const root = parseHtml(source);
   const cssSources = collectCss(root);
-  const rules = parseCss(cssSources.inline);
+  const rules = parseCss(cssSources.inline, {
+    viewportWidth: options.viewportWidth ?? 1280,
+    viewportHeight: options.viewportHeight ?? 720,
+  });
   const ids = collectIds(root);
   const dynamicIds = options.dynamicIds ?? new Set();
 
@@ -103,7 +106,7 @@ function collectCss(root) {
 }
 
 /** Разбор CSS в список правил: { selectors: [...], decls: {...}, order }. */
-export function parseCss(source) {
+export function parseCss(source, mediaContext = {}) {
   const rules = [];
   if (!source) return rules;
   const clean = source.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -113,7 +116,7 @@ export function parseCss(source) {
     const open = clean.indexOf("{", i);
     if (open === -1) break;
     const prelude = clean.slice(i, open).trim();
-    // @media и @keyframes — пропускаем, но разбираем внутренности @media
+    // @keyframes пропускаются; @media применяется только к выбранному размеру окна.
     let depth = 1;
     let j = open + 1;
     while (j < clean.length && depth > 0) {
@@ -122,9 +125,11 @@ export function parseCss(source) {
       j += 1;
     }
     const body = clean.slice(open + 1, j - 1);
-    if (/^@media/.test(prelude)) {
-      const inner = parseCss(body);
-      for (const r of inner) rules.push({ ...r, order: order++ });
+    if (/^@media\b/.test(prelude)) {
+      if (mediaQueryMatches(prelude.slice(6), mediaContext)) {
+        const inner = parseCss(body, mediaContext);
+        for (const r of inner) rules.push({ ...r, order: order++ });
+      }
     } else if (/^@/.test(prelude)) {
       // @keyframes/@font-face — не участвуют в раскладке
     } else {
@@ -136,6 +141,32 @@ export function parseCss(source) {
     i = j;
   }
   return rules;
+}
+
+function mediaQueryMatches(queryText, { viewportWidth, viewportHeight } = {}) {
+  const width = Number(viewportWidth);
+  const height = Number(viewportHeight);
+  return queryText.toLowerCase().split(",").some((query) => {
+    const terms = query.trim().replace(/^only\s+/, "").split(/\s+and\s+/);
+    return terms.every((term) => {
+      const normalized = term.trim();
+      if (normalized === "all" || normalized === "screen") return true;
+      if (normalized === "print") return false;
+      const feature = /^\(\s*(min|max)-(width|height)\s*:\s*([\d.]+)px\s*\)$/.exec(normalized);
+      if (feature) {
+        const actual = feature[2] === "width" ? width : height;
+        if (!Number.isFinite(actual)) return false;
+        const limit = Number(feature[3]);
+        return feature[1] === "min" ? actual >= limit : actual <= limit;
+      }
+      const orientation = /^\(\s*orientation\s*:\s*(landscape|portrait)\s*\)$/.exec(normalized);
+      if (orientation && Number.isFinite(width) && Number.isFinite(height)) {
+        return orientation[1] === "landscape" ? width >= height : height > width;
+      }
+      // Unsupported media features are safer to skip than to apply globally.
+      return false;
+    });
+  });
 }
 
 function parseDeclarations(body) {

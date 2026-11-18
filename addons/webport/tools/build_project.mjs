@@ -113,6 +113,8 @@ export function parseArgs(argv) {
     serve: false,
     noCopyAssets: false,
     only: "",
+    viewportWidth: 1280,
+    viewportHeight: 720,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
@@ -124,6 +126,8 @@ export function parseArgs(argv) {
     else if (key === "--serve") args.serve = true;
     else if (key === "--no-copy-assets") args.noCopyAssets = true;
     else if (key === "--only") args.only = next();
+    else if (key === "--viewport-width") args.viewportWidth = Number(next());
+    else if (key === "--viewport-height") args.viewportHeight = Number(next());
     else if (key === "--help" || key === "-h") args.help = true;
   }
   return args;
@@ -195,8 +199,15 @@ function screenName(pagePath) {
 
 // ── основная сборка ─────────────────────────────────────────────────────────
 
+function positiveDimension(value, fallback) {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 export function buildProject(options = {}) {
   const opts = { ...parseArgs([]), ...options };
+  opts.viewportWidth = positiveDimension(opts.viewportWidth, 1280);
+  opts.viewportHeight = positiveDimension(opts.viewportHeight, 720);
   const sourceRoot = resolve(opts.source);
   const outRoot = resolve(opts.out);
   if (!existsSync(sourceRoot)) throw new Error(`нет каталога исходников: ${sourceRoot}`);
@@ -309,6 +320,8 @@ export function buildProject(options = {}) {
     const scene = convertHtml(html, {
       assetExists,
       rootName: sceneName,
+      viewportWidth: opts.viewportWidth,
+      viewportHeight: opts.viewportHeight,
       dynamicIds,
       rootScript: screenScriptRel,
       nativeOverlayDataPaths,
@@ -431,6 +444,8 @@ export function buildProject(options = {}) {
     name: opts.name,
     mainScene: mainScene?.scene,
     autoloads,
+    viewportWidth: opts.viewportWidth,
+    viewportHeight: opts.viewportHeight,
   });
   writeFileSync(existingProject, projectText);
 
@@ -439,7 +454,12 @@ export function buildProject(options = {}) {
   for (const screen of report.screens) {
     // повторный разбор нужен, чтобы получить nodePaths (в сцену они не пишутся)
     const html = readFileSync(join(sourceRoot, screen.page), "utf8");
-    const scene = convertHtml(html, { assetExists, rootName: screenName(screen.page) });
+    const scene = convertHtml(html, {
+      assetExists,
+      rootName: screenName(screen.page),
+      viewportWidth: opts.viewportWidth,
+      viewportHeight: opts.viewportHeight,
+    });
     links[screen.scene] = Object.fromEntries(scene.nodePaths);
   }
   writeOut(outRoot, "webport/dom_links.json", JSON.stringify(links, null, 2) + "\n");
@@ -534,7 +554,7 @@ function pickMainScene(screens, preferred) {
   return game ?? screens[0];
 }
 
-function renderProjectGodot({ name, mainScene, autoloads }) {
+function renderProjectGodot({ name, mainScene, autoloads, viewportWidth = 1280, viewportHeight = 720 }) {
   const lines = [
     "; Проект собран WebPort из браузерной игры.",
     "; Ориентир: Redot 26.x LTS / Godot 4.3+ (config_version=5).",
@@ -555,8 +575,8 @@ function renderProjectGodot({ name, mainScene, autoloads }) {
     "",
     "[display]",
     "",
-    "window/size/viewport_width=1280",
-    "window/size/viewport_height=720",
+    `window/size/viewport_width=${viewportWidth}`,
+    `window/size/viewport_height=${viewportHeight}`,
     "window/stretch/mode=\"canvas_items\"",
     "window/stretch/aspect=\"expand\"",
     "",
@@ -697,6 +717,8 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
   --name "..."        имя проекта в окне движка
   --main-scene <file> главная сцена (по умолчанию viewer/game.html)
   --only <подстрока>  выбрать HTML-экраны; модули/данные/ассеты остаются общими
+  --viewport-width    ширина окна для CSS @media и проекта (по умолчанию 1280)
+  --viewport-height   высота окна для CSS @media и проекта (по умолчанию 720)
   --no-copy-assets    не копировать картинки/звук
   --serve             после сборки поднять сервер проверки (tools/serve.mjs)
 `);

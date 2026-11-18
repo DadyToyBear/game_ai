@@ -12,7 +12,7 @@ import { parseHtml, summarize, collectIds } from "../core/html_dom.mjs";
 import { convertHtml, parseCss } from "../core/html_to_scene.mjs";
 import { lintGdscript, hasLinter } from "../core/gd_lint.mjs";
 import { extractScripts } from "../core/html_scripts.mjs";
-import { buildProject, validateAutoloadScripts } from "../tools/build_project.mjs";
+import { buildProject, parseArgs, validateAutoloadScripts } from "../tools/build_project.mjs";
 import { writeFileSync, mkdirSync, mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -321,6 +321,32 @@ check("CSS: flex и grid превращаются в контейнеры", () =
   includes(res.scene, 'type="HBoxContainer"');
   includes(res.scene, 'type="GridContainer"');
   includes(res.scene, "columns = 3");
+});
+
+check("@media применяются по целевому размеру, а не перезаписывают desktop-макет", () => {
+  const html = '<html><head><style>#layout{display:grid;grid-template-columns:1fr 292px}@media(max-width:680px){#layout{display:block}}@media(min-width:900px) and (orientation:landscape){#wide{display:flex}}</style></head><body><div id="layout"><div id="wide">A</div><aside>B</aside></div></body></html>';
+  const desktop = convertHtml(html, { viewportWidth: 1280, viewportHeight: 720 });
+  const phone = convertHtml(html, { viewportWidth: 390, viewportHeight: 844 });
+  includes(desktop.scene, '[node name="Layout" type="GridContainer"');
+  includes(desktop.scene, 'columns = 2');
+  includes(desktop.scene, '[node name="Wide" type="HBoxContainer"');
+  includes(phone.scene, '[node name="Layout" type="VBoxContainer"');
+  eq(phone.scene.includes('columns = 2'), false, "мобильная раскладка не наследует grid-колонки");
+});
+
+check("сборщик использует выбранный viewport и в media CSS, и в project.godot", () => {
+  const source = join(tmp, "responsive-build-fixture");
+  const out = join(tmp, "responsive-build-fixture-out");
+  mkdirSync(source, { recursive: true });
+  writeFileSync(join(source, "game.html"), '<html><head><style>#layout{display:grid;grid-template-columns:1fr 292px}@media(max-width:680px){#layout{display:block}}</style></head><body><div id="layout"><div>A</div><aside>B</aside></div></body></html>');
+  const args = parseArgs(["--viewport-width", "390", "--viewport-height", "844"]);
+  const { report } = buildProject({ ...args, source, out, only: "game.html", noCopyAssets: true, log: () => {} });
+  const scene = readFileSync(join(out, "scenes/Game.tscn"), "utf8");
+  const project = readFileSync(join(out, "project.godot"), "utf8");
+  includes(scene, '[node name="Layout" type="VBoxContainer"');
+  includes(project, "window/size/viewport_width=390");
+  includes(project, "window/size/viewport_height=844");
+  eq(report.screens.length, 1, "собранный responsive экран");
 });
 
 check("селекторы с псевдоклассами не ломают каскад", () => {
