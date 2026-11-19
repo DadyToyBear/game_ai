@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/15_chieftain",
+  "clip": "quest",
+  "fps": 7,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 122,
+  "frame_h": 206,
+  "anchor_x": 62,
+  "anchor_y": 202,
+  "sheet": "quest.png",
+  "character_px": 200
+}

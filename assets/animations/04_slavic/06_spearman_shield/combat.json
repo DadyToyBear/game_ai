@@ -1,0 +1,13 @@
+{
+  "unit": "04_slavic/06_spearman_shield",
+  "clip": "combat",
+  "fps": 14,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 136,
+  "frame_h": 221,
+  "anchor_x": 66,
+  "anchor_y": 212,
+  "sheet": "combat.png",
+  "character_px": 200
+}

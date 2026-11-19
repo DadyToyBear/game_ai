@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/10_king",
+  "clip": "walk",
+  "fps": 12,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 128,
+  "frame_h": 226,
+  "anchor_x": 67,
+  "anchor_y": 217,
+  "sheet": "walk.png",
+  "character_px": 200
+}

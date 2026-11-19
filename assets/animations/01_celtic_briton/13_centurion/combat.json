@@ -1,0 +1,13 @@
+{
+  "unit": "01_celtic_briton/13_centurion",
+  "clip": "combat",
+  "fps": 14,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 126,
+  "frame_h": 219,
+  "anchor_x": 47,
+  "anchor_y": 211,
+  "sheet": "combat.png",
+  "character_px": 200
+}

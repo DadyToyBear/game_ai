@@ -1,0 +1,12 @@
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.cache/
+build/
+output/
+Unselected files/
+
+# WebPort distributable: keep the installable plugin archive versioned.
+dist/*.zip
+!dist/webport-addon.zip

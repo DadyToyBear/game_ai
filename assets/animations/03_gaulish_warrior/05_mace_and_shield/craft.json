@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/05_mace_and_shield",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 132,
+  "frame_h": 175,
+  "anchor_x": 72,
+  "anchor_y": 167,
+  "sheet": "craft.png",
+  "character_px": 200
+}

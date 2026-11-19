@@ -1,0 +1,13 @@
+{
+  "unit": "05_roman/06_spearman_shield",
+  "clip": "combat",
+  "fps": 14,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 134,
+  "frame_h": 232,
+  "anchor_x": 73,
+  "anchor_y": 225,
+  "sheet": "combat.png",
+  "character_px": 200
+}

@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/09_lord",
+  "clip": "quest",
+  "fps": 7,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 127,
+  "frame_h": 205,
+  "anchor_x": 66,
+  "anchor_y": 202,
+  "sheet": "quest.png",
+  "character_px": 200
+}

@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/10_king",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 128,
+  "frame_h": 180,
+  "anchor_x": 71,
+  "anchor_y": 169,
+  "sheet": "craft.png",
+  "character_px": 200
+}

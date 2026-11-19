@@ -1,0 +1,13 @@
+{
+  "unit": "04_slavic/11_prince",
+  "clip": "quest",
+  "fps": 7,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 117,
+  "frame_h": 208,
+  "anchor_x": 57,
+  "anchor_y": 202,
+  "sheet": "quest.png",
+  "character_px": 200
+}

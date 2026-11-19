@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Спрайт-отряд — игровая демо-сцена</title>
+<style>
+  :root {
+    --bg:#101218; --panel:rgba(23,26,33,.93); --border:rgba(255,255,255,.1);
+    --accent:#d49b57; --text:#eef0f5; --muted:#98a0b0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(circle at 50% 0%,#232834 0%,#0e1015 72%);color:var(--text);
+       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  h1{font-size:15px;font-weight:650}
+  .sub{color:var(--muted);font-size:12px}
+  #stage{flex:1;position:relative;overflow:hidden;cursor:crosshair}
+  canvas#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .hud{position:absolute;left:14px;bottom:14px;background:var(--panel);border:1px solid var(--border);
+       border-radius:10px;padding:9px 12px;font-size:12px;color:var(--muted);line-height:1.65;backdrop-filter:blur(6px)}
+  .hud b{color:var(--text);font-weight:600}
+  .hud kbd{background:#2a2f3b;border:1px solid var(--border);border-radius:4px;padding:0 4px;font-size:11px;color:#dfe4ee}
+  .ctrl{position:absolute;right:14px;bottom:14px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:60%}
+  .ctrl button{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:9px;
+       padding:7px 12px;font-size:12.5px;font-family:inherit;cursor:pointer;backdrop-filter:blur(6px)}
+  .ctrl button:hover{border-color:rgba(212,155,87,.5);color:#f3d3ad}
+  .ctrl button.on{background:rgba(212,155,87,.18);border-color:rgba(212,155,87,.55)}
+  select{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:9px;
+       padding:7px 10px;font-family:inherit;font-size:12.5px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>Спрайт-отряд на карте</h1>
+    <span class="sub">клик — идти · 5 юнитов · walk / combat / craft / build / quest</span>
+    <span style="flex:1"></span>
+    <select id="factionSel"></select>
+  </header>
+  <div id="stage">
+    <canvas id="scene"></canvas>
+    <div class="hud">
+      <div><b>Клик</b> по земле — отряд идёт к точке</div>
+      <div><b>Бой</b> <kbd>F</kbd> · <b>Стройка</b> <kbd>B</kbd> · <b>Ремесло</b> <kbd>C</kbd> · <b>Поход</b> <kbd>Q</kbd> · <b>Стоп</b> <kbd>S</kbd></div>
+      <div id="status">состояние: <b>поход</b></div>
+    </div>
+    <div class="ctrl">
+      <button data-a="walk" class="on">Идти</button>
+      <button data-a="combat">Бой</button>
+      <button data-a="craft">Ремесло</button>
+      <button data-a="build">Стройка</button>
+      <button data-a="quest">Поход</button>
+    </div>
+  </div>
+</div>
+<script>
+const FACTIONS = [
+  {id:"01_celtic_briton", ru:"Кельтские бритты", color:"#3F7A4A"},
+  {id:"02_norse_viking",  ru:"Викинги",          color:"#2E5FA3"},
+  {id:"03_gaulish_warrior",ru:"Галлы",           color:"#C08B2E"},
+  {id:"04_slavic",        ru:"Славяне",          color:"#9B3F5C"},
+  {id:"05_roman",         ru:"Римляне",          color:"#8B2B2B"},
+];
+// 5 archetypes in the squad
+const SQUAD = ["03_sword_and_shield","01_archer","06_spearman_shield","02_two_handed_axeman","08_cavalryman"];
+const CLIPS = {walk:12, combat:14, craft:10, build:9, quest:7};
+const NF = 8;
+
+const canvas = document.getElementById("scene");
+const ctx = canvas.getContext("2d");
+const stage = document.getElementById("stage");
+
+let dbg = 1.15;             // px per world pixel at zoom 1
+const GROUND_Y = 0.72;      // horizon-ish fraction of screen height
+const state = { clip:"walk", faction:FACTIONS[4].id, units:[], target:null, t:0 };
+
+/* ---------------- assets ---------------- */
+const strips = {};   // key -> HTMLImageElement
+function stripKey(f,c,clip){ return `${f}|${c}|${clip}`; }
+function loadStrip(f,c,clip){
+  const k = stripKey(f,c,clip);
+  if (strips[k]) return Promise.resolve(strips[k]);
+  const url = `/assets/animations/${f}/${c}/${clip}.png`;
+  return new Promise(res=>{
+    const img = new Image();
+    img.onload = ()=>{ strips[k] = {img, meta:null, ok:true}; loadMeta(f,c,clip); res(strips[k]); };
+    img.onerror = ()=>{ strips[k] = {img:null, ok:false}; res(strips[k]); };
+    img.src = url;
+  });
+}
+const metas = {};
+function metaKey(f,c,clip){ return `${f}|${c}|${clip}`; }
+async function loadMeta(f,c,clip){
+  const k = metaKey(f,c,clip);
+  if (metas[k]) return metas[k];
+  try {
+    const r = await fetch(`/assets/animations/${f}/${c}/${clip}.json`);
+    metas[k] = await r.json();
+  } catch(e){ metas[k] = null; }
+  return metas[k];
+}
+
+/* ---------------- world ---------------- */
+const W = { w: 3600, h: 1400 };
+const ROAD = [ {x:180,y:980},{x:700,y:900},{x:1300,y:1010},{x:1900,y:880},{x:2500,y:980},{x:3100,y:900},{x:3430,y:1000} ];
+const TREES = [];
+const ROCKS = [];
+let rndSeed = 1337;
+function rnd(){ rndSeed = (rndSeed*1664525+1013904223) % 4294967296; return rndSeed/4294967296; }
+
+function buildWorld(){
+  TREES.length = 0; ROCKS.length = 0; rndSeed = 1337;
+  for (let i=0;i<230;i++){
+    const x = 60 + rnd()*(W.w-120);
+    const y = 470 + rnd()*(W.h-540);
+    // keep the road clear
+    let near = false;
+    for (let t=0;t<ROAD.length-1;t++){
+      const a=ROAD[t], b=ROAD[t+1];
+      const dx=b.x-a.x, dy=b.y-a.y;
+      const tt=Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy)));
+      const d=Math.hypot(x-(a.x+dx*tt), y-(a.y+dy*tt));
+      if (d < 95) { near = true; break; }
+    }
+    if (!near) TREES.push({x,y,s:0.68+rnd()*0.75, kind: rnd()<0.55?0:1, sway:rnd()*6.28});
+  }
+  for (let i=0;i<70;i++){
+    const x = 40 + rnd()*(W.w-80);
+    const y = 460 + rnd()*(W.h-500);
+    ROCKS.push({x,y,s:0.5+rnd()*0.9});
+  }
+  TREES.sort((a,b)=>a.y-b.y);
+  ROCKS.sort((a,b)=>a.y-b.y);
+}
+
+/* ---------------- squad ---------------- */
+function makeSquad(faction){
+  const baseX = 1500, baseY = 940;
+  const offs = [[-90,10],[-30,-12],[36,14],[96,-6],[150,16]];
+  state.units = SQUAD.map((cls,i)=>({
+    cls, faction,
+    x: baseX+offs[i][0], y: baseY+offs[i][1],
+    phase: i*0.42, frame: 0, acc: 0, facing: 1, bobSeed: i*1.7,
+    speed: 118 + i*4,
+  }));
+  state.target = null;
+}
+
+/* ---------------- camera ---------------- */
+const cam = { x: 1000, y: 830 };
+function screenOf(wx, wy){
+  const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
+  return {
+    x: (wx - cam.x) * dbg + w/2,
+    y: (wy - cam.y) * dbg + h*GROUND_Y,
+  };
+}
+function worldOf(sx, sy){
+  const w = canvas.clientWidth || 1, h = canvas.clientHeight || 1;
+  return {
+    x: (sx - w/2)/dbg + cam.x,
+    y: (sy - h*GROUND_Y)/dbg + cam.y,
+  };
+}
+
+/* ---------------- draw ---------------- */
+function resize(){
+  const dpr = Math.min(2, window.devicePixelRatio||1);
+  const r = stage.getBoundingClientRect();
+  canvas.width = Math.round(r.width*dpr);
+  canvas.height = Math.round(r.height*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+new ResizeObserver(resize).observe(stage);
+
+function skyGradient(){
+  const h = canvas.clientHeight;
+  const g = ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,"#20242e");
+  g.addColorStop(0.42,"#2b3038");
+  g.addColorStop(GROUND_Y-0.06,"#3a3f3c");
+  g.addColorStop(GROUND_Y,"#5d6552");
+  g.addColorStop(1,"#4a5142");
+  return g;
+}
+
+function drawGround(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  ctx.fillStyle = skyGradient();
+  ctx.fillRect(0,0,w,h);
+
+  // distant hills
+  const hy = h*GROUND_Y;
+  ctx.save();
+  for (let layer=0; layer<3; layer++){
+    const off = (cam.x * (0.05 + layer*0.045)) % 640;
+    ctx.beginPath();
+    ctx.moveTo(-40, hy);
+    for (let x=-40; x<=w+40; x+=20){
+      const p = (x + off) / (150+layer*40);
+      const y = hy - 62 - layer*26 - Math.sin(p)*34 - Math.sin(p*2.3+layer)*18;
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(w+40, hy); ctx.closePath();
+    ctx.fillStyle = ["#2b3130","#333b38","#3d4540"][layer];
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // ground plane
+  ctx.fillStyle = "#59624c";
+  ctx.fillRect(0, hy, w, h-hy);
+  const gg = ctx.createLinearGradient(0,hy,0,h);
+  gg.addColorStop(0,"rgba(120,132,104,.55)");
+  gg.addColorStop(1,"rgba(58,66,50,.9)");
+  ctx.fillStyle = gg;
+  ctx.fillRect(0, hy, w, h-hy);
+
+  // grass tufts (parallax, cheap)
+  ctx.strokeStyle = "rgba(150,170,125,.28)";
+  ctx.lineWidth = 1;
+  const step = 26;
+  const x0 = Math.floor((cam.x - w/2/dbg)/step)*step;
+  const y0 = Math.floor((cam.y - h*0.4/dbg)/step)*step;
+  ctx.beginPath();
+  for (let y = y0; y < y0 + (h*1.3)/dbg + step; y += step){
+    for (let x = x0; x < x0 + (w*1.3)/dbg + step; x += step){
+      const s = screenOf(x + ((x*7)%13), y + ((y*11)%17));
+      if (s.y < hy-4) continue;
+      const k = 3 + ((x+y)%4);
+      ctx.moveTo(s.x, s.y); ctx.lineTo(s.x-1.4, s.y-k*dbg);
+      ctx.moveTo(s.x, s.y); ctx.lineTo(s.x+2.0, s.y-k*0.8*dbg);
+    }
+  }
+  ctx.stroke();
+}
+
+function drawRoad(){
+  ctx.save();
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const [wid, col] of [[74,"rgba(96,86,66,.55)"],[52,"rgba(132,118,90,.75)"],[34,"rgba(158,143,110,.85)"]]) {
+    ctx.beginPath();
+    for (let i=0;i<ROAD.length;i++){
+      const s = screenOf(ROAD[i].x, ROAD[i].y);
+      i ? ctx.lineTo(s.x,s.y) : ctx.moveTo(s.x,s.y);
+    }
+    ctx.strokeStyle = col;
+    ctx.lineWidth = wid*dbg;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawStone(x,y,s,alpha){
+  const p = screenOf(x,y);
+  const r = 9*s*dbg;
+  ctx.beginPath();
+  ctx.moveTo(p.x-r, p.y);
+  ctx.lineTo(p.x-r*0.55, p.y-r*0.85);
+  ctx.lineTo(p.x+r*0.35, p.y-r*0.95);
+  ctx.lineTo(p.x+r, p.y-r*0.1);
+  ctx.lineTo(p.x+r*0.4, p.y+r*0.18);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(112,113,105,${alpha})`;
+  ctx.fill();
+  ctx.strokeStyle = `rgba(72,73,68,${alpha})`;
+  ctx.lineWidth = Math.max(1, 1.1*dbg);
+  ctx.stroke();
+}
+
+function drawTree(t){
+  const p = screenOf(t.x, t.y);
+  const sway = Math.sin(state.t*0.0012 + t.sway) * 2.2 * t.s * dbg;
+  const s = t.s*dbg;
+  const trunkH = 30*s, crownR = 26*s;
+  // shadow
+  ctx.beginPath();
+  ctx.ellipse(p.x, p.y+1, crownR*0.9, crownR*0.26, 0, 0, 6.283);
+  ctx.fillStyle = "rgba(24,28,20,.30)";
+  ctx.fill();
+  // trunk
+  ctx.fillStyle = "#4a3a2b";
+  ctx.fillRect(p.x-3.2*s, p.y-trunkH, 6.4*s, trunkH+2);
+  // crown
+  const pal = t.kind===0
+    ? ["#3c5a34","#4c6d3e","#2f4a2a"]
+    : ["#2f4d3c","#3d5f4a","#243d31"];
+  ctx.beginPath();
+  if (t.kind===0){
+    for (let i=0;i<3;i++){
+      ctx.beginPath();
+      ctx.arc(p.x + sway*(i*0.27) + Math.cos(i*2.1)*crownR*0.42,
+              p.y - trunkH - crownR*0.5 - i*crownR*0.52,
+              crownR*(0.95-i*0.17), 0, 6.283);
+      ctx.fillStyle = pal[i % 3];
+      ctx.fill();
+    }
+  } else {
+    const hgt = crownR*2.9;
+    ctx.beginPath();
+    ctx.moveTo(p.x+sway, p.y - trunkH - hgt);
+    ctx.lineTo(p.x+crownR*0.72, p.y - trunkH - hgt*0.30);
+    ctx.lineTo(p.x-crownR*0.72, p.y - trunkH - hgt*0.30);
+    ctx.closePath();
+    ctx.fillStyle = pal[0]; ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(p.x+sway*0.6, p.y - trunkH - hgt*0.74);
+    ctx.lineTo(p.x+crownR*0.92, p.y - trunkH);
+    ctx.lineTo(p.x-crownR*0.92, p.y - trunkH);
+    ctx.closePath();
+    ctx.fillStyle = pal[1]; ctx.fill();
+  }
+}
+
+function drawUnit(u){
+  const k = stripKey(u.faction, u.cls, state.clip);
+  const entry = strips[k];
+  const meta = metas[metaKey(u.faction, u.cls, state.clip)];
+  const p = screenOf(u.x, u.y);
+  if (!entry || !entry.ok || !meta) {
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, 16*dbg, 5*dbg, 0, 0, 6.283);
+    ctx.fillStyle = "rgba(212,155,87,.5)"; ctx.fill();
+    return;
+  }
+  const fw = meta.frame_w, fh = meta.frame_h;
+  const scale = 1.32 * dbg;             // world scale for the 200px character
+  const dw = fw*scale, dh = fh*scale;
+  // shadow
+  ctx.beginPath();
+  ctx.ellipse(p.x, p.y, dw*0.20, dw*0.062, 0, 0, 6.283);
+  ctx.fillStyle = "rgba(20,24,16,.34)";
+  ctx.fill();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(entry.img, u.frame*fw, 0, fw, fh,
+    p.x - dw/2, p.y - dh + 3*dbg, dw, dh);
+}
+
+function drawTargetMarker(){
+  if (!state.target) return;
+  const p = screenOf(state.target.x, state.target.y);
+  const pulse = 0.6 + 0.4*Math.sin(state.t*0.006);
+  ctx.save();
+  ctx.strokeStyle = `rgba(226,178,110,${pulse})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, 20*dbg, 7*dbg, 0,0,6.283); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(p.x, p.y, 9*dbg, 3*dbg, 0,0,6.283); ctx.stroke();
+  ctx.restore();
+}
+
+/* ---------------- update ---------------- */
+function update(dt){
+  state.t += dt*1000;
+  const moving = state.clip === "walk";
+
+  for (const u of state.units){
+    let vx = 0, vy = 0;
+    if (moving && state.target){
+      const dx = state.target.x + u.phase*22 - u.x;
+      const dy = state.target.y + u.phase*12 - u.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 12){
+        const sp = u.speed * (1 + 0.12*Math.sin(state.t*0.003 + u.bobSeed));
+        vx = dx/d*sp; vy = dy/d*sp;
+        u.x += vx*dt; u.y += vy*dt;
+        u.facing = vx >= 0 ? 1 : -1;
+      }
+    }
+    // animation timing
+    const fps = CLIPS[state.clip];
+    const rate = (vx||vy) ? 1.0 : 0.55;
+    u.acc += dt * fps * rate;
+    while (u.acc >= 1){ u.acc -= 1; u.frame = (u.frame+1)%NF; }
+  }
+
+  // camera follows squad centre
+  if (state.units.length){
+    let cx=0, cy=0;
+    for (const u of state.units){ cx+=u.x; cy+=u.y; }
+    cx/=state.units.length; cy/=state.units.length;
+    cam.x += (cx - cam.x)*Math.min(1, dt*1.6);
+    cam.y += (cy - 60 - cam.y)*Math.min(1, dt*1.6);
+  }
+}
+
+function render(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  drawGround();
+  drawRoad();
+
+  // depth-sorted props + units
+  const items = [];
+  for (const r of ROCKS) items.push({y:r.y, kind:"rock", ref:r});
+  for (const t of TREES) items.push({y:t.y, kind:"tree", ref:t});
+  for (const u of state.units) items.push({y:u.y, kind:"unit", ref:u});
+  items.sort((a,b)=>a.y-b.y);
+
+  for (const it of items){
+    if (it.y < cam.y - (h*GROUND_Y)/dbg - 260) continue;
+    if (it.y > cam.y + (h*(1-GROUND_Y))/dbg + 320) continue;
+    if (it.kind === "tree") drawTree(it.ref);
+    else if (it.kind === "rock") drawStone(it.ref.x, it.ref.y, it.ref.s, 0.95);
+    else drawUnit(it.ref);
+  }
+
+  drawTargetMarker();
+
+  // vignette
+  const vg = ctx.createRadialGradient(w/2,h*0.45,Math.min(w,h)*0.35,w/2,h*0.5,Math.max(w,h)*0.78);
+  vg.addColorStop(0,"rgba(0,0,0,0)");
+  vg.addColorStop(1,"rgba(6,8,10,.55)");
+  ctx.fillStyle = vg; ctx.fillRect(0,0,w,h);
+}
+
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  update(dt); render();
+  requestAnimationFrame(loop);
+}
+
+/* ---------------- input ---------------- */
+stage.addEventListener("click", e => {
+  const r = stage.getBoundingClientRect();
+  state.target = worldOf(e.clientX-r.left, e.clientY-r.top);
+  state.target.y = Math.max(430, Math.min(W.h-40, state.target.y));
+  if (state.clip !== "walk") setClip("walk");
+});
+window.addEventListener("keydown", e => {
+  const map = {f:"combat", b:"build", c:"craft", q:"quest", s:"quest"};
+  const k = e.key.toLowerCase();
+  if (map[k]) { setClip(k==="s" ? "quest" : map[k]); }
+});
+
+function setClip(clip){
+  state.clip = clip;
+  document.querySelectorAll(".ctrl button").forEach(b=>b.classList.toggle("on", b.dataset.a===clip));
+  document.getElementById("status").innerHTML = "состояние: <b>" +
+    ({walk:"поход к точке",combat:"бой",craft:"ремесло",build:"стройка",quest:"стоят"})[clip] + "</b>";
+  // reset frames so the strip restarts from frame 0
+  for (const u of state.units){ u.frame = 0; u.acc = 0; }
+  if (clip !== "walk") state.target = null;
+}
+document.querySelectorAll(".ctrl button").forEach(b=>{
+  b.addEventListener("click", ()=> setClip(b.dataset.a));
+});
+
+/* ---------------- boot ---------------- */
+async function boot(){
+  const sel = document.getElementById("factionSel");
+  sel.innerHTML = FACTIONS.map(f=>`<option value="${f.id}" ${f.id===state.faction?"selected":""}>${f.ru}</option>`).join("");
+  sel.addEventListener("change", async e=>{
+    state.faction = e.target.value;
+    makeSquad(state.faction);
+    await preloadAll();
+    setClip("walk");
+  });
+
+  resize();
+  buildWorld();
+  makeSquad(state.faction);
+  await preloadAll();
+  requestAnimationFrame(loop);
+}
+
+async function preloadAll(){
+  const jobs = [];
+  for (const clip of Object.keys(CLIPS))
+    for (const cls of SQUAD)
+      jobs.push(loadMeta(state.faction, cls, clip).then(()=>loadStrip(state.faction, cls, clip)));
+  await Promise.all(jobs);
+}
+
+boot();
+</script>
+</body>
+</html>

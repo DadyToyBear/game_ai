@@ -1,0 +1,13 @@
+{
+  "unit": "05_roman/15_chieftain",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 128,
+  "frame_h": 176,
+  "anchor_x": 66,
+  "anchor_y": 170,
+  "sheet": "craft.png",
+  "character_px": 200
+}

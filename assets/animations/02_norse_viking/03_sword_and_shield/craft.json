@@ -1,0 +1,13 @@
+{
+  "unit": "02_norse_viking/03_sword_and_shield",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 118,
+  "frame_h": 179,
+  "anchor_x": 58,
+  "anchor_y": 169,
+  "sheet": "craft.png",
+  "character_px": 200
+}

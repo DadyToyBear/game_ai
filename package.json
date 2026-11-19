@@ -1,0 +1,23 @@
+{
+  "name": "game_ai",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DadyToyBear/game_ai.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DadyToyBear/game_ai/issues"
+  },
+  "homepage": "https://github.com/DadyToyBear/game_ai#readme",
+  "devDependencies": {
+    "happy-dom": "^21.0.4"
+  }
+}

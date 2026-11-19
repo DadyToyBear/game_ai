@@ -1,0 +1,13 @@
+{
+  "unit": "04_slavic/03_sword_and_shield",
+  "clip": "walk",
+  "fps": 12,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 123,
+  "frame_h": 212,
+  "anchor_x": 58,
+  "anchor_y": 205,
+  "sheet": "walk.png",
+  "character_px": 200
+}

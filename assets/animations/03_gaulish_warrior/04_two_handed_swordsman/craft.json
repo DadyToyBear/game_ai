@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/04_two_handed_swordsman",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 88,
+  "frame_h": 190,
+  "anchor_x": 42,
+  "anchor_y": 183,
+  "sheet": "craft.png",
+  "character_px": 200
+}

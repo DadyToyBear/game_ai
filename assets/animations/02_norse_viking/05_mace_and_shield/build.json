@@ -1,0 +1,13 @@
+{
+  "unit": "02_norse_viking/05_mace_and_shield",
+  "clip": "build",
+  "fps": 9,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 135,
+  "frame_h": 212,
+  "anchor_x": 71,
+  "anchor_y": 203,
+  "sheet": "build.png",
+  "character_px": 200
+}

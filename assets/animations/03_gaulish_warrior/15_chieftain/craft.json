@@ -1,0 +1,13 @@
+{
+  "unit": "03_gaulish_warrior/15_chieftain",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 122,
+  "frame_h": 179,
+  "anchor_x": 62,
+  "anchor_y": 171,
+  "sheet": "craft.png",
+  "character_px": 200
+}

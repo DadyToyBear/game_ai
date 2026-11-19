@@ -1,0 +1,13 @@
+{
+  "unit": "04_slavic/13_centurion",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 94,
+  "frame_h": 180,
+  "anchor_x": 45,
+  "anchor_y": 169,
+  "sheet": "craft.png",
+  "character_px": 200
+}

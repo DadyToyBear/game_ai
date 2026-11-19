@@ -1,0 +1,13 @@
+{
+  "unit": "02_norse_viking/06_spearman_shield",
+  "clip": "combat",
+  "fps": 14,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 136,
+  "frame_h": 237,
+  "anchor_x": 72,
+  "anchor_y": 226,
+  "sheet": "combat.png",
+  "character_px": 200
+}

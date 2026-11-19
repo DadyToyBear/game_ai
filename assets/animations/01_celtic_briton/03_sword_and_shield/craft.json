@@ -1,0 +1,13 @@
+{
+  "unit": "01_celtic_briton/03_sword_and_shield",
+  "clip": "craft",
+  "fps": 10,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 131,
+  "frame_h": 178,
+  "anchor_x": 68,
+  "anchor_y": 168,
+  "sheet": "craft.png",
+  "character_px": 200
+}

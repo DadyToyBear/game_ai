@@ -1,0 +1,13 @@
+{
+  "unit": "02_norse_viking/08_cavalryman",
+  "clip": "quest",
+  "fps": 7,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 106,
+  "frame_h": 207,
+  "anchor_x": 55,
+  "anchor_y": 202,
+  "sheet": "quest.png",
+  "character_px": 200
+}

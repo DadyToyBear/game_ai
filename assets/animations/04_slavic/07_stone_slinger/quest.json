@@ -1,0 +1,13 @@
+{
+  "unit": "04_slavic/07_stone_slinger",
+  "clip": "quest",
+  "fps": 7,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 96,
+  "frame_h": 236,
+  "anchor_x": 48,
+  "anchor_y": 202,
+  "sheet": "quest.png",
+  "character_px": 200
+}

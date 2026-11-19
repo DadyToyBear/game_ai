@@ -1,0 +1,13 @@
+{
+  "unit": "01_celtic_briton/12_noble_commander",
+  "clip": "walk",
+  "fps": 12,
+  "frames": 8,
+  "loop": true,
+  "frame_w": 114,
+  "frame_h": 210,
+  "anchor_x": 52,
+  "anchor_y": 205,
+  "sheet": "walk.png",
+  "character_px": 200
+}
