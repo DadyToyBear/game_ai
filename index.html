@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Mini Studio — мобильная музыкальная студия</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">MS</div>
+      <div>
+        <div class="brand-title">Mini Studio</div>
+        <div class="brand-sub">демо-минимализм на Web Audio</div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button id="btnPlay" class="btn play" title="Play / Stop (Space)">
+        <span class="ico">▶</span><span class="lbl">Играть</span>
+      </button>
+      <button id="btnRec" class="btn rec" title="Запись с MIDI">●</button>
+      <button id="btnStopAll" class="btn ghost" title="Паника: заглушить всё">■</button>
+      <div class="bpm">
+        <label>BPM</label>
+        <input id="bpm" type="number" min="40" max="220" value="120" />
+      </div>
+      <div class="steps-seg">
+        <label>Шагов</label>
+        <select id="stepCount">
+          <option value="16">16</option>
+          <option value="32">32</option>
+        </select>
+      </div>
+      <div class="steps-seg">
+        <label>Тактов</label>
+        <select id="loopBars">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+      <div class="pos" id="pos">001 : 01</div>
+    </div>
+
+    <div class="top-actions">
+      <button class="btn ghost" id="btnMidi">MIDI</button>
+      <button class="btn ghost" id="btnHelp">?</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="rack">Стойка</button>
+    <button class="tab" data-view="seq">Секвенсор</button>
+    <button class="tab" data-view="mix">Микшер</button>
+    <button class="tab" data-view="io">Экспорт</button>
+  </nav>
+
+  <main>
+    <section id="view-rack" class="view active">
+      <div class="rack">
+        <aside class="tracklist" id="tracklist"></aside>
+        <div class="machine-wrap" id="machineWrap"></div>
+      </div>
+    </section>
+
+    <section id="view-seq" class="view">
+      <div class="seq-head">
+        <h2>Секвенсор</h2>
+        <div class="seq-tools">
+          <button class="btn ghost" id="btnClearPattern">Очистить паттерн</button>
+          <button class="btn ghost" id="btnRandom">Случайный бит</button>
+          <span class="hint">Клик по ячейке — нота/удар · перетаскивание по вертикали — высота · правый клик — удалить</span>
+        </div>
+      </div>
+      <div class="seq-scroll">
+        <div class="grid" id="seqGrid"></div>
+      </div>
+      <div id="rollPanel" class="roll-panel"></div>
+    </section>
+
+    <section id="view-mix" class="view">
+      <div class="seq-head"><h2>Микшер</h2>
+        <div class="seq-tools"><span class="hint">Фейдеры, панорама, посылы в delay/reverb, мастер-эквалайзер и лимитер</span></div>
+      </div>
+      <div class="mixer" id="mixer"></div>
+    </section>
+
+    <section id="view-io" class="view">
+      <div class="io-grid">
+        <div class="card">
+          <h3>Экспорт</h3>
+          <p class="muted">Офлайн-рендер выбранного числа тактов в WAV 16 бит / 44.1 кГц.</p>
+          <div class="row">
+            <button class="btn primary" id="btnExportWav">Экспорт WAV</button>
+            <button class="btn" id="btnExportJson">Сохранить проект</button>
+            <button class="btn" id="btnImportJson">Загрузить проект</button>
+            <input type="file" id="fileJson" accept=".json" hidden />
+          </div>
+          <div class="meter mono" id="renderStatus"></div>
+        </div>
+
+        <div class="card">
+          <h3>MIDI-вход</h3>
+          <p class="muted">Подключите USB-MIDI или виртуальный порт. Ноты играют на выбранной машине, а при включённой записи попадают в паттерн.</p>
+          <div class="row">
+            <button class="btn" id="btnMidi2">Подключить MIDI</button>
+            <span id="midiStatus" class="pill">не подключено</span>
+          </div>
+          <pre class="log" id="midiLog"></pre>
+        </div>
+
+        <div class="card">
+          <h3>Демо-проект</h3>
+          <p class="muted">Загрузить встроенный трек, чтобы услышать всё сразу.</p>
+          <div class="row">
+            <button class="btn" id="btnDemo">Загрузить демо</button>
+            <button class="btn ghost" id="btnReset">Новый пустой проект</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Что внутри</h3>
+          <ul class="clean">
+            <li>BeatBox — драм-машина с 8 каналами и своими WAV-сэмплами</li>
+            <li>Subsynth, BassLine, FMSynth, PadSynth, 8BitSynth</li>
+            <li>Степ-секвенсор и пиано-ролл</li>
+            <li>3 эффект-шины на канал: delay / reverb + мастер-секция</li>
+            <li>MIDI-вход через Web MIDI API</li>
+            <li>Экспорт WAV (офлайн-рендер) и JSON-проекта</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="js/engines.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
