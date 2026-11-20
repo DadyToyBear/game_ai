@@ -192,25 +192,93 @@ main { flex: 1; padding: 0 16px 28px; }
 .head-row .cell { height: 22px; background: #0f141c; cursor: default; }
 .head-row .cell.playhead { background: #1f3b3a; }
 
+/* ---------- пиано-ролл ---------- */
 .roll-panel { margin-top: 14px; }
-.roll {
-  border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg2);
-  overflow: auto; max-height: 44vh; position: relative;
-}
-.roll-inner { position: relative; }
-.roll-row { display: flex; height: 16px; }
+.roll { border: 1px solid var(--line); border-radius: var(--radius); background: #0f141c; overflow: hidden; }
+.roll-scroll { overflow: auto; max-height: 320px; }
+.roll-stage { position: relative; }
+.roll-ruler { display: flex; position: sticky; top: 0; z-index: 9; height: 22px; background: #0d1319; border-bottom: 1px solid var(--line); }
+.roll-ruler .roll-key { height: 22px; }
+.ruler-cell { flex: none; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #55657c; border-right: 1px solid #161d27; }
+.ruler-cell.beat { background: #101822; color: #7c8ca3; }
+.ruler-cell.bar { border-left: 1px solid #33415a; }
+.roll-rows { position: relative; }
+.roll-row { display: flex; position: absolute; left: 0; right: 0; }
+.roll-row.blackrow { background: #0c1118; }
 .roll-key {
-  position: sticky; left: 0; z-index: 3; width: 46px; flex: none; background: #131a24;
-  color: var(--muted); font-size: 9px; display: flex; align-items: center; justify-content: flex-end;
-  padding-right: 6px; border-right: 1px solid var(--line); border-bottom: 1px solid #161d27;
+  position: sticky; left: 0; z-index: 8; width: 46px; flex: none; background: #131a24;
+  color: #6b7a90; font-size: 9px; display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 5px; border-right: 1px solid var(--line); border-bottom: 1px solid #141b24;
 }
-.roll-key.blackkey { background: #0e141c; color: #5c6a80; }
-.roll-row .cellroll {
-  flex: 1; border-bottom: 1px solid #161d27; position: relative; cursor: crosshair;
+.roll-key.blackkey { background: #0b1017; color: #4a576c; }
+.roll-cell { flex: none; height: 100%; border-right: 1px solid #141b24; border-bottom: 1px solid #141b24; }
+.roll-cell.beat { border-left: 1px solid #1e2836; }
+.roll-cell.bar { border-left: 1px solid #33415a; }
+.note-layer { position: absolute; top: 22px; left: 46px; right: 0; cursor: crosshair; z-index: 6; }
+.note {
+  position: absolute; border-radius: 4px; cursor: grab; display: flex; align-items: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.18);
+  overflow: hidden; touch-action: none;
 }
-.roll-row .cellroll div {
-  position: absolute; top: 2px; bottom: 2px; border-radius: 3px; background: var(--accent);
+.note.dragging { cursor: grabbing; z-index: 9; filter: brightness(1.25); }
+.note-grip { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 6px; cursor: ew-resize; background: rgba(0,0,0,.22); border-radius: 3px; }
+.note-vel { position: absolute; left: 2px; bottom: 1px; height: 3px; width: 12px; border-radius: 2px; background: rgba(0,0,0,.5); cursor: ns-resize; }
+
+/* ---------- редактор паттернов ---------- */
+.pat-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pat-slots { display: flex; gap: 5px; }
+.pat-slot {
+  width: 32px; height: 30px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--muted); font: inherit; font-weight: 800; font-size: 12px;
+  cursor: pointer; position: relative;
 }
+.pat-slot:hover { border-color: #3b4a63; color: var(--text); }
+.pat-slot.active { background: linear-gradient(180deg, var(--accent), #2bbfa3); color: #06231e; border-color: transparent; }
+.pat-slot.used::after {
+  content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+  width: 4px; height: 4px; border-radius: 50%; background: var(--accent2);
+}
+
+.bank { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg2); }
+.bank-row { display: grid; grid-template-columns: 120px 1fr; gap: 8px; align-items: center; }
+.bank-label { font-size: 12px; color: #b8c6d9; display: flex; align-items: center; gap: 6px; overflow: hidden; }
+.bank-label .dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.bank-blocks { display: flex; gap: 6px; }
+.pblock {
+  flex: 1; min-width: 54px; height: 42px; border-radius: 9px; border: 1px solid var(--line);
+  background: #131a24; cursor: pointer; position: relative; overflow: hidden; padding: 4px;
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.pblock:hover { border-color: #3b4a63; }
+.pblock.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(78,225,193,.14); background: #16202b; }
+.pblock .pletter { font-size: 10px; font-weight: 800; color: var(--muted); }
+.pblock.active .pletter { color: var(--accent); }
+.pblock .pmini { display: flex; align-items: flex-end; gap: 1px; height: 16px; }
+.pblock .pmini i { flex: 1; background: #2a3a4d; border-radius: 1px; min-height: 1px; }
+.pblock.active .pmini i { background: var(--accent); opacity: .8; }
+.pblock .pmark { position: absolute; top: 4px; right: 5px; font-size: 8px; color: var(--accent2); }
+
+.scene-strip { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg2); }
+.scene-card {
+  min-width: 86px; border-radius: 10px; border: 1px solid var(--line); background: #131a24;
+  padding: 7px 9px; cursor: pointer; display: flex; flex-direction: column; gap: 3px;
+}
+.scene-card:hover { border-color: #3b4a63; }
+.scene-card.active { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(255,138,92,.14); }
+.scene-card .sname { font-size: 11px; font-weight: 800; }
+.scene-card .sletters { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+.chain { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.chain-chip {
+  border: 1px solid var(--line); background: #101823; border-radius: 999px; padding: 4px 10px;
+  font-size: 11px; cursor: pointer; color: #b8c6d9;
+}
+.chain-chip.now { border-color: var(--accent); color: var(--accent); }
+.chain-chip:hover { border-color: var(--rec); color: #ffb3c0; }
+.chain-arrow { color: #3b4a63; font-size: 11px; }
+.editor-block { margin-top: 14px; }
+.editor-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0 2px 8px; }
+.editor-head h4 { margin: 0; font-size: 13px; }
+.editor-head .hint { font-size: 11px; }
 
 /* ---------- микшер ---------- */
 .mixer { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; }
@@ -274,4 +342,30 @@ main { flex: 1; padding: 0 16px 28px; }
   main { padding: 0 10px 24px; }
   .knobs { gap: 8px; }
   .btn.play { min-width: 88px; }
+}
+
+/* --- паттерны и ролл: доводка --- */
+.seq-title { margin: 10px 4px 8px; font-size: 13px; color: #b8c6d9; font-weight: 700; }
+.master-sec { margin-top: 14px; }
+.master-sec h4 { margin: 0 0 8px; font-size: 13px; }
+.master-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px 16px; }
+.clip-editor { margin-top: 12px; }
+.clip-row { display: grid; grid-template-columns: 108px 1fr; gap: 8px; align-items: center; margin-bottom: 4px; }
+.clip-label { font-size: 11px; color: #b8c6d9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clip-blocks { display: flex; gap: 4px; }
+.clipblock {
+  flex: 1; min-width: 46px; height: 30px; border-radius: 8px; border: 1px solid var(--line);
+  background: #131a24; cursor: pointer; font-size: 10px; font-weight: 800; color: var(--muted);
+  display: grid; place-items: center; position: relative;
+}
+.clipblock:hover { border-color: #3b4a63; color: var(--text); }
+.clipblock.active { color: var(--accent); border-color: var(--accent); }
+.clipblock.sel { background: #16202b; box-shadow: 0 0 0 2px rgba(78,225,193,.14); }
+.clipblock .cnum { position: absolute; top: 2px; left: 4px; font-size: 8px; color: #4a576c; }
+.clipblock .cdot { position: absolute; bottom: 3px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent2); }
+.chain-list { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ghost { color: var(--muted); font-size: 10px; }
+@media (min-width: 1000px) {
+  .machine-roll .roll { border-radius: 12px; }
+  .machine-roll .roll-scroll { max-height: 380px; }
 }

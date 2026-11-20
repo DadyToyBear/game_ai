@@ -51,10 +51,12 @@
       reverb: engine === 'padsynth' ? 0.35 : 0.08,
       mute: false,
       params: window.defaultParams(engine, params),
-      presets: undefined,
-      pat: [],       // для BeatBox: массив [padIndex...]
-      notes: [],     // для мелодических: массив [midi...]
-      samples: {},   // padIndex (beatbox) или 'main' (pcmsynth) -> {channels, sampleRate}
+      bank: [],       // 4 паттерна A/B/C/D: { notes: [{at,m,len,v}], pads: [{at,p}] }
+      patIndex: 0,    // активный паттерн
+      used: [0],      // паттерны, участвующие в аранжировке
+      scenes: 'A',    // строка редактора сцен: буква паттерна для каждого такта
+      patLen: 64,     // шагов в паттерне (обновляется resizePatterns)
+      samples: {},    // padIndex (beatbox) или 'main' (pcmsynth) -> {channels, sampleRate}
     };
     return t;
   }
@@ -68,29 +70,43 @@
     const s = {
       bpm: 120,
       steps: 16,
-      bars: 2,
+      bars: 1,
+      arrangeBars: 4,
       feedback: 0.35,
       tracks,
       masterVol: 0.85,
       eq: { low: 0, mid: 0, high: 0 },
     };
+    s.patternLen = s.steps * s.bars;
     resizePatterns(s);
     return s;
   }
 
-  function totalSteps() { return song.steps * song.bars; }
+  function totalSteps() { return song.patternLen || song.steps * song.bars; }
 
   function resizePatterns(s) {
-    const n = s.steps * s.bars;
+    if (s.arrangeBars == null) s.arrangeBars = 4;
+    s.patternLen = s.steps * s.bars;
+    const n = s.patternLen;
     s.tracks.forEach((t) => {
-      const pat = t.pat.slice(0, n);
-      const notes = t.notes.slice(0, n);
-      while (pat.length < n) pat.push([]);
-      while (notes.length < n) notes.push([]);
-      t.pat = pat;
-      t.notes = notes;
+      Pattern.ensureTrack(t);
+      t.patLen = n;
+      t.bank.forEach((b) => {
+        b.notes = b.notes.filter((x) => x.at < n).map((x) => {
+          x.len = Math.min(x.len || 1, n - x.at);
+          return x;
+        });
+        b.pads = b.pads.filter((x) => x.at < n);
+      });
+      t.scenes = (t.scenes || 'A').slice(0, s.arrangeBars).padEnd(s.arrangeBars, 'A');
     });
   }
+
+  /* Сколько тактов в паттерне и сколько в аранжировке */
+  function patternBars() { return song.bars; }
+  function patternSteps() { return song.steps * song.bars; }
+  function clipSteps() { return song.steps; }
+  function arrangeSteps() { return song.steps * song.arrangeBars; }
 
   // ---------- аудио ----------
   function ensureAudio() {
@@ -157,30 +173,74 @@
     if (!state.playing) return;
     const ahead = 0.12;
     while (state.nextTime < state.ctx.currentTime + ahead) {
-      playStep(state.currentStep, state.nextTime);
-      state.nextTime += currentStepDuration();
-      state.currentStep = (state.currentStep + 1) % totalSteps();
+      playArrangeStep(state.currentStep, state.nextTime);
+      state.nextTime += currentStepDuration() * (state.swing ? 1 : 1);
+      state.currentStep = (state.currentStep + 1) % arrangeSteps();
     }
     paintPlayhead();
   }
 
-  function playStep(step, time) {
+  /* Один шаг аранжировки: для каждой дорожки берём паттерн из её строки сцен.
+     Каждый такт аранжировки играет соответствующий такт паттерна, по кругу. */
+  function playArrangeStep(absStep, time) {
+    const spb = song.steps;
+    const bar = Math.floor(absStep / spb);
+    const localStep = absStep % spb;
+    const patBar = bar % Math.max(1, song.bars);
+    const patStep = patBar * spb + localStep;
+
     song.tracks.forEach((t, i) => {
       if (t.mute) return;
       const ch = state.channels[i];
       if (!ch) return;
+      const letter = (t.scenes || 'A').charAt(bar) || 'A';
+      const idx = 'ABCD'.indexOf(letter);
+      const pat = Pattern.pattern(t, idx < 0 ? 0 : idx);
+
       if (t.engine === 'beatbox') {
-        (t.pat[step] || []).forEach((pad) => {
-          AE.playDrum(state.ctx, ch.input, t.params, pad, time, 0.95, t.samples[pad] || null);
+        (pat.pads || []).forEach((e) => {
+          if (e.at === patStep) AE.playDrum(state.ctx, ch.input, t.params, e.p, time, 0.95, t.samples[e.p] || null);
         });
       } else {
-        const dur = currentStepDuration() * 0.85;
         const smp = ENG[t.engine].sampler ? (t.samples.main || null) : null;
-        (t.notes[step] || []).forEach((midi) => {
-          AE.playNote(state.ctx, ch.input, t.engine, t.params, midi, 0.85, time, dur, smp);
+        (pat.notes || []).forEach((n) => {
+          if (n.at === patStep) {
+            const dur = currentStepDuration() * Math.max(1, Pattern.notelen(n)) * 0.95;
+            AE.playNote(state.ctx, ch.input, t.engine, t.params, n.m, n.v != null ? n.v : 0.85, time, dur, smp);
+          }
         });
       }
     });
+    state.currentBar = bar;
+  }
+
+  /* Запись живых нот в активный паттерн (с учётом такта аранжировки) */
+  function recordNote(t, midi, vel) {
+    if (!t) return;
+    const pat = Pattern.pattern(t);
+    const step = recStep();
+    pat.notes.push({ at: step, m: midi, len: 1, v: vel != null ? vel : 0.85 });
+    Pattern.markUsed(t);
+    renderSeq();
+  }
+
+  function recordPad(t, pad) {
+    if (!t) return;
+    const pat = Pattern.pattern(t);
+    const step = recStep();
+    if (!(pat.pads || []).some((e) => e.at === step && e.p === pad)) {
+      pat.pads.push({ at: step, p: pad });
+    }
+    Pattern.markUsed(t);
+    renderSeq();
+  }
+
+  /* Позиция шага внутри паттерна в момент записи */
+  function recStep() {
+    const spb = song.steps;
+    const bar = Math.floor(state.currentStep / spb);
+    const patBar = bar % Math.max(1, song.bars);
+    return patBar * spb + (state.currentStep % spb);
   }
 
   function panicVoices() {
@@ -192,7 +252,7 @@
     document.querySelectorAll('.pad.on').forEach((p) => p.classList.remove('on'));
   }
 
-  function liveNoteOn(midi) {
+  function liveNoteOn(midi, vel) {
     const t = song.tracks[state.activeTrack];
     if (!t || t.mute) return;
     ensureAudio();
@@ -200,7 +260,7 @@
     const list = state.liveVoices[state.activeTrack] || (state.liveVoices[state.activeTrack] = []);
     if (!ENG[t.engine].poly) list.forEach((v) => v.kill());
     const smp = ENG[t.engine].sampler ? (t.samples.main || null) : null;
-    const v = new AE.Voice(state.ctx, ch.input, t.engine, t.params, midi, 0.9, state.ctx.currentTime, smp);
+    const v = new AE.Voice(state.ctx, ch.input, t.engine, t.params, midi, vel != null ? vel : 0.9, state.ctx.currentTime, smp);
     list.push(v);
     if (list.length > 12) list.shift();
   }
@@ -224,13 +284,23 @@
     document.querySelectorAll('.cell.playing, .head-cell.playhead').forEach((c) => {
       c.classList.remove('playing', 'playhead');
     });
-    const step = state.currentStep;
-    document.querySelectorAll('[data-step="' + step + '"]').forEach((c) => c.classList.add('playing'));
-    document.querySelectorAll('.head-cell[data-step="' + step + '"]').forEach((c) => c.classList.add('playhead'));
-    const bar = Math.floor(step / song.steps) + 1;
-    const beat = Math.floor((step % song.steps) / 4) + 1;
+    const spb = song.steps;
+    const bar = Math.floor(state.currentStep / spb);
+    const local = state.currentStep % spb;
+    // планка в сетке паттерна (если редактор показывает этот такт)
+    const patBar = bar % Math.max(1, song.bars);
+    document.querySelectorAll('.cell[data-step="' + local + '"]').forEach((c) => c.classList.add('playing'));
+    document.querySelectorAll('.head-cell[data-step="' + local + '"]').forEach((c) => c.classList.add('playhead'));
     document.getElementById('pos').textContent =
-      String(bar).padStart(3, '0') + ' : ' + String(beat).padStart(2, '0');
+      String(bar + 1).padStart(3, '0') + ' : ' + String(Math.floor(local / 4) + 1).padStart(2, '0');
+    paintSceneBar(bar, local);
+    return patBar;
+  }
+
+  function paintSceneBar(bar, local) {
+    document.querySelectorAll('.arr-cell').forEach((c) => {
+      c.classList.toggle('now', Number(c.dataset.bar) === bar && local < 4);
+    });
   }
 
   function clearPlayhead() {
@@ -336,6 +406,33 @@
     const body = el('div', { class: 'machine-body' }, [paramsBox, side]);
     const machine = el('div', { class: 'machine' }, [head, body]);
 
+    if (t.engine !== 'beatbox') {
+      Pattern.ensureTrack(t);
+      const patHead = el('div', { class: 'machine-head', style: { borderTop: '1px solid var(--line)', paddingTop: '10px', paddingBottom: '10px' } }, [
+        el('span', { class: 'hint', text: 'Паттерн' }),
+        el('div', { class: 'pat-slots' }, [0, 1, 2, 3].map((i) =>
+          el('button', {
+            class: 'pat-slot' + (t.patIndex === i ? ' active' : '') + (t.used.indexOf(i) >= 0 ? ' used' : ''),
+            text: 'ABCD'[i],
+            onclick: () => { t.patIndex = i; Pattern.markUsed(t); renderMachine(); renderSeq(); },
+          })
+        )),
+        el('button', {
+          class: 'btn ghost', text: 'Копия', style: { fontSize: '11px', padding: '6px 9px' },
+          onclick: () => { copyPatternDialog(); },
+        }),
+        el('div', { class: 'spacer' }),
+        el('span', { class: 'hint', text: 'пиано-ролл: тяните ноты, край — длина, точка — громкость' }),
+      ]);
+      const rollHost = el('div', { class: 'machine-roll' });
+      Pattern.mount(rollHost, t, {
+        onChange: () => refreshSeqMiniState(),
+        onPreview: (midi, v) => liveNoteOn(midi, v),
+      });
+      machine.appendChild(patHead);
+      machine.appendChild(rollHost);
+    }
+
     if (t.engine === 'beatbox') {
       machine.appendChild(el('div', { class: 'machine-head', style: { borderTop: '1px solid var(--line)', borderBottom: 'none', paddingTop: '10px', paddingBottom: '10px' } }, [
         el('span', { class: 'hint', text: 'Клавиши A S D F G H J K играют по подушкам. Свои WAV: PCMSynth/BeatBox — через «Свои сэмплы».' }),
@@ -378,10 +475,7 @@
           pad.classList.add('on');
           setTimeout(() => pad.classList.remove('on'), 120);
           if (state.recording && state.playing) {
-            const st = state.currentStep;
-            const arr = t.pat[st] || (t.pat[st] = []);
-            if (arr.indexOf(i) < 0) arr.push(i);
-            renderSeq();
+            recordPad(t, i);
           }
         },
       }, [
@@ -435,13 +529,7 @@
       liveNoteOn(midi);
       node.classList.add('on');
       state.lastNote[state.activeTrack] = midi;
-      if (state.recording && state.playing) {
-        const t = song.tracks[state.activeTrack];
-        const st = state.currentStep;
-        const arr = t.notes[st] || (t.notes[st] = []);
-        if (arr.indexOf(midi) < 0) arr.push(midi);
-        renderSeq();
-      }
+      if (state.recording && state.playing) recordNote(song.tracks[state.activeTrack], midi);
     });
     const up = () => { liveNoteOff(midi); node.classList.remove('on'); };
     node.addEventListener('pointerup', up);
@@ -449,7 +537,7 @@
     node.addEventListener('pointercancel', up);
   }
 
-  // ---------- отрисовка: секвенсор ----------
+  // ---------- отрисовка: секвенсор (редактор паттерна) ----------
   function gridRows() {
     const rows = [];
     song.tracks.forEach((t, ti) => {
@@ -464,54 +552,181 @@
     return rows;
   }
 
-  function cellHas(row, step) {
+  function cellOn(row, step) {
     const t = song.tracks[row.ti];
-    if (row.beatbox) return (t.pat[step] || []).indexOf(row.pad) >= 0;
-    return (t.notes[step] || []).length > 0;
+    const pat = Pattern.pattern(t);
+    if (row.beatbox) return (pat.pads || []).some((e) => e.at === step && e.p === row.pad);
+    return (pat.notes || []).some((n) => n.at === step);
   }
 
-  function toggleCell(row, step, note) {
+  function toggleCell(row, step) {
     const t = song.tracks[row.ti];
+    const pat = Pattern.pattern(t);
     if (row.beatbox) {
-      const arr = t.pat[step] || (t.pat[step] = []);
-      const i = arr.indexOf(row.pad);
-      if (i >= 0) arr.splice(i, 1); else arr.push(row.pad);
+      const i = (pat.pads || []).findIndex((e) => e.at === step && e.p === row.pad);
+      if (i >= 0) pat.pads.splice(i, 1); else pat.pads.push({ at: step, p: row.pad });
     } else {
-      const arr = t.notes[step] || (t.notes[step] = []);
-      if (arr.length) {
-        arr.length = 0;
+      const i = pat.notes.findIndex((n) => n.at === step);
+      if (i >= 0) {
+        pat.notes.splice(i, 1);
       } else {
-        const midi = note != null ? note : (state.lastNote[row.ti] || 60);
-        arr.push(midi);
-        state.lastNote[row.ti] = midi;
+        const midi = state.lastNote[row.ti] || 60;
+        pat.notes.push({ at: step, m: midi, len: 1, v: 0.85 });
       }
     }
-    const cell = document.querySelector(
-      '.cell[data-track="' + row.ti + '"][data-pad="' + (row.pad == null ? '' : row.pad) + '"][data-step="' + step + '"]'
-    );
-    if (cell) {
-      const on = cellHas(row, step);
-      cell.classList.toggle('on', on);
-      cell.classList.toggle('strong', on && step % 4 === 0);
+    Pattern.markUsed(t);
+    return cellOn(row, step);
+  }
+
+  /* Мини-превью паттерна для блока в банке */
+  function miniBars(t, patIdx) {
+    const pat = Pattern.pattern(t, patIdx);
+    const bars = [];
+    const bucket = Math.max(1, Math.ceil((t.patLen || 16) / 8));
+    const items = (t.engine === 'beatbox' ? pat.pads : pat.notes) || [];
+    for (let b = 0; b < 8; b++) {
+      let h = 0;
+      items.forEach((e) => {
+        if (Math.floor(e.at / bucket) === b) h++;
+      });
+      bars.push(el('i', { style: { height: Math.min(16, 3 + h * 3) + 'px' } }));
     }
-    renderRoll();
+    return el('div', { class: 'pmini' }, bars);
+  }
+
+  function patternBar() {
+    const t = song.tracks[state.activeTrack];
+    if (!t) return el('div');
+    Pattern.ensureTrack(t);
+    const bar = el('div', { class: 'bank', style: { padding: '8px', border: 'none', background: 'transparent' } });
+
+    // строка 1: слоты паттернов
+    const slots = el('div', { class: 'bank-row' }, [
+      el('div', { class: 'bank-label' }, [el('span', { text: 'Паттерн машины' })]),
+      el('div', { class: 'pat-bar' }, [
+        el('div', { class: 'pat-slots' }, [0, 1, 2, 3].map((i) =>
+          el('button', {
+            class: 'pat-slot' + (t.patIndex === i ? ' active' : '') + (t.used.indexOf(i) >= 0 ? ' used' : ''),
+            text: 'ABCD'[i],
+            title: 'Паттерн ' + 'ABCD'[i] + (t.used.indexOf(i) >= 0 ? ' — используется в аранжировке' : ''),
+            onclick: () => {
+              t.patIndex = i;
+              Pattern.markUsed(t);
+              renderSeq();
+              renderMachine();
+            },
+          })
+        )),
+        el('button', { class: 'btn ghost', text: 'Копия A→B', style: { fontSize: '11px', padding: '6px 9px' }, onclick: copyPatternDialog }),
+        el('button', { class: 'btn ghost', text: 'Очистить', style: { fontSize: '11px', padding: '6px 9px' }, onclick: () => { Pattern.clear(t); renderSeq(); UI.toast('Паттерн ' + 'ABCD'[t.patIndex] + ' очищен'); } }),
+        el('span', { class: 'hint', text: 'шагов: ' + t.patLen + ' · тактов: ' + song.bars }),
+      ]),
+    ]);
+
+    // строка 2: банк — 4 блока каждого трека
+    const bankRow = el('div', { class: 'bank-row' }, [
+      el('div', { class: 'bank-label' }, [el('span', { text: 'Банк паттернов' })]),
+      el('div', { class: 'bank-blocks' }, [0, 1, 2, 3].map((i) =>
+        el('div', {
+          class: 'pblock' + (t.patIndex === i ? ' active' : ''),
+          title: 'Паттерн ' + 'ABCD'[i] + ' — клик, чтобы редактировать',
+          onclick: () => { t.patIndex = i; Pattern.markUsed(t); renderSeq(); renderMachine(); },
+        }, [
+          el('span', { class: 'pletter', text: 'ABCD'[i] }),
+          t.used.indexOf(i) >= 0 ? el('span', { class: 'pmark', text: '●' }) : null,
+          miniBars(t, i),
+        ])
+      )),
+    ]);
+
+    // строка 3: сцены — какие паттерны играют в каких тактах (для всех машин)
+    const sceneRow = el('div', { class: 'bank-row', style: { alignItems: 'start' } }, [
+      el('div', { class: 'bank-label' }, [el('span', { text: 'Сцены (аранжировка)' })]),
+      el('div', { style: { display: 'grid', gap: '6px' } }, song.tracks.map((tr) => {
+        Pattern.ensureTrack(tr);
+        const blocks = [];
+        for (let b = 0; b < song.arrangeBars; b++) {
+          const letter = (tr.scenes || 'A').charAt(b) || 'A';
+          blocks.push(el('div', {
+            class: 'pblock' + (tr === t ? ' active' : ''),
+            style: { height: '34px' },
+            title: tr.name + ' · такт ' + (b + 1) + ' — нажмите, чтобы сменить паттерн',
+            onclick: () => {
+              const next = 'ABCD'[('ABCD'.indexOf(letter) + 1) % 4];
+              const arr = (tr.scenes || 'A').padEnd(song.arrangeBars, 'A').split('');
+              arr[b] = next;
+              tr.scenes = arr.join('').slice(0, song.arrangeBars);
+            },
+          }, [
+            el('span', { class: 'pletter', text: letter, style: { color: ENG[tr.engine].accent } }),
+            el('span', { class: 'pletter', text: (b + 1) + ' такт', style: { fontSize: '8px' } }),
+          ]));
+        }
+        return el('div', { class: 'chain' }, [
+          el('span', { class: 'bank-label', style: { minWidth: '92px' }, text: tr.name }),
+        ].concat(blocks));
+      })),
+    ]);
+
+    bar.appendChild(slots);
+    bar.appendChild(bankRow);
+    bar.appendChild(sceneRow);
+    return bar;
+  }
+
+  function copyPatternDialog() {
+    const t = song.tracks[state.activeTrack];
+    const row = el('div', { class: 'row' });
+    [0, 1, 2, 3].forEach((from) => {
+      [0, 1, 2, 3].forEach((to) => {
+        if (from === to) return;
+        row.appendChild(el('button', {
+          class: 'btn ghost', text: 'ABCD'[from] + ' → ' + 'ABCD'[to],
+          onclick: () => {
+            Pattern.copyPattern(t, from, to);
+            t.patIndex = to;
+            Pattern.markUsed(t);
+            renderSeq();
+            UI.toast('Паттерн ' + 'ABCD'[to] + ' = копия ' + 'ABCD'[from]);
+          },
+        }));
+      });
+    });
+    UI.modal('Копировать паттерн — ' + t.name, el('div', {}, [
+      el('p', { class: 'muted', text: 'Удобно, когда нужно A (куплет) и B (припев) с одинаковой основой.' }),
+      row,
+    ]), [{ label: 'Закрыть' }]);
   }
 
   function renderSeq() {
     const grid = document.getElementById('seqGrid');
+    const barBox = document.getElementById('patternBar');
+    if (!grid) return;
     const steps = totalSteps();
+    const t = song.tracks[state.activeTrack];
+    Pattern.ensureTrack(t);
+    applyTheme(ENG[t.engine].accent);
+
+    if (barBox) {
+      barBox.innerHTML = '';
+      barBox.appendChild(patternBar());
+    }
+
+    const head = document.getElementById('seqTitle');
+    if (head) head.textContent = 'Редактор паттерна ' + 'ABCD'[t.patIndex] + ' — ' + t.name;
+
     grid.innerHTML = '';
     state.lastPlayed = -1;
     grid.style.gridTemplateColumns = '108px repeat(' + steps + ', minmax(22px, 1fr))';
 
-    // шапка
     grid.appendChild(el('div', { class: 'cell head-cell', style: { background: '#0f141c', cursor: 'default' } }));
     for (let s = 0; s < steps; s++) {
       const cls = ['cell', 'head-cell'];
       if (s % 4 === 0) cls.push('beat');
       if (s % song.steps === 0 && s > 0) cls.push('bar');
-      const c = el('div', { class: cls.join(' '), 'data-step': s }, s % 4 === 0 ? [el('span', { style: { position: 'absolute', left: '3px', top: '3px', fontSize: '9px', color: '#5c6a80' }, text: String(Math.floor(s / 4) + 1) })] : []);
-      grid.appendChild(c);
+      grid.appendChild(el('div', { class: cls.join(' '), 'data-step': s }, s % 4 === 0
+        ? [el('span', { style: { position: 'absolute', left: '3px', top: '3px', fontSize: '9px', color: '#5c6a80' }, text: String(Math.floor(s / (song.steps)) + 1) })]
+        : []));
     }
 
     gridRows().forEach((row) => {
@@ -519,14 +734,20 @@
         el('span', { class: 'nm', text: row.label, title: row.sub }),
         row.beatbox ? null : el('button', {
           class: 'btn ghost mute-mini', text: 'M',
-          onclick: (e) => { e.stopPropagation(); const t = song.tracks[row.ti]; t.mute = !t.mute; refreshChannels(); renderAll(); },
+          onclick: (e) => {
+            e.stopPropagation();
+            const tr = song.tracks[row.ti];
+            tr.mute = !tr.mute;
+            refreshChannels();
+            renderAll();
+          },
         }),
       ]);
       label.addEventListener('click', () => { state.activeTrack = row.ti; renderAll(); });
       grid.appendChild(label);
 
       for (let s = 0; s < steps; s++) {
-        const on = cellHas(row, s);
+        const on = cellOn(row, s);
         const cls = ['cell'];
         if (s % 4 === 0) cls.push('beat');
         if (s % song.steps === 0 && s > 0) cls.push('bar');
@@ -535,99 +756,85 @@
         const c = el('div', { class: cls.join(' '), 'data-step': s, 'data-track': row.ti, 'data-pad': row.pad == null ? '' : row.pad });
         c.addEventListener('click', (e) => {
           e.preventDefault();
-          const switchedTrack = state.activeTrack !== row.ti;
+          const switched = state.activeTrack !== row.ti;
           state.activeTrack = row.ti;
-          if (switchedTrack) { renderTracklist(); renderMachine(); }
-          toggleCell(row, s);
-          if (row.beatbox && cellHas(row, s)) liveDrum(row.pad);
-          else if (!row.beatbox && cellHas(row, s)) {
-            const midi = (song.tracks[row.ti].notes[s] || [])[0];
-            if (midi != null) liveNoteOn(midi);
+          if (switched) { renderTracklist(); renderMachine(); }
+          const isOn = toggleCell(row, s);
+          c.classList.toggle('on', isOn);
+          c.classList.toggle('strong', isOn && s % 4 === 0);
+          if (row.beatbox) {
+            if (isOn) liveDrum(row.pad);
+          } else {
+            const tr = song.tracks[row.ti];
+            const hit = Pattern.pattern(tr).notes.find((n) => n.at === s);
+            if (hit) { state.lastNote[row.ti] = hit.m; liveNoteOn(hit.m); }
           }
+          if (!switched) renderRollPanelOnly();
+          else renderSeq();
         });
         c.addEventListener('contextmenu', (e) => {
           e.preventDefault();
-          const t = song.tracks[row.ti];
-          if (row.beatbox) {
-            const arr = t.pat[s] || [];
-            const i = arr.indexOf(row.pad);
-            if (i >= 0) arr.splice(i, 1);
-          } else {
-            t.notes[s] = [];
-          }
-          renderSeq(); renderRoll();
+          const tr = song.tracks[row.ti];
+          const pat = Pattern.pattern(tr);
+          if (row.beatbox) pat.pads = (pat.pads || []).filter((x) => !(x.at === s && x.p === row.pad));
+          else pat.notes = pat.notes.filter((n) => n.at !== s);
+          renderSeq();
         });
         grid.appendChild(c);
       }
     });
+    renderRollPanelOnly();
+  }
+
+  function renderRollPanelOnly() {
     renderRoll();
   }
 
+  /* Пиано-ролл внизу вкладки «Секвенсор» и внутри машины — один и тот же компонент */
   function renderRoll() {
     const panel = document.getElementById('rollPanel');
+    if (!panel) return;
     const t = song.tracks[state.activeTrack];
     panel.innerHTML = '';
     if (!t) return;
-    if (t.engine === 'beatbox') {
-      panel.appendChild(el('div', { class: 'hint', text: 'Для драм-машины используется ступенчатая сетка выше: 8 дорожек по подушкам. Пиано-ролл доступен для мелодических машин.' }));
-      return;
-    }
-    const steps = totalSteps();
-    const cellW = 22;
-    const low = 36, high = 84;
-    const head = el('div', { class: 'seq-head', style: { paddingTop: '0' } }, [
-      el('h3', { style: { margin: '0', fontSize: '13px' }, text: 'Пиано-ролл — ' + t.name }),
-      el('span', { class: 'hint', text: 'Клик по клетке включает ноту, повторный клик убирает. Слева — клавиши.' }),
+
+    const head = el('div', { class: 'editor-head' }, [
+      el('h4', { text: 'Пиано-ролл — ' + t.name + ' · паттерн ' + 'ABCD'[t.patIndex] }),
+      el('span', { class: 'hint', text: 'Клик по пустому месту — новая нота · тяните ноту, чтобы двигать · за правый край — длина · жёлтая точка — громкость · правый клик — удалить' }),
     ]);
     panel.appendChild(head);
 
-    const roll = el('div', { class: 'roll' });
-    const inner = el('div', { class: 'roll-inner' });
-    for (let midi = high; midi >= low; midi--) {
-      const isBlack = [1, 3, 6, 8, 10].indexOf(midi % 12) >= 0;
-      const row = el('div', { class: 'roll-row' });
-      const name = noteName(midi);
-      row.appendChild(el('div', { class: 'roll-key' + (isBlack ? ' blackkey' : ''), text: name }));
-      const line = el('div', { class: 'cellroll', style: { width: steps * cellW + 'px' } });
-      for (let s = 0; s < steps; s++) {
-        const on = (t.notes[s] || []).indexOf(midi) >= 0;
-        const w = (s % 4 === 0 ? '' : '');
-        const cell = el('div', {
-          class: 'cell roll-cell',
-          'data-step': s,
-          style: {
-            position: 'absolute', left: s * cellW + 'px', width: cellW + 'px', top: '0', bottom: '0',
-            borderRight: (s % 4 === 3 ? '1px solid #2b3646' : '1px solid #131a24'),
-            cursor: 'pointer',
-          },
-          onclick: () => {
-            const arr = t.notes[s] || (t.notes[s] = []);
-            const i = arr.indexOf(midi);
-            if (i >= 0) arr.splice(i, 1); else arr.push(midi);
-            state.lastNote[state.activeTrack] = midi;
-            renderSeq();
-          },
-        });
-        if (on) {
-          cell.appendChild(el('div', {
-            style: { position: 'absolute', top: '2px', bottom: '2px', left: '1px', right: '1px', borderRadius: '3px', background: ENG[t.engine].accent },
-          }));
-        }
-        line.appendChild(cell);
-      }
-      row.appendChild(line);
-      inner.appendChild(row);
+    if (t.engine === 'beatbox') {
+      panel.appendChild(el('div', {
+        class: 'hint',
+        style: { padding: '10px', border: '1px dashed var(--line)', borderRadius: '12px' },
+        text: 'У драм-машины пиано-ролл не нужен: удар = шаг. Используйте сетку выше — она и есть редактор паттерна. Пиано-ролл включается для мелодических машин.',
+      }));
+      return;
     }
-    roll.appendChild(inner);
-    panel.appendChild(roll);
+
+    Pattern.mount(panel, t, {
+      onChange: () => refreshSeqMiniState(),
+      onPreview: (midi, v) => liveNoteOn(midi, v),
+    });
   }
 
-  function noteName(midi) {
-    const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    return names[midi % 12] + (Math.floor(midi / 12) - 1);
+  /* Обновляет «горящие» ячейки сетки, не перерисовывая ролл */
+  function refreshSeqMiniState() {
+    const t = song.tracks[state.activeTrack];
+    if (!t) return;
+    gridRows().forEach((row) => {
+      for (let s = 0; s < totalSteps(); s++) {
+        const cell = document.querySelector('.cell[data-track="' + row.ti + '"][data-pad="' + (row.pad == null ? '' : row.pad) + '"][data-step="' + s + '"]');
+        if (cell) {
+          const on = cellOn(row, s);
+          cell.classList.toggle('on', on);
+          cell.classList.toggle('strong', on && s % 4 === 0);
+        }
+      }
+    });
   }
 
-  // ---------- микшер ----------
   function renderMixer() {
     const box = document.getElementById('mixer');
     box.innerHTML = '';
@@ -869,11 +1076,7 @@
       markKey(d1, true);
       midiLog('NoteOn  ch' + ch + ' ' + noteName(d1) + ' vel ' + d2);
       if (state.recording && state.playing) {
-        const t = song.tracks[state.activeTrack];
-        const st = state.currentStep;
-        const arr = t.notes[st] || (t.notes[st] = []);
-        if (arr.indexOf(d1) < 0) arr.push(d1);
-        renderSeq();
+        recordNote(song.tracks[state.activeTrack], d1, d2 / 127);
       }
     } else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) {
       liveNoteOff(d1);
@@ -904,26 +1107,35 @@
   function buildEvents(barsFrom, barsTo) {
     const events = [];
     const stepDur = 60 / song.bpm / 4;
+    const spb = song.steps;
     let t = 0;
     for (let bar = barsFrom; bar < barsTo; bar++) {
-      for (let s = 0; s < song.steps; s++) {
-        const step = bar * song.steps + s;
+      for (let s = 0; s < spb; s++) {
+        const patBar = bar % Math.max(1, song.bars);
+        const patStep = patBar * spb + s;
         song.tracks.forEach((tr, ci) => {
           if (tr.mute) return;
+          const letter = (tr.scenes || 'A').charAt(bar) || 'A';
+          const idx = 'ABCD'.indexOf(letter);
+          const pat = Pattern.pattern(tr, idx < 0 ? 0 : idx);
           if (tr.engine === 'beatbox') {
-            (tr.pat[step] || []).forEach((pad) => {
+            (pat.pads || []).forEach((e) => {
+              if (e.at !== patStep) return;
               events.push({
-                engine: 'beatbox', params: tr.params, pad, channel: ci,
+                engine: 'beatbox', params: tr.params, pad: e.p, channel: ci,
                 velocity: 0.95, time: t, duration: stepDur,
-                sample: tr.samples[pad] || null,
+                sample: tr.samples[e.p] || null,
               });
             });
           } else {
             const smp = ENG[tr.engine].sampler ? (tr.samples.main || null) : null;
-            (tr.notes[step] || []).forEach((midi) => {
+            (pat.notes || []).forEach((n) => {
+              if (n.at !== patStep) return;
               events.push({
-                engine: tr.engine, params: tr.params, midi, channel: ci,
-                velocity: 0.85, time: t, duration: stepDur * 0.85, sample: smp,
+                engine: tr.engine, params: tr.params, midi: n.m, channel: ci,
+                velocity: n.v != null ? n.v : 0.85, time: t,
+                duration: stepDur * Math.max(1, Pattern.notelen(n)) * 0.95,
+                sample: smp,
               });
             });
           }
@@ -938,8 +1150,8 @@
     const status = document.getElementById('renderStatus');
     status.innerHTML = '';
     status.appendChild(el('i', { style: { width: '10%' } }));
-    const total = (60 / song.bpm / 4) * song.steps * song.bars;
-    const events = buildEvents(0, song.bars);
+    const total = (60 / song.bpm / 4) * song.steps * song.arrangeBars;
+    const events = buildEvents(0, song.arrangeBars);
     if (!events.length) { UI.toast('Секвенсор пуст — нечего рендерить', 'error'); return; }
 
     const renderSong = {
@@ -959,23 +1171,28 @@
       UI.download(blob, 'mini-studio-' + Date.now() + '.wav');
       status.innerHTML = '';
       status.appendChild(el('i', { style: { width: '100%' } }));
-      UI.toast('WAV готов: ' + song.bars + ' такт(ов), ' + (blob.size / 1048576).toFixed(1) + ' МБ', 'ok');
+      UI.toast('WAV готов: ' + song.arrangeBars + ' такт(ов), ' + (blob.size / 1048576).toFixed(1) + ' МБ', 'ok');
     }).catch((err) => {
       console.error(err);
       UI.toast('Ошибка рендера: ' + err.message, 'error');
     });
   }
 
-  function saveProject() {
-    const clean = JSON.parse(JSON.stringify({
-      bpm: song.bpm, steps: song.steps, bars: song.bars, feedback: song.feedback,
+  function serialize() {
+    return JSON.parse(JSON.stringify({
+      bpm: song.bpm, steps: song.steps, bars: song.bars,
+      arrangeBars: song.arrangeBars, feedback: song.feedback,
       masterVol: song.masterVol, eq: song.eq,
       tracks: song.tracks.map((t) => ({
         id: t.id, engine: t.engine, name: t.name, vol: t.vol, pan: t.pan,
         delay: t.delay, reverb: t.reverb, mute: t.mute, params: t.params,
-        pat: t.pat, notes: t.notes,
+        bank: t.bank, patIndex: t.patIndex, used: t.used, scenes: t.scenes,
       })),
     }));
+  }
+
+  function saveProject() {
+    const clean = serialize();
     try { localStorage.setItem(LS_KEY, JSON.stringify(clean)); } catch (e) {}
     UI.download(new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' }), 'mini-studio-project.json');
     UI.toast('Проект сохранён (в файл и в браузер)', 'ok');
@@ -984,12 +1201,16 @@
   function loadProject(obj) {
     if (!obj || !Array.isArray(obj.tracks)) throw new Error('Неверный формат проекта');
     song = {
-      bpm: obj.bpm || 120, steps: obj.steps || 16, bars: obj.bars || 2,
+      bpm: obj.bpm || 120,
+      steps: obj.steps || 16,
+      bars: obj.bars || 1,
+      arrangeBars: obj.arrangeBars || 4,
+      patternLen: (obj.steps || 16) * (obj.bars || 1),
       feedback: obj.feedback != null ? obj.feedback : 0.35,
       masterVol: obj.masterVol != null ? obj.masterVol : 0.85,
       eq: obj.eq || { low: 0, mid: 0, high: 0 },
       tracks: obj.tracks.map((t) => {
-        const nt = newTrack(t.engine || 'subsynth', t.name || 'Машина', t.params);
+        const nt = newTrack(t.engine in ENG ? t.engine : 'subsynth', t.name || 'Машина', t.params);
         nt.id = t.id || uid();
         nt.vol = t.vol != null ? t.vol : 0.8;
         nt.pan = t.pan || 0;
@@ -997,8 +1218,22 @@
         nt.reverb = t.reverb != null ? t.reverb : 0.1;
         nt.mute = !!t.mute;
         nt.params = Object.assign(window.defaultParams(nt.engine), t.params || {});
-        nt.pat = (t.pat || []).map((a) => (a || []).slice());
-        nt.notes = (t.notes || []).map((a) => (a || []).slice());
+        Pattern.ensureTrack(nt);
+        if (Array.isArray(t.bank)) {
+          nt.bank = t.bank.map((b) => ({
+            notes: Pattern.normalizeNotes(b.notes, nt.patLen),
+            pads: Pattern.normalizePads(b.pads, nt.patLen),
+          }));
+          while (nt.bank.length < 4) nt.bank.push({ notes: [], pads: [] });
+        } else {
+          // старый формат: pat[] и notes[]
+          const b = nt.bank[0];
+          b.notes = Pattern.normalizeNotes(t.notes, nt.patLen);
+          b.pads = Pattern.normalizePads(t.pat, nt.patLen);
+        }
+        nt.patIndex = t.patIndex || 0;
+        nt.used = Array.isArray(t.used) && t.used.length ? t.used.slice() : [nt.patIndex];
+        nt.scenes = typeof t.scenes === 'string' ? t.scenes : 'A'.repeat(song.arrangeBars);
         return nt;
       }),
     };
@@ -1006,7 +1241,7 @@
     state.activeTrack = Math.min(state.activeTrack, song.tracks.length - 1);
     document.getElementById('bpm').value = song.bpm;
     document.getElementById('stepCount').value = String(song.steps);
-    document.getElementById('loopBars').value = String(song.bars);
+    document.getElementById('loopBars').value = String(song.arrangeBars);
     refreshChannelsRebuild();
     applyMaster();
     renderAll();
@@ -1017,7 +1252,9 @@
     const s = emptySong();
     s.bpm = 124;
     s.steps = 16;
-    s.bars = 2;
+    s.bars = 1;
+    s.arrangeBars = 4;
+    s.patternLen = 16;
 
     const bb = s.tracks[0];
     bb.params = Object.assign(window.defaultParams('beatbox'), { tune: 0, decay: 1.1, snap: 0.6, level: 0.95 });
@@ -1040,41 +1277,64 @@
     keys.reverb = 0.25;
     keys.delay = 0.12;
     s.tracks.push(padTrack, keys);
-
     resizePatterns(s);
 
-    const n = s.steps * s.bars;
-    for (let step = 0; step < n; step++) {
-      const inBar = step % 16;
-      // драм-паттерн
-      if (inBar === 0 || inBar === 8) bb.pat[step].push(0);
-      if (inBar === 4 || inBar === 12) bb.pat[step].push(1);
-      if (inBar % 2 === 0) bb.pat[step].push(2);
-      if (inBar === 6 || inBar === 14) bb.pat[step].push(3);
-      if (inBar === 12) bb.pat[step].push(4);
+    const A = (t) => Pattern.pattern(t, 0);
+    const B = (t) => Pattern.pattern(t, 1);
 
-      // басовая линия (A1 = 33)
-      const bassPat = [33, null, null, 33, null, 36, null, 40, 33, null, null, 31, null, 33, null, null];
-      const bn = bassPat[inBar];
-      if (bn != null) bass.notes[step].push(bn);
+    // ---- барабаны: A (основа) + B (с брейком и открытым хэтом) ----
+    for (let st = 0; st < 16; st++) {
+      if (st === 0 || st === 8) A(bb).pads.push({ at: st, p: 0 });
+      if (st === 4 || st === 12) A(bb).pads.push({ at: st, p: 1 });
+      if (st % 2 === 0) A(bb).pads.push({ at: st, p: 2 });
+      if (st === 6 || st === 14) A(bb).pads.push({ at: st, p: 3 });
+      if (st === 12) A(bb).pads.push({ at: st, p: 4 });
 
-      // аккорды
-      if (inBar === 0 || inBar === 10) {
-        [57, 60, 64].forEach((m) => padTrack.notes[step].push(m));
-      }
-      if (inBar === 6) {
-        [57, 62, 65].forEach((m) => padTrack.notes[step].push(m));
-      }
-
-      // арпеджио на клавишах
-      const arp = [72, 76, 79, 84, 79, 76, 72, 76];
-      if (inBar % 2 === 0) {
-        keys.notes[step].push(arp[(inBar / 2) % arp.length]);
-      }
-      // мелодия на синте
-      const mel = { 2: 69, 5: 72, 8: 71, 11: 68, 14: 64 };
-      if (mel[inBar] != null) syn.notes[step].push(mel[inBar]);
+      if (st === 0 || st === 8 || st === 10) B(bb).pads.push({ at: st, p: 0 });
+      if (st === 4 || st === 12) B(bb).pads.push({ at: st, p: 1 });
+      if (st % 2 === 0) B(bb).pads.push({ at: st, p: 2 });
+      if (st === 14 || st === 15) B(bb).pads.push({ at: st, p: 3 });
+      if (st === 7 || st === 11) B(bb).pads.push({ at: st, p: 4 });
+      if (st === 5 || st === 13) B(bb).pads.push({ at: st, p: 6 });
     }
+
+    // ---- бас: A — грув, B — вариация ----
+    const bassA = [33, null, null, 33, null, 36, null, 40, 33, null, null, 31, null, 33, null, null];
+    const bassB = [33, null, 33, null, 36, null, 36, null, 40, null, 40, null, 31, null, 35, null];
+    for (let st = 0; st < 16; st++) {
+      if (bassA[st] != null) A(bass).notes.push({ at: st, m: bassA[st], len: 2, v: 0.9 });
+      if (bassB[st] != null) B(bass).notes.push({ at: st, m: bassB[st], len: 1, v: 0.85 });
+    }
+
+    // ---- пэд: аккорды длиной в полтакта ----
+    for (let st = 0; st < 16; st++) {
+      if (st === 0) [57, 60, 64].forEach((m) => A(padTrack).notes.push({ at: st, m, len: 6, v: 0.6 }));
+      if (st === 8) [55, 59, 62].forEach((m) => A(padTrack).notes.push({ at: st, m, len: 6, v: 0.6 }));
+      if (st === 0) [57, 60, 64, 69].forEach((m) => B(padTrack).notes.push({ at: st, m, len: 12, v: 0.55 }));
+    }
+
+    // ---- клавиши: арпеджио восьмыми ----
+    const arpA = [72, 76, 79, 84, 79, 76, 72, 76];
+    const arpB = [77, 81, 84, 89, 84, 81, 77, 81];
+    for (let st = 0; st < 16; st += 2) {
+      const i = st / 2;
+      A(keys).notes.push({ at: st, m: arpA[i % arpA.length], len: 1, v: 0.7 });
+      B(keys).notes.push({ at: st, m: arpB[i % arpB.length], len: 1, v: 0.7 });
+    }
+
+    // ---- мелодия ----
+    const melA = { 2: 69, 5: 72, 8: 71, 11: 68, 14: 64 };
+    const melB = { 0: 69, 3: 72, 6: 76, 9: 74, 12: 72, 15: 71 };
+    Object.keys(melA).forEach((k) => A(syn).notes.push({ at: Number(k), m: melA[k], len: 2, v: 0.8 }));
+    Object.keys(melB).forEach((k) => B(syn).notes.push({ at: Number(k), m: melB[k], len: 2, v: 0.8 }));
+
+    // ---- сцены: A A B A ---- 
+    bb.scenes = 'AABA';
+    bass.scenes = 'AABA';
+    syn.scenes = 'AABB';
+    padTrack.scenes = 'ABBA';
+    keys.scenes = 'AABA';
+    [bb, bass, syn, padTrack, keys].forEach((tr) => { tr.used = [0, 1]; });
     return s;
   }
 
@@ -1085,7 +1345,6 @@
     renderSeq();
     renderMixer();
     applyMaster();
-    document.querySelectorAll('.knob-arc').forEach(() => {});
   }
 
   // ---------- инициализация ----------
@@ -1125,10 +1384,11 @@
       song.steps = Number(e.target.value);
       resizePatterns(song);
       renderSeq();
+      if (state.playing) state.currentStep = 0;
     });
 
     document.getElementById('loopBars').addEventListener('change', (e) => {
-      song.bars = Number(e.target.value);
+      song.arrangeBars = Number(e.target.value);
       resizePatterns(song);
       renderSeq();
       if (state.playing) state.currentStep = 0;
@@ -1136,10 +1396,9 @@
 
     document.getElementById('btnClearPattern').addEventListener('click', () => {
       const t = song.tracks[state.activeTrack];
-      t.pat = t.pat.map(() => []);
-      t.notes = t.notes.map(() => []);
+      Pattern.clear(t);
       renderSeq();
-      UI.toast('Паттерн очищен: ' + t.name);
+      UI.toast('Паттерн ' + 'ABCD'[t.patIndex] + ' очищен: ' + t.name);
     });
 
     document.getElementById('btnRandom').addEventListener('click', () => {
@@ -1234,55 +1493,55 @@
 
     // периодическая автосохранение
     setInterval(() => {
-      try {
-        const clean = { bpm: song.bpm, steps: song.steps, bars: song.bars, eq: song.eq, masterVol: song.masterVol,
-          tracks: song.tracks.map((t) => ({ engine: t.engine, name: t.name, vol: t.vol, pan: t.pan, delay: t.delay, reverb: t.reverb, mute: t.mute, params: t.params, pat: t.pat, notes: t.notes })) };
-        localStorage.setItem(LS_KEY, JSON.stringify(clean));
-      } catch (e) {}
-    }, 4000);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(serialize())); } catch (e) {}
+    }, 5000);
   }
 
   function randomBeat() {
     const t = song.tracks[state.activeTrack];
     const n = totalSteps();
+    const pat = Pattern.pattern(t);
     if (t.engine === 'beatbox') {
-      t.pat = t.pat.map(() => []);
+      pat.pads = [];
       for (let s = 0; s < n; s++) {
-        const inBar = s % 16;
-        if (inBar === 0 || inBar === 8) t.pat[s].push(0);
-        if (inBar === 4 || inBar === 12) t.pat[s].push(1);
-        if (inBar % 4 === 2) t.pat[s].push(2);
-        if (Math.random() < 0.14) t.pat[s].push(3);
-        if (Math.random() < 0.07) t.pat[s].push(Math.random() < 0.5 ? 5 : 6);
-        if (Math.random() < 0.05) t.pat[s].push(7);
+        const inBar = s % song.steps;
+        if (inBar === 0 || inBar === 8) pat.pads.push({ at: s, p: 0 });
+        if (inBar === 4 || inBar === 12) pat.pads.push({ at: s, p: 1 });
+        if (inBar % 4 === 2) pat.pads.push({ at: s, p: 2 });
+        if (Math.random() < 0.14) pat.pads.push({ at: s, p: 3 });
+        if (Math.random() < 0.07) pat.pads.push({ at: s, p: Math.random() < 0.5 ? 5 : 6 });
+        if (Math.random() < 0.05) pat.pads.push({ at: s, p: 7 });
       }
     } else {
       const scale = [0, 2, 3, 5, 7, 8, 10];
       const root = 48;
-      t.notes = t.notes.map(() => []);
+      pat.notes = [];
       for (let s = 0; s < n; s++) {
         if (Math.random() < 0.32) {
           const deg = scale[Math.floor(Math.random() * scale.length)];
           const oct = Math.random() < 0.25 ? 12 : 0;
-          t.notes[s].push(root + deg + oct);
+          pat.notes.push({ at: s, m: root + deg + oct, len: Math.random() < 0.3 ? 2 : 1, v: 0.85 });
         }
       }
     }
+    Pattern.markUsed(t);
     renderSeq();
-    UI.toast('Случайный паттерн для «' + t.name + '»');
+    UI.toast('Случайный паттерн ' + 'ABCD'[t.patIndex] + ' для «' + t.name + '»');
   }
 
   function showHelp() {
     const body = el('div', {}, [
-      el('p', {}, ['Транспорт: ', el('b', { text: 'Space' }), ' — играть/стоп. BPM и число шагов меняются на лету.']),
-      el('h4', { style: { margin: '10px 0 4px' }, text: 'Стойка' }),
-      el('p', { class: 'muted', text: 'Слева — модули (машины), справа — параметры выбранного. Вращение ручек — тянуть вверх/вниз (Shift — точнее), двойной клик — значение по умолчанию. Пресеты — выпадающий список в заголовке.' }),
-      el('h4', { style: { margin: '10px 0 4px' }, text: 'Секвенсор' }),
-      el('p', { class: 'muted', text: 'Для драм-машины верхняя сетка — степ-секвенсор (8 дорожек, по одной на подушку). Для мелодических машин — пиано-ролл внизу: горизонталь — время, вертикаль — высота.' }),
-      el('h4', { style: { margin: '10px 0 4px' }, text: 'MIDI' }),
-      el('p', { class: 'muted', text: 'Кнопка MIDI запрашивает доступ Web MIDI. Подключите USB-клавиатуру: ноты играют на выбранной машине, CC1 управляет срезом фильтра.' }),
+      el('p', {}, ['Транспорт: ', el('b', { text: 'Space' }), ' — играть/стоп. BPM и число шагов меняются на лету, «Аранжировка» задаёт длину сцены в тактах.']),
+      el('h4', { style: { margin: '10px 0 4px' }, text: 'Паттерны (A–D) на каждую машину' }),
+      el('p', { class: 'muted', text: 'У каждой машины свой банк из четырёх паттернов. В стойке над пиано-роллом есть слоты A/B/C/D и кнопка «Копия» (A→B и т. п.). Внизу вкладки «Редактор паттернов» — блоки банка и строка «Сцены»: буквы в клетках показывают, какой паттерн играет в каком такте аранжировки.' }),
+      el('h4', { style: { margin: '10px 0 4px' }, text: 'Пиано-ролл' }),
+      el('p', { class: 'muted', text: 'Клик по пустому месту — новая нота. Тяните ноту, чтобы двигать её по времени и высоте; за правый край — длина в шагах; жёлтая точка слева внизу — громкость (velocity). Правый клик по ноте — удалить. Ролл есть и в стойке машины, и на вкладке «Редактор паттернов».' }),
+      el('h4', { style: { margin: '10px 0 4px' }, text: 'Редактор паттернов' }),
+      el('p', { class: 'muted', text: 'Квадратная сетка — это шаговый редактор паттерна: клик включает/выключает ноту или удар в шаге, правый клик удаляет. Для драм-машины сетка сразу разложена по 8 каналам.' }),
+      el('h4', { style: { margin: '10px 0 4px' }, text: 'MIDI и запись' }),
+      el('p', { class: 'muted', text: 'Кнопка MIDI включает Web MIDI: ноты играют на выбранной машине, CC1 крутит срез фильтра, при включённой записи (●) ноты/удары пишутся в активный паттерн в реальном времени.' }),
       el('h4', { style: { margin: '10px 0 4px' }, text: 'Ограничения прототипа' }),
-      el('p', { class: 'muted', text: 'VST-плагины браузер не поддерживает — это принципиальное ограничение веб-платформы (нет доступа к нативным модулям). Вместо них здесь встроенные машины и сэмплы. Паттерн — единственная форма клипа, как и в Caustic.' }),
+      el('p', { class: 'muted', text: 'VST-плагины браузер не поддерживает — это принципиальное ограничение веб-платформы. Вместо них встроенные машины, сэмплер PCMSynth и свои WAV-сэмплы. Экспорт — офлайн-рендер в WAV (то, что включено в аранжировке).' }),
     ]);
     UI.modal('Как пользоваться', body, [{ label: 'Понятно', primary: true }]);
   }
@@ -1307,6 +1566,9 @@
     state,
     renderAll,
     demo: () => { song = demoSong(); refreshChannelsRebuild(); renderAll(); },
+    buildEvents: (a, b) => buildEvents(a, b),
+    patternSteps: () => patternSteps(),
+    arrangeSteps: () => arrangeSteps(),
   };
 
   document.addEventListener('DOMContentLoaded', boot);

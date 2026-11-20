@@ -35,11 +35,11 @@
         </select>
       </div>
       <div class="steps-seg">
-        <label>Тактов</label>
+        <label title="Длина аранжировки в тактах">Аранжировка</label>
         <select id="loopBars">
-          <option value="1">1</option>
-          <option value="2" selected>2</option>
-          <option value="4">4</option>
+          <option value="2">2 такта</option>
+          <option value="4" selected>4 такта</option>
+          <option value="8">8 тактов</option>
         </select>
       </div>
       <div class="pos" id="pos">001 : 01</div>
@@ -68,13 +68,15 @@
 
     <section id="view-seq" class="view">
       <div class="seq-head">
-        <h2>Секвенсор</h2>
+        <h2>Редактор паттернов</h2>
         <div class="seq-tools">
           <button class="btn ghost" id="btnClearPattern">Очистить паттерн</button>
           <button class="btn ghost" id="btnRandom">Случайный бит</button>
-          <span class="hint">Клик по ячейке — нота/удар · перетаскивание по вертикали — высота · правый клик — удалить</span>
+          <span class="hint">Сетка = редактор паттерна · ниже пиано-ролл выбранной машины</span>
         </div>
       </div>
+      <div id="patternBar"></div>
+      <h2 id="seqTitle" class="seq-title">Редактор паттерна A</h2>
       <div class="seq-scroll">
         <div class="grid" id="seqGrid"></div>
       </div>
@@ -139,6 +141,7 @@
 
 <script src="js/engines.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/pattern.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/app.js"></script>
 </body>
