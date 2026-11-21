@@ -130,7 +130,17 @@ def main():
                 return True
         return False
 
+    def report_current_editor_logs(label):
+        pid = adb('shell', 'pidof', pkg, check=False).stdout.decode().strip().split()
+        if not pid:
+            notice(label, 'No editor process')
+            return
+        logs = adb('logcat', '-d', '--pid', pid[0], check=False).stdout.decode(errors='replace')
+        relevant = [line for line in logs.splitlines() if re.search(r'redot|godot|vulkan|opengl|error|fatal|crash|denied|shader', line, re.I) and 'app_time_stats' not in line]
+        notice(label, ' | '.join(relevant[-35:])[-3800:].replace('%', '%25'))
+
     if not wait_for_plugin(90):
+        report_current_editor_logs('Android restarted editor logs')
         # Diagnostic only: bypass the project manager restart with a fresh
         # explicit intent. Even if this works, the import flow must still fail.
         adb('shell', 'am', 'force-stop', pkg)
@@ -139,6 +149,7 @@ def main():
         notice('Android direct launch diagnostic', launched.stdout.decode(errors='replace') + launched.stderr.decode(errors='replace'))
         direct = wait_for_plugin(150)
         notice('Android direct project launch', 'EditorPlugin marker found' if direct else 'EditorPlugin marker not found')
+        report_current_editor_logs('Android direct editor logs')
         raise RuntimeError('Project manager import did not open editor automatically' + ('; direct intent opened it' if direct else '; direct intent also failed'))
     scene = adb('shell', 'cat', '/sdcard/RedotImport/scenes/main.tscn').stdout.decode()
     if scene != '[gd_scene format=3]\n[node name="Main" type="Node2D"]\n':
