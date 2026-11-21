@@ -32,6 +32,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Start real Web editor in Chromium
         run: node redot-audit/browser-smoke.cjs web-editor
+      - name: Run a real Web game and inspect the captured frame
+        run: node redot-audit/web-game-smoke.cjs web-editor
 
   android-apk:
     runs-on: ubuntu-24.04
