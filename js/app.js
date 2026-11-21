@@ -1064,48 +1064,52 @@
   // ---------- Kaoss (X-Y пэд и процессор эффектов) ----------
   function renderKaoss() {
     const area = document.getElementById('kaossArea');
+    const deckHost = document.getElementById('kaossDeckHost');
     if (!area) return;
     area.innerHTML = '';
+    area.classList.remove('hidden-deck');
 
-    // инструмент создаём сразу — звук появится после первого касания
-    if (!state.kaossInst) {
-      // ленивая инициализация: инстанс создаётся в ensureAudio
-    }
-    const inst = state.kaossInst;
-    const fx = state.kaossFX;
-
-    if (inst) {
-      area.appendChild(KaossUI.instrumentPanel(inst, () => renderKaoss()));
-    } else {
-      area.appendChild(el('div', { class: 'card', style: { marginBottom: '14px' } }, [
-        el('h3', { text: 'Kaossilator 2 (веб-аналог)' }),
-        el('p', { class: 'muted', text: 'Нажмите «Включить звук», чтобы создать аудио-движок, затем играйте по X-Y пэду.' }),
+    if (!state.ctx) {
+      area.appendChild(el('div', { class: 'card' }, [
+        el('h3', { text: 'Kaoss Deck' }),
+        el('p', { class: 'muted', text: 'Два прибора рядом: Kaossilator (звук) и mini Kaoss Pad 2 (эффекты). Нажмите, чтобы создать аудио-движок.' }),
         el('div', { class: 'row' }, [
           el('button', { class: 'btn primary', text: 'Включить звук', onclick: () => { ensureAudio(); renderKaoss(); } }),
         ]),
       ]));
-    }
-
-    if (fx) {
-      area.appendChild(KaossUI.fxPanel(fx, state.mixer, () => renderKaoss()));
-      area.appendChild(fxRoutingCard());
-    } else if (state.ctx) {
-      state.kaossFX = Kaoss.createFX(state.ctx);
-      renderKaoss();
       return;
     }
 
+    // два девайса рядом + LINK (если дека недоступна — старые панели как fallback)
+    let deckOk = false;
+    if (deckHost && window.KaossDeck) {
+      try {
+        KaossDeck.render(deckHost);
+        deckOk = true;
+      } catch (err) {
+        console.error('KaossDeck:', err);
+      }
+    }
+    if (!deckOk && deckHost) deckHost.innerHTML = '';
+
+    if (!deckOk) {
+      area.classList.remove('hidden-deck');
+      area.appendChild(KaossUI.instrumentPanel(state.kaossInst, () => renderKaoss()));
+      area.appendChild(KaossUI.fxPanel(state.kaossFX, state.mixer, () => renderKaoss()));
+    }
+
+    // доп. секции: маршрутизация FX и справка
+    if (state.kaossFX) area.appendChild(fxRoutingCard());
+
     area.appendChild(el('div', { class: 'card' }, [
-      el('h3', { text: 'Что это и как пользоваться' }),
+      el('h3', { text: 'Совместная работа двух девайсов' }),
       el('ul', { class: 'clean' }, [
-        el('li', { text: 'X-Y пэд Kaossilator: горизонталь — нота по выбранной гамме, вертикаль — яркость и срез фильтра. Играется пальцем, мышью или тачем.' }),
-        el('li', { text: 'Банк из 25 звуков по категориям: басы (sub, acid 303, reese, FM), лиды, плаки, пэды, чиптюн, ударные, а также готовые басовые, мелодические и драм-лупы (⟲) — у них своя кнопка «▶ луп».' }),
-        el('li', { text: 'Два лупа: нажмите ● на LOOP 1, сыграйте фразу, отпустите ● — фраза зацикливается. Второй луп накладывается сверху.' }),
-        el('li', { text: 'mini Kaoss Pad 2 — 12 программ на мастер-шине: фильтры, флэнжер, эхо, реверб, vinyl break, гейт, дисторшн, crush, ring mod.' }),
-        el('li', { text: 'HOLD фиксирует позицию X-Y (как кнопка на miniKP2): отпускаешь палец — эффект остаётся, а не возвращается в нейтраль.' }),
-        el('li', { text: 'MIDI: CC1/CC16 → X, CC2/CC17 → Y; ноты 36–43 на 10-м канале запускают слайсы 1–8.' }),
-        el('li', { text: 'Записанную фразу можно перенести в проект кнопкой «→ Паттерн»: она станет обычными нотами в банке A–D выбранной машины.' }),
-        el('li', { text: 'Врезка процессора настраивается ниже: «Мастер» (вся студия) или отдельные каналы.' }),
+        el('li', { text: 'Kaossilator: 25 звуков по категориям, X — нота по гамме, Y — тембр. Два лупа: своя запись (●) и готовые лупы звука (▶ луп).' }),
+        el('li', { text: 'mini Kaoss Pad 2: 12 программ эффектов и плеер с pitch adjust. По умолчанию стоит на мастер-шине — обрабатывает и синтезатор тоже.' }),
+        el('li', { text: 'LINK: одно движение по любому пэду двигает оба прибора — Kaossilator играет, miniKP2 одновременно открывает фильтр/эхо.' }),
+        el('li', { text: 'REC XY: записывает движение пальца. «В ЛУП» превращает его в зацикленную фразу Kaossilator, «→ паттерн» переносит в проект.' }),
+        el('li', { text: 'HOLD фиксирует позицию X-Y (у синтезатора держит ноту, у эффекта — глубину).' }),
+        el('li', { text: 'MIDI: CC1/CC16 → X, CC2/CC17 → Y; ноты 36–43 на 10-м канале — слайсы.' }),
       ]),
     ]));
   }
