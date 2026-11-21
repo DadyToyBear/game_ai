@@ -22,10 +22,46 @@ class FrameStore:
     def __init__(self):
         self.lock = threading.Lock()
         self.frame = None
+        self.editor_seen = None
+        self.editor_playing = False
+        self.pending_command = None
+        self.command_queued = None
 
-    def put(self, data, mime):
+    def editor_poll(self, playing):
         with self.lock:
-            self.frame = (data, mime, time.time())
+            now = time.monotonic()
+            was_connected = self.editor_seen is not None and now - self.editor_seen < 5
+            command = self.pending_command if was_connected else None
+            if self.command_queued is not None and now - self.command_queued >= 5:
+                command = None
+            self.editor_seen = now
+            self.editor_playing = playing
+            self.pending_command = None
+            self.command_queued = None
+            return command
+
+    def status(self):
+        with self.lock:
+            online = self.editor_seen is not None and time.monotonic() - self.editor_seen < 5
+            return {'editor_connected': online, 'playing': self.editor_playing if online else None,
+                    'pending': self.pending_command if online else None,
+                    'frame_available': self.frame is not None,
+                    'frame_source': self.frame[3] if self.frame else None,
+                    'frame_age_seconds': round(time.monotonic() - self.frame[2], 1) if self.frame else None}
+
+    def enqueue(self, command):
+        with self.lock:
+            if self.editor_seen is None or time.monotonic() - self.editor_seen >= 5:
+                return 'editor_offline'
+            if self.pending_command is not None:
+                return 'busy'
+            self.pending_command = command
+            self.command_queued = time.monotonic()
+            return None
+
+    def put(self, data, mime, source='unspecified'):
+        with self.lock:
+            self.frame = (data, mime, time.monotonic(), source)
 
     def get(self):
         with self.lock:
@@ -67,10 +103,14 @@ def handler_for(store, token, editor_dir=None):
             return True
 
         def do_GET(self):
-            if self.path in ('/', '/demo.html', '/capture.js', '/redot-overlay.js'):
+            if self.path in ('/', '/demo.html', '/capture.js', '/redot-overlay.js', '/native.html', '/native.js'):
                 name = 'demo.html' if self.path in ('/', '/demo.html') else self.path[1:]
                 kind = 'text/html; charset=utf-8' if name.endswith('.html') else 'text/javascript; charset=utf-8'
                 self.send_bytes(200, (WEB / name).read_bytes(), kind)
+                return
+            if self.path == '/api/status':
+                if self.check_auth():
+                    self.send_bytes(200, json.dumps(store.status()).encode('utf-8'), 'application/json')
                 return
             if self.path.startswith('/editor/') and editor_dir is not None:
                 # Only files under the configured editor directory are served; no listings or traversal.
@@ -103,7 +143,7 @@ def handler_for(store, token, editor_dir=None):
             self.send_bytes(200, frame[0], frame[1])
 
         def do_POST(self):
-            if self.path != '/api/frame':
+            if self.path not in ('/api/frame', '/api/command', '/api/editor/poll'):
                 self.send_bytes(404, b'Not found')
                 return
             if not self.check_auth():
@@ -116,6 +156,34 @@ def handler_for(store, token, editor_dir=None):
                 self.send_bytes(411, b'Content-Length required')
                 return
             mime = self.headers.get('Content-Type', '').split(';', 1)[0].strip().lower()
+            if self.path != '/api/frame':
+                if mime != 'application/json' or length < 2 or length > 1024:
+                    self.close_connection = True
+                    self.send_bytes(400, b'Invalid request')
+                    return
+                try:
+                    payload = json.loads(self.rfile.read(length))
+                    if not isinstance(payload, dict):
+                        raise ValueError('Expected object')
+                except (ValueError, UnicodeDecodeError):
+                    self.send_bytes(400, b'Invalid JSON')
+                    return
+                if self.path == '/api/editor/poll':
+                    if set(payload) != {'playing'} or type(payload['playing']) is not bool:
+                        self.send_bytes(400, b'Invalid editor status')
+                        return
+                    command = store.editor_poll(payload['playing'])
+                    self.send_bytes(200, json.dumps({'command': command}).encode('utf-8'), 'application/json')
+                    return
+                if set(payload) != {'command'} or payload['command'] not in ('play', 'stop'):
+                    self.send_bytes(400, b'Invalid command')
+                    return
+                error = store.enqueue(payload['command'])
+                if error:
+                    self.send_bytes(503 if error == 'editor_offline' else 409, error.encode('ascii'))
+                    return
+                self.send_bytes(202, b'Command queued')
+                return
             if length <= 0 or length > MAX_FRAME:
                 self.close_connection = True
                 self.send_bytes(413, b'Invalid frame size')
@@ -129,7 +197,8 @@ def handler_for(store, token, editor_dir=None):
             if len(data) != length or not data.startswith(signature):
                 self.send_bytes(400, b'Invalid image')
                 return
-            store.put(data, mime)
+            source = 'native-game' if self.headers.get('X-Redot-Source') == 'native-game' else 'unspecified'
+            store.put(data, mime, source)
             self.send_bytes(204)
 
         def do_DELETE(self):
@@ -148,6 +217,9 @@ def tools():
     return [
         {'name': 'game_screenshot', 'description': 'Read the latest frame explicitly shared by the game. No frame is captured on demand.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'delete_game_screenshot', 'description': 'Delete the latest shared game frame from bridge memory.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'game_play', 'description': 'Queue play-main-scene for the connected native editor. Check game_status for actual state.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'game_stop', 'description': 'Queue stop for the connected native editor. Check game_status for actual state.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'game_status', 'description': 'Read native editor connectivity, playing state and frame availability.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
     ]
 
 
@@ -165,6 +237,28 @@ def call_frame(url, token, method):
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             raise ValueError('No game frame has been shared yet') from exc
+        raise ValueError(f'Bridge HTTP error: {exc.code}') from exc
+    except urllib.error.URLError as exc:
+        raise ValueError('Bridge unavailable; start the local server first') from exc
+
+
+def call_editor(url, token, command=None):
+    headers = {'Authorization': 'Bearer ' + token}
+    data = None
+    path = '/api/status'
+    if command is not None:
+        path = '/api/command'
+        data = json.dumps({'command': command}).encode('utf-8')
+        headers['Content-Type'] = 'application/json'
+    request = urllib.request.Request(url.rstrip('/') + path, data=data, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return response.read(4096).decode('utf-8')
+    except urllib.error.HTTPError as exc:
+        if exc.code == 503:
+            raise ValueError('Native editor is not connected') from exc
+        if exc.code == 409:
+            raise ValueError('A command is already pending') from exc
         raise ValueError(f'Bridge HTTP error: {exc.code}') from exc
     except urllib.error.URLError as exc:
         raise ValueError('Bridge unavailable; start the local server first') from exc
@@ -189,7 +283,7 @@ def mcp_response(message, url, token):
         if not isinstance(params, dict):
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Invalid params'}}
         name = params.get('name')
-        if name not in ('game_screenshot', 'delete_game_screenshot'):
+        if name not in ('game_screenshot', 'delete_game_screenshot', 'game_play', 'game_stop', 'game_status'):
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Unknown tool'}}
         if params.get('arguments', {}) != {}:
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'No arguments expected'}}
@@ -197,9 +291,14 @@ def mcp_response(message, url, token):
             if name == 'game_screenshot':
                 body, mime = call_frame(url, token, 'GET')
                 result = {'content': [{'type': 'image', 'data': base64.b64encode(body).decode('ascii'), 'mimeType': mime}]}
-            else:
+            elif name == 'delete_game_screenshot':
                 call_frame(url, token, 'DELETE')
                 result = {'content': [{'type': 'text', 'text': 'Frame deleted from bridge memory.'}]}
+            elif name in ('game_play', 'game_stop'):
+                call_editor(url, token, 'play' if name == 'game_play' else 'stop')
+                result = {'content': [{'type': 'text', 'text': 'Command queued; check game_status to confirm.'}]}
+            else:
+                result = {'content': [{'type': 'text', 'text': call_editor(url, token)}]}
         except (ValueError, OSError) as exc:
             result = {'content': [{'type': 'text', 'text': str(exc)}], 'isError': True}
     else:
@@ -233,6 +332,7 @@ def main():
             parser.error('Editor directory must contain godot.editor.html')
         server = ThreadingHTTPServer(('127.0.0.1', args.port), handler_for(FrameStore(), token, args.editor_dir))
         print(f'Local demo: http://127.0.0.1:{args.port}/', file=sys.stderr, flush=True)
+        print(f'Native Redot viewer: http://127.0.0.1:{args.port}/native.html', file=sys.stderr, flush=True)
         if args.editor_dir is not None:
             print(f'Local editor: http://127.0.0.1:{args.port}/editor/godot.editor.html', file=sys.stderr, flush=True)
         try:

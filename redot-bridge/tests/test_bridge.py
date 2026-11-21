@@ -54,6 +54,11 @@ class BridgeTest(unittest.TestCase):
             self.assertEqual(response.read(), PNG)
             self.assertEqual(response.headers.get_content_type(), 'image/png')
             self.assertEqual(response.headers['Cache-Control'], 'no-store')
+        req = urllib.request.Request(self.url + '/api/frame', data=PNG, method='POST', headers={'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'image/png', 'X-Redot-Source': 'native-game'})
+        with urllib.request.urlopen(req, timeout=3) as response:
+            self.assertEqual(response.status, 204)
+        with self.request('/api/status') as response:
+            self.assertEqual(json.load(response)['frame_source'], 'native-game')
         self.assertEqual(self.request(method='DELETE').status, 204)
         with self.assertRaises(urllib.error.HTTPError) as err:
             self.request()
@@ -74,11 +79,59 @@ class BridgeTest(unittest.TestCase):
         replies = [json.loads(line) for line in run.stdout.splitlines()]
         self.assertEqual([r['id'] for r in replies], [1, 2, 3, 4, 5])
         self.assertEqual(replies[0]['result']['protocolVersion'], '2025-03-26')
-        self.assertEqual(len(replies[1]['result']['tools']), 2)
+        self.assertEqual(len(replies[1]['result']['tools']), 5)
         image = replies[2]['result']['content'][0]
         self.assertEqual(image['mimeType'], 'image/png')
         self.assertEqual(base64.b64decode(image['data']), PNG)
         self.assertTrue(replies[4]['result']['isError'])
+
+    def test_native_editor_poll_and_mcp_control(self):
+        def post(path, obj, token=TOKEN):
+            return self.request(path, 'POST', json.dumps(obj).encode(), token, 'application/json')
+
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            post('/api/command', {'command': 'play'})
+        self.assertEqual(err.exception.code, 503)
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            post('/api/editor/poll', {'playing': False}, 'wrong')
+        self.assertEqual(err.exception.code, 401)
+        with post('/api/editor/poll', {'playing': False}) as response:
+            self.assertEqual(json.load(response), {'command': None})
+        with self.request('/api/status') as response:
+            status = json.load(response)
+            self.assertTrue(status['editor_connected'])
+            self.assertFalse(status['playing'])
+        message = {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': 'game_play', 'arguments': {}}}
+        reply = bridge.mcp_response(message, self.url, TOKEN)
+        self.assertFalse(reply['result'].get('isError', False))
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            post('/api/command', {'command': 'stop'})
+        self.assertEqual(err.exception.code, 409)
+        with post('/api/editor/poll', {'playing': False}) as response:
+            self.assertEqual(json.load(response), {'command': 'play'})
+        with post('/api/editor/poll', {'playing': True}) as response:
+            self.assertEqual(json.load(response), {'command': None})
+        reply = bridge.mcp_response({'jsonrpc': '2.0', 'id': 2, 'method': 'tools/call', 'params': {'name': 'game_status'}}, self.url, TOKEN)
+        status = json.loads(reply['result']['content'][0]['text'])
+        self.assertTrue(status['playing'])
+        reply = bridge.mcp_response({'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call', 'params': {'name': 'game_stop'}}, self.url, TOKEN)
+        self.assertFalse(reply['result'].get('isError', False))
+        with post('/api/editor/poll', {'playing': True}) as response:
+            self.assertEqual(json.load(response), {'command': 'stop'})
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            post('/api/command', {'command': 'delete_project'})
+        self.assertEqual(err.exception.code, 400)
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            self.request('/api/command')  # Side effects require POST.
+        self.assertEqual(err.exception.code, 404)
+        with self.request('/native.html') as response:
+            self.assertIn(b'/native.js', response.read())
+        post('/api/command', {'command': 'play'}).close()
+        # Never execute an old command when an editor reconnects later.
+        with self.store.lock:
+            self.store.editor_seen -= 6
+        with post('/api/editor/poll', {'playing': False}) as response:
+            self.assertEqual(json.load(response), {'command': None})
 
     def test_editor_overlay_isolation_and_demo(self):
         with self.request('/editor/godot.editor.html') as response:
