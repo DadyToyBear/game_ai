@@ -85,7 +85,8 @@ jobs:
             dnf install -y dotnet-sdk-8.0 python3 python3-pillow xorg-x11-server-Xvfb xorg-x11-xauth mesa-dri-drivers libXcursor libXinerama libXi libXrandr libXrender libX11 libXext libxkbcommon fontconfig dbus-libs alsa-lib nodejs npm chromium
             npm install --no-save playwright@1.56.1 pngjs@7.0.0
             bash -n start.sh
-            export CHROMIUM_EXECUTABLE=/usr/bin/chromium
+            export CHROMIUM_EXECUTABLE="$(command -v chromium-browser || command -v chromium)"
+            test -x "$CHROMIUM_EXECUTABLE"
             xvfb-run -a -s "-screen 0 1280x800x24" python3 redot-audit/native_play_test.py "$(cat editor-path.txt)"
           ' > fedora-test.log 2>&1 || { tail -100 fedora-test.log; python3 -c 'from pathlib import Path; s=Path("fedora-test.log").read_text(errors="replace")[-3500:]; print("::error title=Fedora ARM64 test::"+s.replace("%","%25").replace("\n","%0A"))'; exit 1; }
           tail -40 fedora-test.log
