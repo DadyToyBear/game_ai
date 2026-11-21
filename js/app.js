@@ -2064,6 +2064,30 @@
     const mp3Btn = document.getElementById('btnExportMp3');
     if (mp3Btn) mp3Btn.addEventListener('click', exportMp3);
     document.getElementById('btnExportMidi').addEventListener('click', exportMidi);
+    // установка PWA: перехватываем предложение браузера
+    let installPrompt = null;
+    const installBtn = document.getElementById('btnInstall');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      installPrompt = e;
+      if (installBtn) { installBtn.disabled = false; installBtn.textContent = 'Добавить на главный экран'; }
+    });
+    if (installBtn) {
+      installBtn.addEventListener('click', () => {
+        if (!installPrompt) {
+          UI.toast('Откройте меню браузера → «Установить приложение» / «На главный экран»');
+          return;
+        }
+        installPrompt.prompt();
+        installPrompt.userChoice.then((res) => {
+          UI.toast(res.outcome === 'accepted' ? 'Студия установлена на устройство' : 'Установка отменена');
+          installPrompt = null;
+          installBtn.disabled = true;
+        });
+      });
+    }
+    window.addEventListener('appinstalled', () => UI.toast('Mini Studio установлена', 'ok'));
+
     const padModeBtn = document.getElementById('btnPadMode');
     if (padModeBtn) padModeBtn.addEventListener('click', () => {
       const on = document.body.classList.toggle('pad-focus');
@@ -2168,7 +2192,7 @@
     // клавиатура
     const held = new Set();
     window.addEventListener('keydown', (e) => {
-      if (e.target.matches('input, select, textarea')) return;
+      if (e.target && e.target.matches && e.target.matches('input, select, textarea')) return;
       const k = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && (k === 's' || k === 'ы')) {
         e.preventDefault();
@@ -2305,13 +2329,13 @@
         navigator.serviceWorker.register('sw.js').catch(() => { /* офлайн не критичен */ });
       });
     }
-    // хэш-роутинг вкладок: #kaoss, #io — чтобы работали ярлыки PWA
-    const hashView = (location.hash || '').replace('#', '');
-    if (hashView && document.querySelector('.tab[data-view="' + hashView + '"]')) {
-      document.querySelector('.tab[data-view="' + hashView + '"]').click();
-    }
+
     bindGlobal();
     renderAll();
+    // хэш-роутинг вкладок: #kaoss, #io — чтобы работали ярлыки PWA
+    const hashView = (location.hash || '').replace('#', '');
+    const hashTab = hashView && document.querySelector('.tab[data-view="' + hashView + '"]');
+    if (hashTab) hashTab.click();
     requestAnimationFrame(meterLoop);
     // первый жест включает звук
     const wake = () => { ensureAudio(); document.removeEventListener('pointerdown', wake); };
