@@ -1,15 +1,8 @@
 name: Web editor Play and game capture probe
 
+# Each Web bundle now runs this probe before publication. The standalone
+# diagnostic is manual so it cannot race a new build and test an old bundle.
 on:
-  push:
-    branches: [arena/b84b9c4f-game-ai]
-    paths:
-      - '.github/workflows/redot-web-editor-play-probe.yml'
-      - 'redot-audit/web-editor-play.cjs'
-      - 'redot-bridge/bridge.py'
-      - 'redot-bridge/web/capture.js'
-      - 'redot-bridge/web/redot-overlay.js'
-      - 'redot-bridge/web/project-open.js'
   workflow_dispatch:
 
 permissions:

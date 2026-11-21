@@ -4,10 +4,17 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
-  let calls = 0, delayedFetch = null;
+  let calls = 0, delayedFetch = null, deadline = null, retry = null;
   const sources = [];
   const canvas = {isConnected: true, width: 2, height: 2, getClientRects: () => [{}], toBlob: cb => cb(new Blob(['fake'], {type: 'image/png'}))};
-  const context = {window: {}, Blob, AbortController, setTimeout, clearTimeout, fetch: async (url, options) => {
+  let fakeTimers = false;
+  const context = {window: {}, Blob, AbortController,
+    setTimeout: (callback, delay) => {
+      if (fakeTimers && delay === 10000) { deadline = callback; return 10001; }
+      if (fakeTimers && delay === 1000) { retry = callback; return 10002; }
+      return setTimeout(callback, delay);
+    },
+    clearTimeout: id => { if (id !== 10001 && id !== 10002) clearTimeout(id); }, fetch: async (url, options) => {
     assert.equal(url, '/api/frame');
     assert.equal(options.headers.Authorization, 'Bearer test-secret');
     assert.equal(options.headers['Content-Type'], 'image/png');
@@ -40,6 +47,23 @@ const path = require('node:path');
   await new Promise(resolve => setTimeout(resolve, 10));
   assert.deepEqual(staleStatuses, [], 'a completed old upload must not update a stopped session');
   delayedFetch = null;
+  // Canvas serialization can itself hang; timeout retries without allowing a
+  // late callback to publish or overwrite the status of the newer attempt.
+  fakeTimers = true;
+  let lateBlob;
+  const blockedCanvas = {...canvas, toBlob: callback => { lateBlob = callback; }};
+  const beforeTimeout = calls;
+  api.start({canvas: () => blockedCanvas, token: 'test-secret', interval: 1000, onStatus: value => {status = value;}});
+  deadline();
+  assert.match(status, /время ожидания/);
+  blockedCanvas.toBlob = callback => callback(new Blob(['fresh'], {type: 'image/png'}));
+  retry(); await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(calls, beforeTimeout + 1, 'next capture succeeds after canvas timeout');
+  lateBlob(new Blob(['stale'], {type: 'image/png'}));
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(calls, beforeTimeout + 1, 'old timed-out canvas must never upload');
+  assert.match(status, /передан/);
+  api.stop(); fakeTimers = false;
   const elements = [];
   const createElement = tag => {
     const element = {tag, style: {}, textContent: '', value: '', addEventListener: (_name, callback) => { element.click = callback; }, setAttribute() {}, append() {}};
