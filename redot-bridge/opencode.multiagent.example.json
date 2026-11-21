@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "redot-multiagent-editor": {
+      "type": "local",
+      "command": ["python", "redot-bridge/multiagent_mcp.py"],
+      "enabled": true,
+      "environment": {
+        "WEBFTP_SHARE": "{env:WEBFTP_SHARE}",
+        "REDOT_BRIDGE_TOKEN": "{env:REDOT_BRIDGE_TOKEN}"
+      }
+    }
+  }
+}

@@ -12,6 +12,9 @@ import json
 import os
 from pathlib import Path
 import sys
+from types import SimpleNamespace
+import urllib.parse
+import urllib.request
 from urllib.parse import urlsplit
 
 import bridge
@@ -32,6 +35,33 @@ def chat_share(value):
     return value.rstrip('/')
 
 
+class LimitedResponse:
+    """Limit legacy chat HTTP responses without changing its file protocol."""
+    MAX_BYTES = 1024 * 1024
+
+    def __init__(self, response):
+        self.response = response
+        self.status = response.status
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.response.close()
+
+    def read(self):
+        data = self.response.read(self.MAX_BYTES + 1)
+        if len(data) > self.MAX_BYTES:
+            raise ValueError('WebFTP response too large')
+        return data
+
+
+def chat_open(request, timeout):
+    # The upstream client uses urlopen's redirect-following default. The common
+    # MCP refuses redirects, so an HTTPS share cannot redirect requests to HTTP.
+    return LimitedResponse(bridge.HTTP.open(request, timeout=timeout))
+
+
 def load_chat(script):
     # Explicitly retain the upstream implementation and its wire format.
     spec = importlib.util.spec_from_file_location('redot_multiagent_chat', script)
@@ -39,6 +69,10 @@ def load_chat(script):
         raise ValueError('Cannot load multiagent MCP script')
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    # Only this module's HTTP adapter is replaced; other clients and the
+    # original standalone chat script keep their own urllib configuration.
+    module.urllib = SimpleNamespace(parse=urllib.parse,
+                                    request=SimpleNamespace(Request=urllib.request.Request, urlopen=chat_open))
     names = [entry['name'] for entry in module.TOOLS]
     editor_names = [entry['name'] for entry in bridge.tools()]
     if len(set(names)) != len(names) or set(names).intersection(editor_names):

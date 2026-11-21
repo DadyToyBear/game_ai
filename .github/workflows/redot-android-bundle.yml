@@ -9,6 +9,7 @@ on:
       - 'redot-audit/combined_bundle_test.py'
       - 'multiagent-upstream/multiagent-mcp.py'
       - 'redot-bridge/multiagent_mcp.py'
+      - 'redot-bridge/opencode.multiagent.example.json'
       - 'redot-bridge/make_bundle.py'
       - 'redot-bridge/addons/redot_android_mcp/**'
       - 'redot-bridge/bridge.py'
@@ -132,6 +133,7 @@ jobs:
           cp -a redot-bridge/web artifact/web
           cp -a redot-bridge/relay-deploy artifact/relay-deploy
           cp redot-android/README.md artifact/README.md
+          cp redot-bridge/README.md artifact/BRIDGE-README.md
       - uses: actions/upload-artifact@v4
         with:
           name: redot-26.3-rc2-android-latest-bridge

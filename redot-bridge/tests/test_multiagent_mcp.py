@@ -19,13 +19,21 @@ PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4
 
 class Share(BaseHTTPRequestHandler):
     files = {}
+    redirect = False
+    redirected = 0
     def log_message(self, *args):
         pass
     def do_PUT(self):
+        if urlsplit(self.path).path == '/redirected':
+            Share.redirected += 1
+        if self.redirect:
+            self.send_response(307); self.send_header('Location', '/redirected'); self.end_headers(); return
         name = parse_qs(urlsplit(self.path).query).get('name', [''])[0]
         self.files[name] = self.rfile.read(int(self.headers['Content-Length']))
         self.send_response(200); self.end_headers()
     def do_GET(self):
+        if urlsplit(self.path).path == '/redirected':
+            Share.redirected += 1
         name = urlsplit(self.path).path.rsplit('/', 1)[-1]
         data = self.files.get(name)
         if data is None:
@@ -35,7 +43,7 @@ class Share(BaseHTTPRequestHandler):
 
 class CombinedMcpTest(unittest.TestCase):
     def setUp(self):
-        Share.files = {}
+        Share.files = {}; Share.redirect = False; Share.redirected = 0
         self.share = ThreadingHTTPServer(('127.0.0.1', 0), Share)
         self.store = bridge.FrameStore()
         self.editor = ThreadingHTTPServer(('127.0.0.1', 0), bridge.handler_for(self.store, TOKEN))
@@ -85,6 +93,16 @@ class CombinedMcpTest(unittest.TestCase):
         self.assertNotEqual(process.returncode, 0)
         self.assertIn('must be HTTPS', process.stderr)
         self.assertNotIn('private', process.stderr)
+        self.assertEqual(Share.files, {})
+
+    def test_chat_refuses_http_redirects(self):
+        Share.redirect = True
+        request = {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
+                   'params': {'name': 'chat_post', 'arguments': {'from': 'test', 'text': 'hello'}}}
+        process = self.run_mcp([request])
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertTrue(json.loads(process.stdout)['result']['isError'])
+        self.assertEqual(Share.redirected, 0)
         self.assertEqual(Share.files, {})
 
     def test_missing_token_or_share_fails_closed(self):

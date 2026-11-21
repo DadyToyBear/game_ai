@@ -11,6 +11,7 @@ on:
       - 'redot-web/**'
       - 'multiagent-upstream/multiagent-mcp.py'
       - 'redot-bridge/multiagent_mcp.py'
+      - 'redot-bridge/opencode.multiagent.example.json'
       - 'redot-bridge/bridge.py'
       - 'redot-bridge/project_sync.py'
       - 'redot-bridge/relay.py'

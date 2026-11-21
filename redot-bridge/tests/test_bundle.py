@@ -27,6 +27,7 @@ class BundleTests(unittest.TestCase):
             self.assertTrue((result / 'make_bundle.py').is_file())
             self.assertTrue((result / 'multiagent_mcp.py').is_file())
             self.assertTrue((result / 'multiagent_chat.py').is_file())
+            self.assertTrue((result / 'opencode.multiagent.example.json').is_file())
             self.assertTrue((result / 'web/sync.html').is_file())
             self.assertTrue((result / 'addons/redot_local_bridge/plugin.cfg').is_file())
             self.assertIn('--editor-dir', (root / 'BRIDGE-START.md').read_text())
