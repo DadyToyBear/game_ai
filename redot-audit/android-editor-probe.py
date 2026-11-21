@@ -47,7 +47,7 @@ def main():
     # Process presence is not enough: wait for visible rendering, not the solid
     # startup surface. This still cannot identify a particular UI without OCR.
     deadline = time.monotonic() + 180
-    image = None; colors = 0
+    image = None; colors = 0; top_colors = 0
     while time.monotonic() < deadline:
         time.sleep(5)
         if not adb('shell', 'pidof', pkg, check=False).stdout.strip():
@@ -55,10 +55,12 @@ def main():
         image = Image.open(io.BytesIO(adb('exec-out', 'screencap', '-p').stdout)).convert('RGB')
         sample = image.crop((0, 0, image.width, int(image.height * 0.93))).resize((160, 100))
         colors = len({(r >> 4, g >> 4, b >> 4) for r, g, b in sample.getdata()})
-        if colors >= 24:
+        top = sample.crop((0, 0, sample.width, 20))
+        top_colors = len({(r >> 4, g >> 4, b >> 4) for r, g, b in top.getdata()})
+        if colors >= 24 and top_colors >= 8:
             break
-    if colors < 24:
-        raise RuntimeError(f'Editor remained blank after initialization ({colors} color buckets)')
+    if colors < 24 or top_colors < 8:
+        raise RuntimeError(f'Editor did not render beyond its startup screen ({colors} overall, {top_colors} top color buckets)')
     focus = adb('shell', 'dumpsys', 'activity', 'activities').stdout.decode(errors='replace')
     lines = [line.strip() for line in focus.splitlines() if 'mResumedActivity' in line or 'topResumedActivity' in line]
     if not any(pkg in line for line in lines):
