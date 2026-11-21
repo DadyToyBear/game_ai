@@ -9,6 +9,18 @@ name: Release build (APK + AAB)
 
 on:
   push:
+    branches: ['arena/a11b2c5a-game-ai']
+    paths:
+      - 'index.html'
+      - 'js/**'
+      - 'css/**'
+      - 'assets/**'
+      - 'vendor/**'
+      - 'android/**'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - 'scripts/**'
+      - '.github/workflows/android.yml'
     tags: ['v*']
   workflow_dispatch:
     inputs:
