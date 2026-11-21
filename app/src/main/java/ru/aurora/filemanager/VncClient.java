@@ -11,7 +11,7 @@ import javax.crypto.spec.SecretKeySpec;
 /** Minimal RFB 3.3/3.7/3.8 client: raw true-colour frames and basic input. No TLS. */
 final class VncClient {
     static final int MAX_PIXELS=1920*1080,MAX_RECTS=256,MAX_UPDATE_BYTES=16*1024*1024;
-    interface Listener {void connected(int width,int height,String name);void frame(int width,int height,int[] argb);void finished(String reason);}
+    interface Listener {void connected(int width,int height,String name);void frame(int width,int height,int[] argb);default void clipboard(String text){}void finished(String reason);}
     private final Listener listener;private final Object lock=new Object(),writeLock=new Object();
     private final ThreadPoolExecutor writer=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(32));
     private Socket socket;private DataOutputStream out;private boolean stopped,ready;private int width,height;
@@ -62,7 +62,7 @@ final class VncClient {
                         if(rects>0)listener.frame(w,h,pixels.clone());
                         Thread.sleep(50);request(true,w,h);
                     }else if(type==2){/* bell intentionally ignored */}
-                    else if(type==3){byte[] padding=new byte[3];in.readFully(padding);long size=Integer.toUnsignedLong(in.readInt());if(size>1048576)throw new IOException("Слишком большие данные буфера обмена");byte[] ignored=new byte[4096];while(size>0){int n=(int)Math.min(size,ignored.length);in.readFully(ignored,0,n);size-=n;}}
+                    else if(type==3){byte[] padding=new byte[3];in.readFully(padding);long size=Integer.toUnsignedLong(in.readInt());if(size>65536)throw new IOException("Слишком большие данные буфера обмена");byte[] data=new byte[(int)size];in.readFully(data);listener.clipboard(new String(data,StandardCharsets.ISO_8859_1));}
                     else throw new IOException("Неподдерживаемое сообщение VNC: "+type);
                 }
             }catch(Exception ex){if(!isStopped())reason="Ошибка VNC: "+(ex.getMessage()==null?ex.toString():ex.getMessage());}
@@ -90,6 +90,14 @@ final class VncClient {
     }
     boolean keys(String text){int[] keys=keysyms(text);if(keys==null)return false;
         return enqueue(()->{try{synchronized(writeLock){if(out==null)return;for(int key:keys){writeKey(out,true,key);writeKey(out,false,key);}out.flush();}}catch(IOException ex){stop();}});}
+    static byte[] clipboardBytes(String text){
+        if(text==null||text.length()>65536)return null;
+        try{java.nio.ByteBuffer encoded=StandardCharsets.ISO_8859_1.newEncoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).encode(java.nio.CharBuffer.wrap(text));
+            if(encoded.remaining()>65536)return null;byte[] bytes=new byte[encoded.remaining()];encoded.get(bytes);return bytes;
+        }catch(java.nio.charset.CharacterCodingException ex){return null;}
+    }
+    boolean sendClipboard(String text){byte[] bytes=clipboardBytes(text);if(bytes==null)return false;
+        return enqueue(()->{try{synchronized(writeLock){if(out==null)return;out.writeByte(6);out.write(new byte[3]);out.writeInt(bytes.length);out.write(bytes);out.flush();}}catch(IOException ex){stop();}});}
     static boolean allowedSpecial(int keysym){return keysym==0xff0d||keysym==0xff08||keysym==0xff1b||keysym==0xff09||keysym==0xff51||keysym==0xff52||keysym==0xff53||keysym==0xff54||keysym==0xffff;}
     boolean special(int keysym){if(!allowedSpecial(keysym))return false;
         return enqueue(()->{try{synchronized(writeLock){if(out==null)return;writeKey(out,true,keysym);writeKey(out,false,keysym);out.flush();}}catch(IOException ex){stop();}});}

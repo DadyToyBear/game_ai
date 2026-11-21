@@ -14,7 +14,7 @@ import java.util.*;
 
 /** Small, independent file manager based on Android's Storage Access Framework. */
 public class MainActivity extends Activity {
-    private static final int OPEN_TREE=1, SAVE_IMAGE=2, SFTP_DOWNLOAD=3, SFTP_UPLOAD=4, FTP_DOWNLOAD=5, FTP_UPLOAD=6, DAV_DOWNLOAD=7, DAV_UPLOAD=8, PAINT_OPEN_IMAGE=9, VIDEO_OPEN=10, VIDEO_SAVE=11, SMB_DOWNLOAD=12, SMB_UPLOAD=13, SSH_KEY_OPEN=14, SAVE_JPEG=15;
+    private static final int OPEN_TREE=1, SAVE_IMAGE=2, SFTP_DOWNLOAD=3, SFTP_UPLOAD=4, FTP_DOWNLOAD=5, FTP_UPLOAD=6, DAV_DOWNLOAD=7, DAV_UPLOAD=8, PAINT_OPEN_IMAGE=9, VIDEO_OPEN=10, VIDEO_SAVE=11, SMB_DOWNLOAD=12, SMB_UPLOAD=13, SSH_KEY_OPEN=14, SAVE_JPEG=15, SAVE_TEXT_COPY=16;
     private LinearLayout root, body;
     private Uri tree, current;
     private final Stack<Uri> parents = new Stack<>();
@@ -35,6 +35,8 @@ public class MainActivity extends Activity {
     private Object bookmarksView;
     private Object textViewToken;
     private TextUi textUi;
+    private PendingTextCopy pendingTextCopy;
+    private static final class PendingTextCopy {Object token;TextUi state;Uri source;byte[] data;EditText editor;Button save,saveAs,find;}
     private static final class TextUi {boolean loading=true,saving;long revision,savedRevision;}
     private android.os.CancellationSignal zipCancellation;
     private Object accountsView;
@@ -81,7 +83,7 @@ public class MainActivity extends Activity {
     private TextView text(String s, int size) { TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(Color.rgb(28,38,55)); return t; }
     private Button button(String label, Runnable action) { Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setOnClickListener(v -> action.run()); return b; }
     private void layout(String title) {
-        stopVnc();vncUiReset=null;stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelHash();cancelZip();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;bookmarksView=null;textViewToken=null;textUi=null;
+        stopVnc();vncUiReset=null;stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelHash();cancelZip();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;bookmarksView=null;textViewToken=null;textUi=null;pendingTextCopy=null;
         stopMedia();mediaToken=null;mediaScreen=false;canvas=null;
         sftpUi=null; pendingSftp=null; ftpUi=null; pendingFtp=null; davUi=null; pendingDav=null; smbUi=null; pendingSmb=null; tunnelUi=null; reverseTunnelUi=null;
         fileScreen="Файлы".equals(title);searchScreenVisible=false;propertiesVisible=false;bookmarkScreenVisible=false;zipScreenVisible=false;
@@ -119,6 +121,11 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int req,int result,Intent data) {
         super.onActivityResult(req,result,data);
+        if(req==SAVE_TEXT_COPY){
+            PendingTextCopy pending=pendingTextCopy;pendingTextCopy=null;if(pending!=null&&pending.token==textViewToken&&pending.state==textUi){
+                if(result==RESULT_OK&&data!=null&&data.getData()!=null)saveTextCopy(pending,data.getData());else finishTextCopy(pending,"Выбор файла отменён");
+            }return;
+        }
         if(req==SSH_KEY_OPEN){if(keySshUi!=null&&result==RESULT_OK&&data!=null&&data.getData()!=null){keySshUi.key=data.getData();keySshUi.savedId=null;keySshUi.status.setText("Ключ выбран. Перед входом проверьте отпечаток сервера.");}return;}
         if(req==VIDEO_OPEN){
             if(videoUi!=null && result==RESULT_OK && data!=null && data.getData()!=null){if(videoUi.preview!=null){videoUi.preview.stopPlayback();mediaStopped=true;videoUi.previewReady=false;videoUi.preview.setVisibility(View.GONE);}videoUi.source=data.getData();videoUi.previewButton.setEnabled(true);videoUi.durationRequest=null;videoUi.duration.setEnabled(true);videoUi.status.setText("Исходный видеофайл выбран. Укажите начало и конец в миллисекундах.");videoUi.save.setEnabled(true);}return;
@@ -218,13 +225,22 @@ public class MainActivity extends Activity {
         layout((mime.startsWith("audio/")?"Аудио · ":"Видео · ")+entry.name);mediaScreen=true;
         note("Воспроизведение использует системные кодеки. Нажмите на область плеера для управления. При уходе с экрана воспроизведение останавливается.");
         TextView status=text("Подготовка…",15);body.addView(status);
+        final android.media.MediaPlayer[] engine={null};final int[] speedIndex={2};
         VideoView player=new VideoView(this);mediaPlayer=player;mediaStopped=false;
         body.addView(player,new LinearLayout.LayoutParams(-1,dp(mime.startsWith("audio/")?160:300)));
         MediaController controls=new MediaController(this);mediaController=controls;controls.setAnchorView(player);player.setMediaController(controls);
-        player.setOnPreparedListener(mp->{if(mediaPlayer!=player)return;status.setText("Готово · управление доступно в плеере");player.start();controls.show(3000);});
+        player.setOnPreparedListener(mp->{if(mediaPlayer!=player)return;engine[0]=mp;status.setText("Готово · управление доступно в плеере");player.start();try{mp.setPlaybackParams(mp.getPlaybackParams().setSpeed(MediaSpeed.VALUES[speedIndex[0]]));}catch(Exception ex){speedIndex[0]=2;status.setText("Скорость недоступна для этого файла или устройства");}controls.show(3000);});
         player.setOnCompletionListener(mp->{if(mediaPlayer==player)status.setText("Воспроизведение завершено");});
-        player.setOnErrorListener((mp,what,extra)->{if(mediaPlayer==player)status.setText("Не удалось воспроизвести файл. Попробуйте другое приложение.");return true;});
+        player.setOnErrorListener((mp,what,extra)->{if(mediaPlayer==player){engine[0]=null;status.setText("Не удалось воспроизвести файл. Попробуйте другое приложение.");}return true;});
         body.addView(button("Воспроизвести / заново",()->{if(mediaPlayer!=player)return;if(mediaStopped){mediaStopped=false;status.setText("Подготовка…");player.setVideoURI(entry.uri);}else{player.start();controls.show(3000);}}));
+        body.addView(button("Скорость воспроизведения",()->{
+            if(mediaPlayer!=player||mediaStopped||engine[0]==null){toast("Сначала запустите воспроизведение");return;}
+            new AlertDialog.Builder(this).setTitle("Скорость воспроизведения").setSingleChoiceItems(MediaSpeed.LABELS,speedIndex[0],(dialog,index)->{
+                dialog.dismiss();if(mediaPlayer!=player||mediaStopped||engine[0]==null)return;
+                try{boolean playing=player.isPlaying();engine[0].setPlaybackParams(engine[0].getPlaybackParams().setSpeed(MediaSpeed.VALUES[index]));if(!playing)player.pause();speedIndex[0]=index;status.setText("Скорость: "+MediaSpeed.LABELS[index]);}
+                catch(Exception ex){status.setText("Эта скорость недоступна на устройстве: "+ex.getMessage());}
+            }).setNegativeButton("Отмена",null).show();
+        }));
         body.addView(button("Открыть в другом приложении",()->openExternal(entry)));body.addView(button("Назад",this::list));
         player.setVideoURI(entry.uri);
     }
@@ -380,17 +396,36 @@ public class MainActivity extends Activity {
         fontSize.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar bar,int value,boolean user){int size=14+value;editor.setTextSize(size);fontLabel.setText("Размер текста: "+size+" sp");}public void onStartTrackingTouch(SeekBar bar){}public void onStopTrackingTouch(SeekBar bar){}});
         editor.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){if(!state.loading)state.revision++;}public void afterTextChanged(android.text.Editable e){}});
         EditText find=field("Найти в тексте (до 256 символов)",false);Button findNext=button("Найти далее",()->{String query=find.getText().toString();if(query.isEmpty()||query.length()>256){toast("Введите от 1 до 256 символов");return;}int index=TextFind.next(editor.getText().toString(),query,Math.max(0,editor.getSelectionEnd()));if(index<0){toast("Совпадений нет");return;}editor.requestFocus();editor.setSelection(index,index+query.length());});findNext.setEnabled(false);body.addView(findNext);
-        Button save=button("Сохранить",()->{});save.setEnabled(false);body.addView(save);body.addView(button("Назад",()->leaveText(state)));
-        new Thread(()->{try(InputStream in=getContentResolver().openInputStream(entry.uri)){if(in==null)throw new IOException("Файл недоступен");ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>1048576)throw new IOException("Файл больше 1 МиБ");out.write(b,0,n);}String value=java.nio.charset.StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(out.toByteArray())).toString();runOnUiThread(()->{if(textViewToken==token&&!isFinishing()&&!isDestroyed()){editor.setText(value);state.loading=false;state.savedRevision=state.revision;editor.setEnabled(true);save.setEnabled(true);findNext.setEnabled(true);}});}catch(Exception ex){runOnUiThread(()->{if(textViewToken==token&&!isDestroyed())error(ex);});}},"text-read").start();
+        Button save=button("Сохранить",()->{}),saveAs=button("Сохранить копию как…",()->{});save.setEnabled(false);saveAs.setEnabled(false);body.addView(save);body.addView(saveAs);body.addView(button("Назад",()->leaveText(state)));
+        new Thread(()->{try(InputStream in=getContentResolver().openInputStream(entry.uri)){if(in==null)throw new IOException("Файл недоступен");ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>1048576)throw new IOException("Файл больше 1 МиБ");out.write(b,0,n);}String value=java.nio.charset.StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(out.toByteArray())).toString();runOnUiThread(()->{if(textViewToken==token&&!isFinishing()&&!isDestroyed()){editor.setText(value);state.loading=false;state.savedRevision=state.revision;editor.setEnabled(true);save.setEnabled(true);saveAs.setEnabled(true);findNext.setEnabled(true);}});}catch(Exception ex){runOnUiThread(()->{if(textViewToken==token&&!isDestroyed())error(ex);});}},"text-read").start();
+        saveAs.setOnClickListener(v->{
+            if(state.saving||state.loading)return;byte[] data=editor.getText().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);if(data.length>1048576){toast("Текст больше 1 МиБ");return;}
+            new AlertDialog.Builder(this).setTitle("Сохранить копию").setMessage("Выберите новое имя и не выбирайте исходный файл. Системный диалог может разрешить перезаписать существующий файл; разные ссылки могут указывать на один файл.")
+                .setNegativeButton("Отмена",null).setPositiveButton("Выбрать",(d,w)->{
+                    if(textUi!=state||state.saving)return;PendingTextCopy pending=new PendingTextCopy();pending.token=token;pending.state=state;pending.source=entry.uri;pending.data=data;pending.editor=editor;pending.save=save;pending.saveAs=saveAs;pending.find=findNext;
+                    state.saving=true;editor.setEnabled(false);save.setEnabled(false);saveAs.setEnabled(false);findNext.setEnabled(false);pendingTextCopy=pending;
+                    Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("text/plain");intent.putExtra(Intent.EXTRA_TITLE,"copy.txt");
+                    try{startActivityForResult(intent,SAVE_TEXT_COPY);}catch(Exception ex){pendingTextCopy=null;finishTextCopy(pending,"Не удалось выбрать файл: "+ex.getMessage());}
+                }).show();
+        });
         save.setOnClickListener(v->{
             if(state.saving||state.loading)return;byte[] data=editor.getText().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);if(data.length>1048576){toast("Текст больше 1 МиБ");return;}
-            state.saving=true;save.setEnabled(false);editor.setEnabled(false);findNext.setEnabled(false);
+            state.saving=true;save.setEnabled(false);saveAs.setEnabled(false);editor.setEnabled(false);findNext.setEnabled(false);
             new Thread(()->{String failure=null;try(OutputStream out=getContentResolver().openOutputStream(entry.uri,"wt")){if(out==null)throw new IOException("Запись недоступна");out.write(data);}catch(Exception ex){failure=ex.getMessage()==null?ex.toString():ex.getMessage();}
-                String problem=failure;runOnUiThread(()->{if(textViewToken!=token||isDestroyed())return;state.saving=false;editor.setEnabled(true);save.setEnabled(true);findNext.setEnabled(true);
+                String problem=failure;runOnUiThread(()->{if(textViewToken!=token||isDestroyed())return;state.saving=false;editor.setEnabled(true);save.setEnabled(true);saveAs.setEnabled(true);findNext.setEnabled(true);
                     if(problem==null){state.savedRevision=state.revision;toast("Сохранено");}else toast("Ошибка сохранения; файл мог быть изменён: "+problem);
                 });
             },"text-save").start();
         });
+    }
+    private void finishTextCopy(PendingTextCopy pending,String message){
+        if(textViewToken!=pending.token||textUi!=pending.state||isDestroyed())return;pending.state.saving=false;pending.editor.setEnabled(true);pending.save.setEnabled(true);pending.saveAs.setEnabled(true);pending.find.setEnabled(true);toast(message);
+    }
+    private void saveTextCopy(PendingTextCopy pending,Uri destination){
+        try{TextCopy.validateTarget(pending.source,destination);}catch(Exception ex){finishTextCopy(pending,ex.getMessage());return;}
+        new Thread(()->{String failure=null;try(OutputStream out=getContentResolver().openOutputStream(destination,"wt")){if(out==null)throw new IOException("Файл назначения недоступен");out.write(pending.data);}catch(Exception ex){failure=ex.getMessage()==null?ex.toString():ex.getMessage();}
+            String error=failure;runOnUiThread(()->finishTextCopy(pending,error==null?"Копия сохранена. Редактор остаётся привязан к исходному файлу.":"Ошибка: "+error+". Файл назначения может быть неполным."));
+        },"text-copy-save").start();
     }
     private void leaveText(TextUi state){
         if(textUi!=state)return;if(state.saving){toast("Дождитесь завершения сохранения");return;}
@@ -855,6 +890,8 @@ public class MainActivity extends Activity {
         CheckBox noPassword=new CheckBox(this);noPassword.setText("Разрешить вход без пароля, если сервер его предлагает");body.addView(noPassword);
         TextView status=text("Не подключено",15);body.addView(status);VncView display=new VncView(this);body.addView(display,new LinearLayout.LayoutParams(-1,dp(300)));
         EditText input=field("Текст для отправки (до 256 символов)",false);
+        EditText clipInput=new EditText(this);clipInput.setHint("Текст в буфер удалённой системы (Latin-1)");clipInput.setMinLines(2);clipInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);clipInput.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(65536)});body.addView(clipInput);
+        final String[] remoteClipboard={null};Button sendClipboard=button("Отправить текст в буфер сервера",()->{}),copyClipboard=button("Показать буфер сервера",()->{});sendClipboard.setEnabled(false);copyClipboard.setEnabled(false);body.addView(sendClipboard);body.addView(copyClipboard);
         Button connect=button("Подключиться",()->{}),disconnect=button("Отключиться",()->{}),send=button("Отправить текст",()->{});disconnect.setEnabled(false);send.setEnabled(false);
         body.addView(connect);body.addView(disconnect);body.addView(send);
         LinearLayout keys=new LinearLayout(this);body.addView(keys);Button enter=button("Enter",()->{}),backspace=button("⌫",()->{}),escape=button("Esc",()->{}),tab=button("Tab",()->{});keys.addView(enter);keys.addView(backspace);keys.addView(escape);keys.addView(tab);
@@ -863,7 +900,7 @@ public class MainActivity extends Activity {
         left.setEnabled(false);up.setEnabled(false);down.setEnabled(false);rightArrow.setEnabled(false);delete.setEnabled(false);
         note("Правая кнопка и прокрутка действуют в последней выбранной точке экрана; если точка не выбиралась — по центру.");
         LinearLayout mouse=new LinearLayout(this);body.addView(mouse);Button right=button("Правый клик",()->{}),wheelUp=button("↑",()->{}),wheelDown=button("↓",()->{});mouse.addView(right);mouse.addView(wheelUp);mouse.addView(wheelDown);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);body.addView(button("Назад",this::home));
-        Runnable disconnected=()->{connect.setEnabled(true);disconnect.setEnabled(false);send.setEnabled(false);enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);left.setEnabled(false);up.setEnabled(false);down.setEnabled(false);rightArrow.setEnabled(false);delete.setEnabled(false);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);display.clear();};
+        Runnable disconnected=()->{connect.setEnabled(true);disconnect.setEnabled(false);send.setEnabled(false);enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);left.setEnabled(false);up.setEnabled(false);down.setEnabled(false);rightArrow.setEnabled(false);delete.setEnabled(false);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);sendClipboard.setEnabled(false);copyClipboard.setEnabled(false);remoteClipboard[0]=null;display.clear();};
         vncUiReset=()->{disconnected.run();status.setText("Соединение закрыто при переходе приложения в фон.");};
         connect.setOnClickListener(v->{
             if(vncClient!=null)return;String h=host.getText().toString().trim(),secret=password.getText().toString();boolean anonymous=noPassword.isChecked();int number;
@@ -874,14 +911,21 @@ public class MainActivity extends Activity {
                     if(vncClient!=null)return;connect.setEnabled(false);disconnect.setEnabled(true);status.setText("Подключение…");password.setText("");
                     Object frameLock=new Object();final int[][] pending={null};final int[] dimensions={0,0};final boolean[] scheduled={false};VncClient[] reference=new VncClient[1];
                     VncClient client=new VncClient(new VncClient.Listener(){
-                        public void connected(int width,int height,String name){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;status.setText("Подключено: "+name+" · "+width+" × "+height+". Нажатие — левая кнопка мыши.");send.setEnabled(true);enter.setEnabled(true);backspace.setEnabled(true);escape.setEnabled(true);tab.setEnabled(true);left.setEnabled(true);up.setEnabled(true);down.setEnabled(true);rightArrow.setEnabled(true);delete.setEnabled(true);right.setEnabled(true);wheelUp.setEnabled(true);wheelDown.setEnabled(true);});}
+                        public void connected(int width,int height,String name){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;status.setText("Подключено: "+name+" · "+width+" × "+height+". Нажатие — левая кнопка мыши.");send.setEnabled(true);enter.setEnabled(true);backspace.setEnabled(true);escape.setEnabled(true);tab.setEnabled(true);left.setEnabled(true);up.setEnabled(true);down.setEnabled(true);rightArrow.setEnabled(true);delete.setEnabled(true);right.setEnabled(true);wheelUp.setEnabled(true);wheelDown.setEnabled(true);sendClipboard.setEnabled(true);});}
                         public void frame(int width,int height,int[] pixels){synchronized(frameLock){pending[0]=pixels;dimensions[0]=width;dimensions[1]=height;if(scheduled[0])return;scheduled[0]=true;}
                             runOnUiThread(()->{int[] frame;int fw,fh;synchronized(frameLock){frame=pending[0];pending[0]=null;fw=dimensions[0];fh=dimensions[1];scheduled[0]=false;}if(vncClient==reference[0]&&!isDestroyed()&&frame!=null)display.updateFrame(fw,fh,frame);});}
+                        public void clipboard(String text){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;remoteClipboard[0]=text;copyClipboard.setEnabled(true);});}
                         public void finished(String reason){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;vncClient=null;disconnected.run();status.setText(reason);});}
                     });reference[0]=client;vncClient=client;display.client=client;client.start(h,number,secret,anonymous);
                 }).show();
         });
         disconnect.setOnClickListener(v->{stopVnc();disconnected.run();status.setText("Отключено");});
+        sendClipboard.setOnClickListener(v->{String value=clipInput.getText().toString();VncClient client=vncClient;if(client==null)return;if(VncClient.clipboardBytes(value)==null){toast("Буфер VNC: только Latin-1, до 65536 байт");return;}
+            new AlertDialog.Builder(this).setTitle("Отправить буфер на сервер?").setMessage("Текст будет передан удалённой системе без шифрования VNC. Не отправляйте конфиденциальные данные по незащищённой сети.").setNegativeButton("Отмена",null).setPositiveButton("Отправить",(d,w)->{if(vncClient==client){if(client.sendClipboard(value))toast("Текст отправляется в буфер сервера");else toast("Не удалось отправить буфер");}}).show();
+        });
+        copyClipboard.setOnClickListener(v->{String value=remoteClipboard[0];if(value==null)return;String preview=value.length()>2048?value.substring(0,2048)+"\n… (показаны первые 2048 символов)":value;
+            new AlertDialog.Builder(this).setTitle("Буфер VNC-сервера").setMessage(preview+"\n\nДанные поступили от удалённого сервера. Копирование заменит системный буфер телефона.").setNegativeButton("Закрыть",null).setPositiveButton("Скопировать",(d,w)->{if(remoteClipboard[0]==value){android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);clipboard.setPrimaryClip(ClipData.newPlainText("VNC",value));toast("Текст скопирован");}}).show();
+        });
         send.setOnClickListener(v->{VncClient client=vncClient;String text=input.getText().toString();if(client!=null&&client.keys(text))input.setText("");else toast("Текст до 256 символов без управляющих знаков или соединение недоступно");});
         left.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff51);});up.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff52);});rightArrow.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff53);});down.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff54);});delete.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xffff);});
         right.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,4);});
