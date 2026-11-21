@@ -628,7 +628,7 @@
       pad.dataset.pad = i;
       grid.appendChild(pad);
     });
-    return el('div', {}, [grid, el('div', { class: 'hint', style: { marginTop: '8px' }, text: 'Подушки пронумерованы 1–8. Свои сэмплы подставляются в те же каналы.' })]);
+    return el('div', {}, [grid, el('div', { class: 'hint', style: { marginTop: '8px' }, text: 'Подушки пронумерованы 1–8. Свои сэмплы подставляются в те же каналы. Шаги — в своём секвенсоре ниже.' })]);
   }
 
   function renderKeyboard(t) {
