@@ -19,7 +19,7 @@ public class MainActivity extends Activity {
     private Uri tree, current;
     private final Stack<Uri> parents = new Stack<>();
     private PaintView canvas;
-    private boolean fileScreen, searchScreenVisible;
+    private boolean fileScreen, searchScreenVisible, propertiesVisible;
     private FileSort.Mode fileSort=FileSort.Mode.NAME_ASC;
     private boolean mediaScreen;
     private VideoView mediaPlayer;
@@ -34,9 +34,10 @@ public class MainActivity extends Activity {
     private Object trashView;
     private android.os.CancellationSignal scanCancellation;
     private android.os.CancellationSignal searchCancellation;
+    private android.os.CancellationSignal hashCancellation;
     private android.os.CancellationSignal videoCancellation;
     private VideoUi videoUi; private PendingVideo pendingVideo;
-    private static final class VideoUi { Uri source;EditText start,end;CheckBox mute;TextView status;Button choose,save,cancel;boolean busy; }
+    private static final class VideoUi { Uri source;EditText start,end;CheckBox mute;TextView status;Button choose,save,cancel,duration;Object durationRequest;boolean busy; }
     private static final class PendingVideo { final VideoUi ui;final Uri source;final long start,end;final boolean mute;PendingVideo(VideoUi ui,Uri source,long start,long end,boolean mute){this.ui=ui;this.source=source;this.start=start;this.end=end;this.mute=mute;} }
     private SmbUi smbUi; private PendingSmb pendingSmb;
     private static final class SmbUi {EditText host,port,share,domain,user,password;TextView status;LinearLayout entries;Button list,upload;boolean busy;SmbAccess.Credentials connection;String directory;}
@@ -73,10 +74,10 @@ public class MainActivity extends Activity {
     private TextView text(String s, int size) { TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(Color.rgb(28,38,55)); return t; }
     private Button button(String label, Runnable action) { Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setOnClickListener(v -> action.run()); return b; }
     private void layout(String title) {
-        stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;
+        stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelHash();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;
         stopMedia();mediaToken=null;mediaScreen=false;canvas=null;
         sftpUi=null; pendingSftp=null; ftpUi=null; pendingFtp=null; davUi=null; pendingDav=null; smbUi=null; pendingSmb=null; tunnelUi=null; reverseTunnelUi=null;
-        fileScreen="Файлы".equals(title);searchScreenVisible=false;
+        fileScreen="Файлы".equals(title);searchScreenVisible=false;propertiesVisible=false;
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(18),dp(18),dp(10)); root.setBackgroundColor(Color.rgb(247,249,252)); setContentView(root);
         TextView heading=text(title,26); heading.setTypeface(null,1); root.addView(heading);
         ScrollView scroll=new ScrollView(this); root.addView(scroll, new LinearLayout.LayoutParams(-1,0,1));
@@ -111,7 +112,7 @@ public class MainActivity extends Activity {
         super.onActivityResult(req,result,data);
         if(req==SSH_KEY_OPEN){if(keySshUi!=null&&result==RESULT_OK&&data!=null&&data.getData()!=null){keySshUi.key=data.getData();keySshUi.savedId=null;keySshUi.status.setText("Ключ выбран. Перед входом проверьте отпечаток сервера.");}return;}
         if(req==VIDEO_OPEN){
-            if(videoUi!=null && result==RESULT_OK && data!=null && data.getData()!=null){videoUi.source=data.getData();videoUi.status.setText("Исходный видеофайл выбран. Укажите начало и конец в миллисекундах.");videoUi.save.setEnabled(true);}return;
+            if(videoUi!=null && result==RESULT_OK && data!=null && data.getData()!=null){videoUi.source=data.getData();videoUi.durationRequest=null;videoUi.duration.setEnabled(true);videoUi.status.setText("Исходный видеофайл выбран. Укажите начало и конец в миллисекундах.");videoUi.save.setEnabled(true);}return;
         }
         if(req==VIDEO_SAVE){
             PendingVideo pending=pendingVideo;pendingVideo=null;
@@ -224,7 +225,7 @@ public class MainActivity extends Activity {
     }
     private boolean isText(Entry e) { String n=e.name.toLowerCase(java.util.Locale.ROOT); return e.mime.startsWith("text/") || n.endsWith(".txt") || n.endsWith(".md") || n.endsWith(".json") || n.endsWith(".xml") || n.endsWith(".csv") || n.endsWith(".log"); }
     private void actions(Entry e) {
-        String[] choices={"Открыть", "Копировать", "Вырезать", "Сжать в ZIP", "Распаковать ZIP", "Переименовать", "В корзину", "Удалить навсегда", "Поделиться"};
+        String[] choices={"Открыть", "Копировать", "Вырезать", "Сжать в ZIP", "Распаковать ZIP", "Переименовать", "В корзину", "Удалить навсегда", "Поделиться", "Свойства"};
         new AlertDialog.Builder(this).setTitle(e.name).setItems(choices,(d,n)->{
             if(n==0){if(e.dir()){parents.push(current);current=e.uri;list();}else open(e);}
             if(n==1||n==2){clipboard=e;cut=n==2;toast(cut?"Выбрано для перемещения":"Выбрано для копирования");list();}
@@ -233,8 +234,30 @@ public class MainActivity extends Activity {
             if(n==5) input("Новое имя",name->{try{if(DocumentsContract.renameDocument(getContentResolver(),e.uri,name)==null)throw new IOException("Переименование не поддерживается");list();}catch(Exception ex){error(ex);}});
             if(n==6){Uri selectedTree=tree,parent=current;if(clipboard!=null&&clipboard.uri.equals(e.uri))clipboard=null;runFileTask(()->new TrashStore(this).moveToTrash(selectedTree,parent,e.uri),"Перемещено в корзину");}
             if(n==7) new AlertDialog.Builder(this).setMessage("Удалить «"+e.name+"» навсегда, минуя корзину? Операция необратима.").setNegativeButton("Отмена",null).setPositiveButton("Удалить",(x,y)->{try{if(!DocumentsContract.deleteDocument(getContentResolver(),e.uri))throw new IOException("Удаление не поддерживается");list();}catch(Exception ex){error(ex);}}).show();
+            if(n==9)propertiesScreen(e);
             if(n==8 && !e.dir()){Intent i=new Intent(Intent.ACTION_SEND);i.setType(e.mime);i.putExtra(Intent.EXTRA_STREAM,e.uri);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"Поделиться"));}
         }).show();
+    }
+    private void cancelHash(){if(hashCancellation!=null){hashCancellation.cancel();hashCancellation=null;}}
+    private void propertiesScreen(Entry entry){
+        layout("Свойства");propertiesVisible=true;note("Имя: "+entry.name+"\nТип: "+(entry.dir()?"Папка":entry.mime)+"\nРазмер: "+(entry.dir()?"не вычисляется":entry.size<0?"неизвестен":android.text.format.Formatter.formatFileSize(this,entry.size)+" ("+entry.size+" байт)"));
+        note("Сведения получены от провайдера и могут измениться. Контрольная сумма вычисляется только для файлов; если файл изменяется во время чтения, результат может не соответствовать его текущему состоянию.");
+        TextView result=text("",15);result.setTextIsSelectable(true);Button start=button("Вычислить SHA-256",()->{}),cancel=button("Отменить вычисление",()->{}),copy=button("Скопировать SHA-256",()->{});start.setEnabled(!entry.dir());cancel.setEnabled(false);copy.setEnabled(false);
+        body.addView(start);body.addView(cancel);body.addView(copy);body.addView(result);body.addView(button("Назад к файлам",this::list));
+        final String[] hash={null};
+        start.setOnClickListener(v->{cancelHash();android.os.CancellationSignal signal=new android.os.CancellationSignal();hashCancellation=signal;hash[0]=null;start.setEnabled(false);cancel.setEnabled(true);copy.setEnabled(false);result.setText("Чтение файла…");
+            new Thread(()->{FileDigest.Result computed=null;String error=null;
+                try(android.content.res.AssetFileDescriptor afd=getContentResolver().openAssetFileDescriptor(entry.uri,"r",signal)){
+                    if(afd==null)throw new IOException("Файл недоступен");try(InputStream in=afd.createInputStream()){computed=FileDigest.sha256(in,signal);}
+                }catch(android.os.OperationCanceledException ignored){}catch(Exception ex){error=ex.getMessage();}
+                FileDigest.Result answer=computed;String failure=error;runOnUiThread(()->{
+                    if(hashCancellation!=signal||isDestroyed()||isFinishing())return;hashCancellation=null;start.setEnabled(true);cancel.setEnabled(false);
+                    if(answer==null){result.setText("Не удалось вычислить SHA-256: "+failure);return;}hash[0]=answer.sha256;copy.setEnabled(true);result.setText("SHA-256: "+answer.sha256+"\nПрочитано байт: "+answer.bytes);
+                });
+            },"file-sha256").start();
+        });
+        cancel.setOnClickListener(v->{cancelHash();start.setEnabled(true);cancel.setEnabled(false);result.setText("Отменено; чтение может остановиться не сразу, если провайдер не поддерживает отмену.");});
+        copy.setOnClickListener(v->{if(hash[0]!=null){android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);clipboard.setPrimaryClip(ClipData.newPlainText("SHA-256",hash[0]));toast("SHA-256 скопирован");}});
     }
     private void trashScreen(){
         layout("Корзина");Object token=new Object();trashView=token;
@@ -883,7 +906,7 @@ public class MainActivity extends Activity {
         if(mediaPlayer!=null){mediaPlayer.stopPlayback();mediaStopped=true;if(mediaController!=null)mediaController.hide();}
         super.onStop();
     }
-    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelKeySsh();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}if(reverseTunnel!=null){reverseTunnel.stop();reverseTunnel=null;}super.onDestroy();}
+    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelHash();cancelKeySsh();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}if(reverseTunnel!=null){reverseTunnel.stop();reverseTunnel=null;}super.onDestroy();}
     private void pingScreen(){ layout("Проверка сети"); note("ICMP ping: доступность зависит от сети и устройства."); EditText host=new EditText(this); host.setSingleLine(); host.setHint("Адрес или домен"); body.addView(host); TextView result=text("",15); body.addView(button("Проверить",()->{String h=host.getText().toString().trim(); if(!h.matches("[a-zA-Z0-9.:-]{1,253}") || h.startsWith("-")){result.setText("Некорректный адрес");return;} result.setText("Проверка…"); new Thread(()->{String output; try { Process p=new ProcessBuilder("ping","-c","1","-W","3",h).redirectErrorStream(true).start(); ByteArrayOutputStream b=new ByteArrayOutputStream(); try(InputStream in=p.getInputStream()){byte[] buf=new byte[1024];int n;while((n=in.read(buf))!=-1 && b.size()<8192)b.write(buf,0,n);} p.waitFor();output=b.toString("UTF-8"); }catch(Exception ex){output="Ошибка: "+ex.getMessage();} String finalOutput=output;runOnUiThread(()->result.setText(finalOutput));}).start();})); body.addView(result); body.addView(button("Назад",this::home)); }
     private void cancelVideo(){if(videoCancellation!=null){videoCancellation.cancel();videoCancellation=null;}}
     private void videoEditorScreen(){
@@ -894,6 +917,7 @@ public class MainActivity extends Activity {
         ui.status=text("Выберите исходный MP4",15);ui.choose=button("Выбрать видео",()->{});body.addView(ui.choose);
         ui.start=field("Начало в миллисекундах",false);ui.start.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);ui.start.setText("0");
         ui.end=field("Конец в миллисекундах (например 10000 = 10 сек)",false);ui.end.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        ui.duration=button("Определить длительность и установить конец",()->readVideoDuration(ui));ui.duration.setEnabled(false);body.addView(ui.duration);
         ui.mute=new CheckBox(this);ui.mute.setText("Сохранить фрагмент без звука");body.addView(ui.mute);
         ui.save=button("Выбрать файл и обрезать",()->{});ui.save.setEnabled(false);ui.cancel=button("Отменить обработку",()->{});ui.cancel.setEnabled(false);
         body.addView(ui.save);body.addView(ui.cancel);body.addView(ui.status);body.addView(button("Назад",this::home));
@@ -914,10 +938,21 @@ public class MainActivity extends Activity {
         });
         ui.cancel.setOnClickListener(v->{if(videoCancellation!=null)videoCancellation.cancel();ui.cancel.setEnabled(false);ui.status.setText("Отмена… Файл назначения, если запись уже началась, может быть неполным.");});
     }
+    private void readVideoDuration(VideoUi ui){
+        if(ui.busy||ui.source==null)return;Uri source=ui.source;Object token=new Object();ui.durationRequest=token;String previous=ui.end.getText().toString();ui.duration.setEnabled(false);ui.status.setText("Чтение длительности…");
+        new Thread(()->{long value=0;String problem=null;try{value=VideoInfo.duration(getApplicationContext(),source);}catch(Exception ex){problem=ex.getMessage();}
+            long duration=value;String failure=problem;runOnUiThread(()->{
+                if(videoUi!=ui||ui.durationRequest!=token||isFinishing()||isDestroyed())return;ui.durationRequest=null;if(!ui.busy)ui.duration.setEnabled(true);if(ui.busy)return;
+                if(failure!=null){ui.status.setText("Длительность недоступна: "+failure);return;}
+                if(previous.equals(ui.end.getText().toString())){ui.end.setText(Long.toString(duration));ui.status.setText("Длительность: "+duration+" мс; конец установлен. Проверьте диапазон перед сохранением.");}
+                else ui.status.setText("Длительность: "+duration+" мс. Поле конца изменено вручную и не заменено.");
+            });
+        },"video-duration").start();
+    }
     private void startVideoTrim(PendingVideo pending,Uri target){
         VideoUi ui=pending.ui;if(ui.busy)return;
         if(pending.source.equals(target)){toast("Выберите другой файл");return;}
-        android.os.CancellationSignal signal=new android.os.CancellationSignal();videoCancellation=signal;ui.busy=true;ui.choose.setEnabled(false);ui.save.setEnabled(false);ui.cancel.setEnabled(true);ui.status.setText("Обработка…");
+        android.os.CancellationSignal signal=new android.os.CancellationSignal();videoCancellation=signal;ui.durationRequest=null;ui.busy=true;ui.choose.setEnabled(false);ui.save.setEnabled(false);ui.duration.setEnabled(false);ui.cancel.setEnabled(true);ui.status.setText("Обработка…");
         new Thread(()->{
             VideoTrimmer.Result result=null;String failure=null;
             try{result=VideoTrimmer.trim(getContentResolver(),pending.source,target,getCacheDir(),pending.start,pending.end,pending.mute,signal);}
@@ -926,7 +961,7 @@ public class MainActivity extends Activity {
             VideoTrimmer.Result answer=result;String message=failure;
             runOnUiThread(()->{
                 if(videoUi!=ui||isDestroyed()||isFinishing())return;if(videoCancellation==signal)videoCancellation=null;
-                ui.busy=false;ui.choose.setEnabled(true);ui.save.setEnabled(ui.source!=null);ui.cancel.setEnabled(false);
+                ui.busy=false;ui.choose.setEnabled(true);ui.save.setEnabled(ui.source!=null);ui.duration.setEnabled(ui.source!=null);ui.cancel.setEnabled(false);
                 if(answer==null)ui.status.setText(message);else ui.status.setText("Фрагмент сохранён. Фактическое начало: "+(answer.actualStartUs/1000)+" мс; видеокадров: "+answer.frames+". Проверьте результат в проигрывателе.");
             });
         },"video-trim").start();
@@ -943,6 +978,7 @@ public class MainActivity extends Activity {
         LinearLayout palette2=new LinearLayout(this);body.addView(palette2);
         palette2.addView(button("Зелёный",()->{view.color=Color.rgb(0,128,0);currentColor.setText("Кисть: зелёный");}));
         palette2.addView(button("Ластик",()->{view.color=Color.WHITE;currentColor.setText("Ластик (белая кисть)");}));
+        body.addView(button("Свой цвет (#RRGGBB)",()->choosePaintColor(view,currentColor)));
         TextView width=text("Толщина: 8",15);body.addView(width);
         SeekBar size=new SeekBar(this);size.setMax(57);size.setProgress(5);body.addView(size);
         size.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int value,boolean fromUser){view.width=value+3;width.setText("Толщина: "+(value+3));}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){}});
@@ -961,6 +997,11 @@ public class MainActivity extends Activity {
             try{startActivityForResult(i,SAVE_IMAGE);}catch(Exception ex){error(ex);}
         }));
         body.addView(button("Назад",this::home));
+    }
+    private void choosePaintColor(PaintView view,TextView currentColor){
+        EditText input=new EditText(this);input.setSingleLine();input.setHint("RRGGBB, например FF8800");input.setText(String.format(java.util.Locale.ROOT,"%06X",view.color&0xffffff));
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Цвет кисти").setView(input).setNegativeButton("Отмена",null).setPositiveButton("Применить",null).create();
+        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{try{int color=PaintColors.parse(input.getText().toString());if(canvas!=view){dialog.dismiss();return;}view.color=color;currentColor.setText(String.format(java.util.Locale.ROOT,"Кисть: #%06X",color&0xffffff));dialog.dismiss();}catch(IllegalArgumentException ex){input.setError(ex.getMessage());}}));dialog.show();
     }
     private void loadPaint(Uri uri,PaintView target){
         long revision=target.revision;toast("Открытие изображения…");
@@ -991,7 +1032,7 @@ public class MainActivity extends Activity {
         },"paint-save").start();
     }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();} private void error(Exception e){toast("Ошибка: "+e.getMessage());}
-    @Override public void onBackPressed(){if(searchScreenVisible && current!=null){list();return;}if(mediaScreen && current!=null){list();return;}if(fileScreen && current!=null && !parents.empty()){current=parents.pop();list();}else{current=null;home();}}
+    @Override public void onBackPressed(){if(propertiesVisible && current!=null){list();return;}if(searchScreenVisible && current!=null){list();return;}if(mediaScreen && current!=null){list();return;}if(fileScreen && current!=null && !parents.empty()){current=parents.pop();list();}else{current=null;home();}}
     static class Entry { Uri uri; String name,mime; long size; Entry(Uri u,String n,String m,long s){uri=u;name=n==null?"Без имени":n;mime=m==null?"application/octet-stream":m;size=s;} boolean dir(){return DocumentsContract.Document.MIME_TYPE_DIR.equals(mime);} }
     static class PaintView extends View {
         private static final int SIDE=1200;
