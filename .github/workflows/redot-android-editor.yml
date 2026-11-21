@@ -62,7 +62,16 @@ jobs:
 
       - name: Build ARM64 editor library
         working-directory: engine
-        run: python -m SCons platform=android arch=arm64 target=editor production=yes debug_symbols=no -j2
+        shell: bash
+        run: |
+          set -euo pipefail
+          if python -m SCons platform=android arch=arm64 target=editor production=yes debug_symbols=no -j2 > android-build.log 2>&1; then
+            tail -n 50 android-build.log
+          else
+            tail -n 80 android-build.log
+            python -c 'from pathlib import Path; s="\n".join(Path("android-build.log").read_text(errors="replace").splitlines()[-40:]); print("::error title=Android build log::" + s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))'
+            exit 1
+          fi
 
       - name: Build editor APK
         working-directory: engine/platform/android/java
