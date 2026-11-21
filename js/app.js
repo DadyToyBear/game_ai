@@ -130,6 +130,7 @@
     const Ctx = window.AudioContext || window.webkitAudioContext;
     state.ctx = new Ctx({ latencyHint: 'interactive' });
     state.mixer = AE.createMixer(state.ctx);
+    applyDelayTime();
     state.channels = song.tracks.map((t) => {
       const ch = AE.createChannel(state.ctx, state.mixer);
       applyChannel(t, ch);
@@ -366,14 +367,16 @@
     const spb = song.steps;
     const bar = Math.floor(state.currentStep / spb);
     const local = state.currentStep % spb;
-    // планка в сетке паттерна (если редактор показывает этот такт)
+    // планка в сетке паттерна: в многотактовом паттерне это шаг patBar*spb+local,
+    // иначе подсветка всегда бежала по первому такту и не совпадала со звуком
     const patBar = bar % Math.max(1, song.bars);
-    document.querySelectorAll('.cell[data-step="' + local + '"]').forEach((c) => c.classList.add('playing'));
-    document.querySelectorAll('.head-cell[data-step="' + local + '"]').forEach((c) => c.classList.add('playhead'));
+    const patStep = patBar * spb + local;
+    document.querySelectorAll('.cell[data-step="' + patStep + '"]').forEach((c) => c.classList.add('playing'));
+    document.querySelectorAll('.head-cell[data-step="' + patStep + '"]').forEach((c) => c.classList.add('playhead'));
     // бегунок в пиано-роллах: у каждой машины свой ролл, ведём все сразу
     song.tracks.forEach((t, ti) => {
       if (t.engine === 'beatbox') return;
-      Pattern.paintPlayhead(t, local);
+      Pattern.paintPlayhead(t, patStep);
     });
     document.getElementById('pos').textContent =
       String(bar + 1).padStart(3, '0') + ' : ' + String(Math.floor(local / 4) + 1).padStart(2, '0');
@@ -849,6 +852,11 @@
               const arr = (tr.scenes || 'A').padEnd(song.arrangeBars, 'A').split('');
               arr[b] = next;
               tr.scenes = arr.join('').slice(0, song.arrangeBars);
+              Pattern.markUsed(tr);
+              // без перерисовки клик менял данные, а на экране оставалась старая буква
+              renderSeq();
+              renderMachine();
+              UI.toast(tr.name + ' · такт ' + (b + 1) + ' → паттерн ' + next);
             },
           }, [
             el('span', { class: 'pletter', text: letter, style: { color: ENG[tr.engine].accent } }),
@@ -1245,6 +1253,15 @@
       el('button', { class: 'btn ghost', text: 'Сброс', style: { fontSize: '11px' }, onclick: () => { song.eq = { low: 0, mid: 0, high: 0 }; applyMaster(); renderAll(); } }),
     ]);
     box.appendChild(master);
+  }
+
+  /* Время дилея: пунктирная восьмая от темпа — то же значение использует
+     экспорт (audio.js renderToBuffer), чтобы WAV/MP3 звучали как live. */
+  function delayTimeFor(bpm) { return (60 / (bpm || song.bpm || 120)) * 0.75; }
+
+  function applyDelayTime() {
+    if (!state.mixer || !state.mixer.setDelayTime) return;
+    state.mixer.setDelayTime(delayTimeFor(song.bpm));
   }
 
   function applyMaster() {
@@ -2308,6 +2325,7 @@
       song.bpm = UI.clamp(Number(e.target.value) || 120, 40, 220);
       e.target.value = song.bpm;
       updateStepDur();
+      applyDelayTime();
       if (state.kaossInst) state.kaossInst.bpm = song.bpm;
     });
 
@@ -2669,6 +2687,8 @@
     loadProject,
     patternSteps: () => patternSteps(),
     arrangeSteps: () => arrangeSteps(),
+    delayTimeFor,
+    applyDelayTime,
   };
 
   document.addEventListener('DOMContentLoaded', boot);
