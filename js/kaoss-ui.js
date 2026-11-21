@@ -156,10 +156,27 @@
         readout.textContent = noteName(midi);
       },
       onUp: () => {
-        inst.noteOff();
-        pad.classList.remove('active');
+        if (!inst.hold) {
+          inst.noteOff();
+          pad.classList.remove('active');
+        } else {
+          pad.classList.add('holdon');
+        }
       },
     });
+
+    const holdBtn = el('button', {
+      class: 'btn mini hold',
+      text: 'HOLD',
+      title: 'Фиксация: нота остаётся после отпускания (как на железе)',
+      onclick: () => {
+        const on = inst.setHold(!inst.hold);
+        holdBtn.classList.toggle('on', on);
+        pad.classList.toggle('holdon', on);
+        if (on) readout.textContent = noteName(inst.midi);
+      },
+    });
+    head.appendChild(holdBtn);
 
     // лупы
     const loopBox = el('div', { class: 'loop-box' });
@@ -189,9 +206,19 @@
       });
       clr.addEventListener('click', () => { inst.clearLoop(slot); refresh(); });
 
+      const toPat = el('button', {
+        class: 'btn ghost mini',
+        text: '→ Паттерн',
+        title: 'Перенести фразу лупа в активную машину как обычные ноты',
+        onclick: () => {
+          if (!inst.loops[slot] || !inst.loops[slot].length) { window.UI.toast('Сначала запишите фразу в луп', 'error'); return; }
+          KU.loopToProject(inst, slot);
+        },
+      });
+
       loopBox.appendChild(el('div', { class: 'loop-row' }, [
         el('span', { class: 'loop-num', text: 'LOOP ' + (slot + 1) }),
-        rec, play, clr, state,
+        rec, play, clr, state, toPat,
       ]));
     });
 
@@ -312,10 +339,25 @@
       yLabel: 'Y · ГЛУБИНА/РЕЗОНАНС',
       onDown: (x, y) => { fx.setXY(x, y); pad.classList.add('active'); },
       onMove: (x, y) => { fx.setXY(x, y); },
-      onUp: () => { pad.classList.remove('active'); },
+      onUp: () => {
+        pad.classList.remove('active');
+        if (!fx.hold) fx.releaseXY();
+      },
     });
 
-    const head = el('div', { class: 'kaoss-head' }, [
+    const holdBtn = el('button', {
+      class: 'btn mini hold',
+      text: 'HOLD',
+      title: 'Зафиксировать позицию X-Y (как на miniKP2)',
+      onclick: () => {
+        const on = fx.setHold(!fx.hold);
+        holdBtn.classList.toggle('on', on);
+        pad.classList.toggle('holdon', on);
+        if (!on) fx.releaseXY();
+      },
+    });
+
+    const head2 = el('div', { class: 'kaoss-head' }, [
       el('div', { class: 'kaoss-title' }, [
         el('span', { class: 'kaoss-badge fx', text: 'FX' }),
         el('div', {}, [
@@ -325,6 +367,7 @@
       ]),
       el('div', { class: 'spacer' }),
       nameEl, tagEl,
+      holdBtn,
       el('button', { class: 'btn ghost mini', text: 'Сброс', onclick: () => { fx.reset(); pad.setXY(0.5, 0.5); pad.classList.remove('active'); } }),
     ]);
 
@@ -368,7 +411,7 @@
     };
     rebuildPlayer();
 
-    wrap.appendChild(head);
+    wrap.appendChild(head2);
     wrap.appendChild(el('div', { class: 'kaoss-body fx-body' }, [
       el('div', { class: 'fx-progs' }, [progGrid]),
       el('div', { class: 'kaoss-side' }, [
@@ -378,6 +421,62 @@
       playerCard,
     ]));
     return wrap;
+  };
+
+  /* Перенос фразы лупа в паттерн выбранной машины (или в новую машину) */
+  KU.loopToProject = function (inst, slot) {
+    const MS = window.MS;
+    const segs = inst.loops[slot] || [];
+    const song = MS.song;
+    const targets = song.tracks.filter((t) => t.engine !== 'beatbox');
+
+    const box = el('div', {});
+    box.appendChild(el('p', { class: 'muted', text: 'Фраза (' + segs.length + ' сегм.) станет нотами в паттерне выбранной машины. Такт = длина лупа (' + inst.loopBars + ' такт(а) при ' + inst.bpm + ' BPM).' }));
+
+    const sel = el('select', { class: 'preset-select' }, targets.map((t, i) =>
+      el('option', { value: String(song.tracks.indexOf(t)), text: t.name + ' · ' + window.ENGINES[t.engine].name })));
+    box.appendChild(el('div', { class: 'row' }, [el('label', { class: 'hint', text: 'Куда' }), sel]));
+
+    const modeSel = el('select', { class: 'preset-select' }, [
+      el('option', { value: 'replace', text: 'Заменить паттерн' }),
+      el('option', { value: 'merge', text: 'Добавить к нотам' }),
+    ]);
+    box.appendChild(el('div', { class: 'row' }, [el('label', { class: 'hint', text: 'Режим' }), modeSel]));
+
+    const slotSel = el('select', { class: 'preset-select' }, [0, 1, 2, 3].map((i) =>
+      el('option', { value: String(i), text: 'Паттерн ' + 'ABCD'[i] })));
+    box.appendChild(el('div', { class: 'row' }, [el('label', { class: 'hint', text: 'В паттерн' }), slotSel]));
+
+    const actions = [
+      { label: 'Отмена' },
+      {
+        label: 'Перенести', primary: true,
+        action: () => {
+          const idx = Number(sel.value);
+          const tr = song.tracks[idx];
+          if (!tr) return;
+          const patIdx = Number(slotSel.value);
+          const notes = window.Kaoss.loopToNotes(segs, {
+            bpm: inst.bpm,
+            stepsPerBar: song.steps,
+            bars: inst.loopBars,
+          });
+          const pat = window.Pattern.pattern(tr, patIdx);
+          if (modeSel.value === 'replace') pat.notes = notes;
+          else {
+            notes.forEach((n) => {
+              if (!pat.notes.some((x) => x.at === n.at && x.m === n.m)) pat.notes.push(n);
+            });
+          }
+          window.Pattern.markUsed(tr);
+          tr.patIndex = patIdx;
+          MS.state.activeTrack = idx;
+          MS.renderAll();
+          window.UI.toast('Перенесено ' + notes.length + ' нот в «' + tr.name + '» · паттерн ' + 'ABCD'[patIdx], 'ok');
+        },
+      },
+    ];
+    UI.modal('Луп → паттерн', box, actions);
   };
 
   const SCALE_NAMES = {

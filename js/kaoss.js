@@ -130,7 +130,8 @@
       return midi;
     };
 
-    inst.noteOff = function () {
+    inst.noteOff = function (force) {
+      if (inst.hold && !force) return; // нота держится
       if (inst.voice) {
         inst.voice.release(ctx.currentTime);
         inst.voice = null;
@@ -225,6 +226,28 @@
     inst.setMode = function (mode) {
       inst.mode = mode;
       if (mode === 'sampler') inst.ensureSampler();
+    };
+
+    /* HOLD у Kaossilator: нота «залипает» после отпускания пальца */
+    inst.hold = false;
+    inst.holdMidi = null;
+
+    inst.setHold = function (on) {
+      inst.hold = !!on;
+      if (inst.hold) {
+        inst.holdMidi = inst.lastMidi;
+      } else {
+        inst.holdMidi = null;
+        inst.noteOff();
+      }
+      return inst.hold;
+    };
+
+    inst.releaseHold = function () {
+      if (!inst.hold) return;
+      inst.hold = false;
+      inst.holdMidi = null;
+      inst.noteOff();
     };
 
     inst.stopAll = function () {
@@ -486,6 +509,29 @@
       hold: false,
       x: 0.5, y: 0.5,
       active: false,
+      /* HOLD: фиксация последней позиции X/Y (как кнопка HOLD на miniKP2) */
+      hold: false,
+      holdX: 0.5,
+      holdY: 0.5,
+      setHold(on) {
+        fx.hold = !!on;
+        if (fx.hold) { fx.holdX = fx.x; fx.holdY = fx.y; }
+        else { fx.setXY(fx.x, fx.y); }
+        return fx.hold;
+      },
+      /* Плавный «отпуск» — возврат эффекта в нейтраль (как отпускание пэда) */
+      releaseXY() {
+        if (fx.hold) return;
+        const t = ctx.currentTime;
+        allWets.forEach((g) => g.gain.setTargetAtTime(0, t, 0.12));
+        dry.gain.setTargetAtTime(1, t, 0.12);
+        filt.type = 'lowpass';
+        filt.frequency.setTargetAtTime(20000, t, 0.15);
+        filt.Q.setTargetAtTime(0.7, t, 0.15);
+        gateDepth.gain.setTargetAtTime(0, t, 0.15);
+        ringDepth.gain.setTargetAtTime(0, t, 0.15);
+        fx.active = false;
+      },
       setProgram(i) {
         fx.program = clamp(i, 0, PROGRAMS.length - 1);
         fx.setXY(fx.x, fx.y);
@@ -717,6 +763,27 @@
     };
 
     return S;
+  };
+
+  /* --- Конвертация фразы лупа в ноты проекта --- */
+  /* segs: [{t0,t1,midi,x,y,v}] в секундах; bpm, stepsPerBar → список {at,m,len,v} */
+  K.loopToNotes = function (segs, opts) {
+    opts = opts || {};
+    const bpm = opts.bpm || 120;
+    const stepsPerBar = opts.stepsPerBar || 16;
+    const bars = opts.bars || 1;
+    const stepDur = 60 / bpm / 4;
+    const totalSteps = stepsPerBar * bars;
+    const out = [];
+    (segs || []).forEach((sg) => {
+      const at = Math.round(sg.t0 / stepDur) % totalSteps;
+      const len = Math.max(1, Math.round((sg.t1 - sg.t0) / stepDur));
+      const m = sg.midi != null ? sg.midi : 60;
+      // если на этом шаге уже есть нота — не дублируем
+      if (out.some((n) => n.at === at && n.m === m)) return;
+      out.push({ at, m, len: Math.min(len, totalSteps - at), v: sg.v != null ? sg.v : 0.85 });
+    });
+    return out;
   };
 
   K.SCALES = SCALES;

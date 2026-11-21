@@ -468,3 +468,9 @@ main { flex: 1; padding: 0 16px 28px; }
 .slice:active { background: var(--accent); color: #06231e; }
 .sample-card .rng { flex: 1; min-width: 120px; }
 .sample-card .small { font-size: 10px; color: var(--muted); }
+
+/* HOLD-кнопки Kaoss */
+.btn.mini.hold { letter-spacing: .08em; font-size: 10px; font-weight: 800; }
+.btn.mini.hold.on { background: linear-gradient(180deg, #ffd166, #f0a93a); color: #241503; border-color: transparent; box-shadow: 0 0 12px rgba(255,209,102,.45); }
+.xy-pad.holdon { border-color: #ffd166; box-shadow: 0 0 0 2px rgba(255,209,102,.20), inset 0 0 40px rgba(255,209,102,.08); }
+.xy-pad.holdon .xy-dot { background: radial-gradient(circle at 35% 30%, #fff, #ffd166 55%, rgba(255,209,102,.25) 75%); box-shadow: 0 0 22px rgba(255,209,102,.6); }
