@@ -186,8 +186,8 @@ jobs:
           if-no-files-found: error
 
       # Проверка самой цепочки подписи, когда настоящего ключа ещё нет:
-      # генерируем ВРЕМЕННЫЙ ключ, подписываем им release-APK и проверяем apksigner.
-      # Такой файл не публикуется (после установки его нельзя обновить другим ключом).
+      # генерируем ВРЕМЕННЫЙ ключ, подписываем им release-APK и AAB, проверяем apksigner и
+      # jarsigner. Такие файлы не публикуются: после установки их нельзя обновить другим ключом.
       - name: Проверка подписи на временном ключе
         if: steps.key.outputs.signed != 'true'
         run: |
@@ -195,15 +195,26 @@ jobs:
           python3 scripts/make-signing-key.py --out "$RUNNER_TEMP/proofkeys" \
             --password 'proof-only-password' --alias ministudio \
             --dname 'CN=Mini Studio Proof, O=Mini Studio, C=CZ'
+
+          echo "=== что видит keytool ==="
+          keytool -list -v -keystore "$RUNNER_TEMP/proofkeys/release.p12" \
+            -storepass proof-only-password -alias ministudio \
+            | grep -E "Alias name|Valid|Signature algorithm|SHA256" | head -5
+
           APK=$(find android/app/build/outputs -name "*.apk" | head -1)
           OUT="$RUNNER_TEMP/mini-studio-proof-signed.apk"
           apksigner sign --ks "$RUNNER_TEMP/proofkeys/release.p12" \
             --ks-pass pass:proof-only-password --ks-key-alias ministudio \
             --key-pass pass:proof-only-password --out "$OUT" "$APK"
-          echo "--- проверка подписи ---"
+
+          echo "=== apksigner verify ==="
           apksigner verify --verbose --print-certs "$OUT"
           cp "$OUT" android/app/build/outputs/proof-signed.apk
-          echo "::notice title=Подпись проверена::Цепочка подписи работает (временный ключ). Добавьте свои секреты ANDROID_KEYSTORE_BASE64 и др., чтобы публиковать подписанные сборки."
+
+          echo "=== jarsigner (AAB) ==="
+          AAB=$(find android/app/build/outputs -name "*.aab" | head -1)
+          jarsigner -verify -verbose:summary "$AAB" | tail -3
+          echo "::notice title=Подпись проверена::Цепочка подписи работает (временный ключ + apksigner). Добавьте секреты ANDROID_KEYSTORE_BASE64 и пароли, чтобы публиковать подписанные сборки."
 
       - name: Загрузить проверенный подписанный APK
         if: steps.key.outputs.signed != 'true'
