@@ -124,6 +124,9 @@
     };
     root.addEventListener('pointerup', up);
     root.addEventListener('pointercancel', up);
+    // палец ушёл за пределы деки без «клика» — XY должен вернуться в покой,
+    // иначе эффект/звук остаётся на последней точке (дек с FOLLOW/задержкой)
+    root.addEventListener('pointerleave', (e) => { if (dragging && e.buttons === 0) up(); });
 
     root.setXY = (x, y, ghost) => {
       last = { x, y };

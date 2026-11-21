@@ -85,13 +85,20 @@
       if (!active) return;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      if (!moved && Math.abs(dx) + Math.abs(dy) < 12) return;
-      moved = true;
+      // жест «сдвинуть», а не «нажать»: перетаскивание начинается при явном
+      // горизонтальном уводе пальца (вертикальный скролл страницы не трогаем)
+      if (!moved) {
+        if (Math.abs(dy) > Math.abs(dx) || Math.abs(dx) < 12) return;
+        moved = true;
+        // тап по ячейке сетки уже мог сработать на pointerdown — отменяем его,
+        // иначе прокрутка заодно включала/выключала ноту (было так на телефоне)
+        if (node.__cancelTap) node.__cancelTap();
+      }
       node.classList.add('panning');
       if (node.scrollWidth > node.clientWidth) node.scrollLeft = startLeft - dx;
       if (node.scrollHeight > node.clientHeight) node.scrollTop = startTop - dy;
     }, { passive: true });
-    const end = () => { active = false; node.classList.remove('panning'); };
+    const end = () => { active = false; moved = false; node.classList.remove('panning'); };
     node.addEventListener('pointerup', end);
     node.addEventListener('pointercancel', end);
     node.addEventListener('pointerleave', end);

@@ -166,6 +166,13 @@
   function startTransport() {
     ensureAudio();
     if (state.playing) return stopTransport();
+    if (state.recording) {
+      const t = song.tracks[state.activeTrack];
+      if (t) {
+        state.recordNotified = null;   // разрешаем следующее уведомление о смене паттерна
+        UI.toast('REC: пишу в ' + t.name + ' · паттерн ' + 'ABCD'[playingPatternIndex(t, 0)]);
+      }
+    }
     state.playing = true;
     state.currentStep = 0;
     state.nextTime = state.ctx.currentTime + 0.06;
@@ -968,6 +975,29 @@
     ]), [{ label: 'Закрыть' }]);
   }
 
+  /* Тап по элементу, отменяемый панорамированием.
+     На телефоне сетку можно тянуть пальцем; раньше касание при старте
+     прокрутки тут же включало/выключало ноту. Теперь срабатывает только
+     короткий тап без сдвига, а панорамирование отменяет нажатие. */
+  function bindTap(node) {
+    if (!node || !node.__onTap) return;
+    let downX = 0, downY = 0;
+    let armed = false;
+    node.addEventListener('pointerdown', (e) => {
+      armed = true;
+      downX = e.clientX; downY = e.clientY;
+    }, { passive: true });
+    node.addEventListener('pointercancel', () => { armed = false; });
+    node.__cancelTap = () => { armed = false; };
+    node.addEventListener('pointerup', (e) => {
+      if (!armed) return;
+      armed = false;
+      // палец уехал — это был жест прокрутки, а не нажатие
+      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 10) return;
+      node.__onTap(e);
+    });
+  }
+
   function renderSeq() {
     const grid = document.getElementById('seqGrid');
     const barBox = document.getElementById('patternBar');
@@ -1047,7 +1077,7 @@
         if (on && s % 4 === 0) cls.push('strong');
         if (firstOfTrack) cls.push('group-start');
         const c = el('div', { class: cls.join(' '), 'data-step': s, 'data-track': row.ti, 'data-pad': row.pad == null ? '' : row.pad });
-        c.addEventListener('click', (e) => {
+        c.__onTap = (e) => {
           e.preventDefault();
           const switched = state.activeTrack !== row.ti;
           state.activeTrack = row.ti;
@@ -1064,7 +1094,8 @@
           }
           if (!switched) renderRollPanelOnly();
           else renderSeq();
-        });
+        };
+        bindTap(c);
         c.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           const tr = song.tracks[row.ti];
@@ -2366,6 +2397,12 @@
     document.getElementById('btnRec').addEventListener('click', (e) => {
       state.recording = !state.recording;
       e.currentTarget.classList.toggle('on', state.recording);
+      if (state.recording && !state.playing) {
+        // кнопка горит, но транспорт стоит — раньше запись молча не работала
+        // и выглядела как «REC не пишет»
+        UI.toast('Запись включена — нажмите «Играть», иначе ноты не запишутся');
+        return;
+      }
       UI.toast(state.recording ? 'Запись включена: ноты/удары пишутся в паттерн' : 'Запись выключена');
     });
 
