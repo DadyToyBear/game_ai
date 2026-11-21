@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/redot-web-editor.yml'
       - 'redot-web/**'
+      - 'build-patches/**'
   workflow_dispatch:
 
 permissions:

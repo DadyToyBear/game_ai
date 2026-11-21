@@ -17,7 +17,7 @@
     const token = input.value;
     if (!token) { status.textContent = 'Введите секрет моста.'; return; }
     try {
-      window.RedotFrameCapture.start({canvas: () => document.getElementById('game-canvas'), token, onStatus: s => {status.textContent = s;}});
+      window.RedotFrameCapture.start({canvas: () => document.getElementById('game-canvas'), token, source: 'web-game', onStatus: s => {status.textContent = s;}});
       input.value = ''; input.disabled = true; button.textContent = 'Остановить кадры';
     } catch (error) { status.textContent = error.message; }
   });

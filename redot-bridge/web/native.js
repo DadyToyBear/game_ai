@@ -17,6 +17,7 @@
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response;
   }
+  const isGameSource = source => source === 'native-game' || source === 'web-game';
   function clearFrame() { latest = null; ctx.clearRect(0, 0, canvas.width, canvas.height); }
   async function refresh() {
     if (!active || busy) return;
@@ -27,11 +28,18 @@
       if (!active || currentGeneration !== generation) return;
       let label = state.editor_connected ? (state.playing ? 'Игра запущена' : 'Редактор подключён, игра остановлена') : 'Редактор не подключён';
       if (state.pending) label += ' · команда ожидает редактор';
-      if (state.frame_available && state.frame_source === 'native-game') label += ` · последний кадр: ${state.frame_age_seconds} с назад`;
-      else if (state.frame_available) label += ' · кадр от другого источника (не показан)';
+      if (state.frame_available && !isGameSource(state.frame_source)) label += ' · кадр от другого источника (не показан)';
       $('status').textContent = label;
-      if (state.frame_available && state.frame_source === 'native-game') {
-        const blob = await (await request('/api/frame')).blob();
+      if (state.frame_available && isGameSource(state.frame_source)) {
+        // The frame can change after /status. Validate the label on the same
+        // response as the bytes, not only the earlier status response.
+        const response = await request('/api/frame');
+        if (!active || currentGeneration !== generation) return;
+        const frameSource = response.headers.get('X-Redot-Source');
+        if (!isGameSource(frameSource)) {
+          clearFrame(); $('status').textContent = 'Источник кадра не указан; кадр не показан.'; return;
+        }
+        const blob = await response.blob();
         if (!active || currentGeneration !== generation) return;
         const image = await createImageBitmap(blob);
         if (!active || currentGeneration !== generation) { image.close(); return; }
@@ -39,10 +47,11 @@
           canvas.width = image.width; canvas.height = image.height;
         }
         ctx.drawImage(image, 0, 0); image.close(); latest = blob;
+        $('status').textContent = `${label} · источник заявлен как ${frameSource}`;
       } else {
         clearFrame();
       }
-    } catch (err) { if (active && currentGeneration === generation) $('status').textContent = `Мост недоступен: ${err.message}`; }
+    } catch (err) { if (active && currentGeneration === generation) { clearFrame(); $('status').textContent = `Кадр или мост недоступен: ${err.message}`; } }
     finally { busy = false; }
   }
   $('connect').onclick = () => {

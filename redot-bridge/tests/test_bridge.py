@@ -39,8 +39,11 @@ class BridgeTest(unittest.TestCase):
         self.worker.join()
         self.tmp.cleanup()
 
-    def request(self, path='/api/frame', method='GET', data=None, token=TOKEN, mime='image/png'):
-        req = urllib.request.Request(self.url + path, data=data, method=method, headers={'Authorization': 'Bearer ' + token, 'Content-Type': mime})
+    def request(self, path='/api/frame', method='GET', data=None, token=TOKEN, mime='image/png', source=None):
+        headers = {'Authorization': 'Bearer ' + token, 'Content-Type': mime}
+        if source is not None:
+            headers['X-Redot-Source'] = source
+        req = urllib.request.Request(self.url + path, data=data, method=method, headers=headers)
         return urllib.request.urlopen(req, timeout=3)
 
     def test_authorization_validation_deletion(self):
@@ -66,7 +69,7 @@ class BridgeTest(unittest.TestCase):
         self.assertEqual(err.exception.code, 404)
 
     def test_mcp_stdio_end_to_end(self):
-        self.request(method='POST', data=PNG)
+        self.request(method='POST', data=PNG, source='native-game').close()
         messages = [
             {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {'protocolVersion': '2025-03-26', 'capabilities': {}, 'clientInfo': {'name': 'test', 'version': '1'}}},
             {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
@@ -85,6 +88,27 @@ class BridgeTest(unittest.TestCase):
         self.assertEqual(image['mimeType'], 'image/png')
         self.assertEqual(base64.b64decode(image['data']), PNG)
         self.assertTrue(replies[4]['result']['isError'])
+
+    def test_game_screenshot_requires_source_on_same_frame_response(self):
+        def screenshot():
+            return bridge.mcp_response({'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': 'game_screenshot'}}, self.url, TOKEN)['result']
+        for source in (None, 'demo', 'editor', 'unknown'):
+            with self.subTest(source=source):
+                self.request(method='POST', data=PNG, source=source).close()
+                with self.request() as response:
+                    self.assertEqual(response.headers['X-Redot-Source'], 'unspecified')
+                self.assertTrue(screenshot()['isError'])
+        for source in ('native-game', 'web-game'):
+            with self.subTest(source=source):
+                self.request(method='POST', data=PNG, source=source).close()
+                with self.request() as response:
+                    self.assertEqual(response.headers['X-Redot-Source'], source)
+                    self.assertEqual(response.read(), PNG)
+                result = screenshot()
+                self.assertFalse(result.get('isError', False))
+                self.assertEqual(base64.b64decode(result['content'][0]['data']), PNG)
+                self.assertIn(source, result['content'][1]['text'])
+                self.assertIn('not independently verified', result['content'][1]['text'])
 
     def test_native_editor_poll_and_mcp_control(self):
         def post(path, obj, token=TOKEN):

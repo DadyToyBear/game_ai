@@ -23,6 +23,7 @@ MAX_MCP_SNAPSHOT = 8 * 1024 * 1024
 MAX_FRAME = 8 * 1024 * 1024
 MAX_LOG_REQUEST = 16 * 1024
 MAX_LOG_RESPONSE = 512 * 1024
+GAME_SOURCES = frozenset(('native-game', 'web-game'))
 WEB = Path(__file__).resolve().parent / 'web'
 
 
@@ -140,9 +141,11 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             # Do not log paths, authorization headers or payloads.
             pass
 
-        def send_bytes(self, code, body=b'', content_type='text/plain; charset=utf-8'):
+        def send_bytes(self, code, body=b'', content_type='text/plain; charset=utf-8', extra_headers=None):
             self.send_response(code)
             self.send_header('Content-Type', content_type)
+            for name, value in (extra_headers or {}).items():
+                self.send_header(name, value)
             self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
@@ -222,7 +225,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             if frame is None:
                 self.send_bytes(404, b'No frame available')
                 return
-            self.send_bytes(200, frame[0], frame[1])
+            self.send_bytes(200, frame[0], frame[1], {'X-Redot-Source': frame[3]})
 
         def do_POST(self):
             if self.path not in ('/api/frame', '/api/command', '/api/editor/poll', '/api/project/import', '/api/logs'):
@@ -312,7 +315,8 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             if len(data) != length or not data.startswith(signature):
                 self.send_bytes(400, b'Invalid image')
                 return
-            source = 'native-game' if self.headers.get('X-Redot-Source') == 'native-game' else 'unspecified'
+            claimed_source = self.headers.get('X-Redot-Source', '')
+            source = claimed_source if claimed_source in GAME_SOURCES else 'unspecified'
             store.put(data, mime, source)
             self.send_bytes(204)
 
@@ -333,7 +337,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
 
 def tools():
     return [
-        {'name': 'game_screenshot', 'description': 'Read the latest frame explicitly shared by the game. No frame is captured on demand.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'game_screenshot', 'description': 'Read the latest frame labeled as a game by its trusted sender. Labels are not proof of origin; no frame is captured on demand.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'delete_game_screenshot', 'description': 'Delete the latest shared game frame from bridge memory.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'game_play', 'description': 'Queue play-main-scene for the connected native editor. Check game_status for actual state.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'game_stop', 'description': 'Queue stop for the connected native editor. Check game_status for actual state.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
@@ -354,9 +358,13 @@ def call_frame(url, token, method):
             if len(body) > MAX_FRAME:
                 raise ValueError('Frame exceeds size limit')
             mime = response.headers.get_content_type()
-            if method == 'GET' and mime not in ('image/png', 'image/jpeg'):
-                raise ValueError('Unexpected frame MIME type')
-            return body, mime
+            source = response.headers.get('X-Redot-Source', '')
+            if method == 'GET':
+                if mime not in ('image/png', 'image/jpeg'):
+                    raise ValueError('Unexpected frame MIME type')
+                if source not in GAME_SOURCES:
+                    raise ValueError('Frame has no recognized game source label; refusing game_screenshot')
+            return body, mime, source
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             raise ValueError('No game frame has been shared yet') from exc
@@ -452,8 +460,9 @@ def mcp_response(message, url, token):
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Invalid tool arguments'}}
         try:
             if name == 'game_screenshot':
-                body, mime = call_frame(url, token, 'GET')
-                result = {'content': [{'type': 'image', 'data': base64.b64encode(body).decode('ascii'), 'mimeType': mime}]}
+                body, mime, source = call_frame(url, token, 'GET')
+                result = {'content': [{'type': 'image', 'data': base64.b64encode(body).decode('ascii'), 'mimeType': mime},
+                                      {'type': 'text', 'text': f'Sender-reported source: {source}; source label is not independently verified.'}]}
             elif name == 'delete_game_screenshot':
                 call_frame(url, token, 'DELETE')
                 result = {'content': [{'type': 'text', 'text': 'Frame deleted from bridge memory.'}]}

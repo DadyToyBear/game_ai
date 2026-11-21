@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from aiohttp import web
-from bridge import FrameStore, MAX_FRAME, MAX_LOG_REQUEST
+from bridge import FrameStore, MAX_FRAME, MAX_LOG_REQUEST, GAME_SOURCES
 
 WEB = Path(__file__).resolve().parent / 'web'
 
@@ -122,7 +122,9 @@ def create_app(origin, device_token, controller_token):
             signature = b'\x89PNG\r\n\x1a\n' if request.content_type == 'image/png' else b'\xff\xd8\xff'
             if not data.startswith(signature):
                 return web.Response(status=400, text='Invalid image')
-            store.put(data, request.content_type, 'native-game')
+            claimed_source = request.headers.get('X-Redot-Source', '')
+            source = claimed_source if claimed_source in GAME_SOURCES else 'unspecified'
+            store.put(data, request.content_type, source)
             return web.Response(status=204)
         if not authorize(request, controller_token):
             return unauthorized()
@@ -132,7 +134,7 @@ def create_app(origin, device_token, controller_token):
         current = store.get()
         if current is None:
             return web.Response(status=404, text='No frame available')
-        return web.Response(body=current[0], content_type=current[1])
+        return web.Response(body=current[0], content_type=current[1], headers={'X-Redot-Source': current[3]})
 
     for path in ('/', '/native.html', '/native.js'):
         app.router.add_get(path, page, allow_head=False)

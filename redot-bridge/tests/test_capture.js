@@ -5,11 +5,13 @@ const path = require('node:path');
 
 (async () => {
   let calls = 0;
+  const sources = [];
   const canvas = {isConnected: true, width: 2, height: 2, getClientRects: () => [{}], toBlob: cb => cb(new Blob(['fake'], {type: 'image/png'}))};
   const context = {window: {}, Blob, AbortController, setTimeout, clearTimeout, fetch: async (url, options) => {
     assert.equal(url, '/api/frame');
     assert.equal(options.headers.Authorization, 'Bearer test-secret');
     assert.equal(options.headers['Content-Type'], 'image/png');
+    sources.push(options.headers['X-Redot-Source']);
     calls++;
     return {ok: true};
   }};
@@ -23,5 +25,22 @@ const path = require('node:path');
   assert.match(status, /передан/);
   api.stop();
   assert.equal(api.isRunning(), false);
+  assert.equal(sources[0], 'unspecified', 'demo/default must not be labeled as a game');
+  api.start({canvas: () => canvas, token: 'test-secret', source: 'web-game'});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(sources[1], 'web-game');
+  api.stop();
+  const elements = [];
+  const createElement = tag => {
+    const element = {tag, style: {}, textContent: '', value: '', addEventListener: (_name, callback) => { element.click = callback; }, setAttribute() {}, append() {}};
+    elements.push(element); return element;
+  };
+  let overlayOptions;
+  const overlay = {window: {RedotFrameCapture: {isRunning: () => false, start: options => { overlayOptions = options; }}}, document: {createElement, getElementById: () => canvas, body: {append() {}}}};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../web/redot-overlay.js'), 'utf8'), overlay);
+  elements.find(e => e.tag === 'input').value = 'test-secret';
+  elements.find(e => e.tag === 'button').click();
+  assert.equal(overlayOptions.source, 'web-game', 'editor overlay must explicitly identify the game canvas');
+  assert.equal(overlayOptions.canvas(), canvas);
   console.log('capture opt-in and stop test passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

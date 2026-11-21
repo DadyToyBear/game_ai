@@ -8,7 +8,7 @@ import tempfile
 SOURCE = Path(__file__).resolve().parent
 START = '''# Redot Web Editor + local bridge (experimental)
 
-This bundle contains the Redot Web editor and an optional local bridge. It does not provide remote Internet access, live file synchronization, or a tested guarantee that all add-ons work.
+This bundle contains the Redot Web editor and an optional local bridge. Remote access requires a separately deployed experimental HTTPS relay; it is not enabled automatically. Live file synchronization and guaranteed add-on compatibility are not provided.
 
 ## Start on Windows
 
@@ -43,9 +43,9 @@ def bundle_into(editor_dir):
         raise ValueError('Bridge or BRIDGE-START.md already exists; refusing to overwrite')
     stage = Path(tempfile.mkdtemp(prefix='.bridge-bundle-', dir=root))
     try:
-        for name in ('bridge.py', 'project_sync.py', 'README.md'):
+        for name in ('bridge.py', 'project_sync.py', 'relay.py', 'requirements-relay.txt', 'make_bundle.py', 'README.md'):
             shutil.copy2(SOURCE / name, stage / name)
-        for name in ('web', 'addons'):
+        for name in ('web', 'addons', 'relay-deploy'):
             shutil.copytree(SOURCE / name, stage / name)
         stage.rename(destination)
         try:

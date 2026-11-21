@@ -5,7 +5,7 @@
   let controller = null;
   let generation = 0;
   const api = {
-    start({canvas, token, onStatus = () => {}, interval = 2000}) {
+    start({canvas, token, source = 'unspecified', onStatus = () => {}, interval = 2000}) {
       if (running) throw new Error('Capture is already running.');
       if (typeof canvas !== 'function' || !token) throw new Error('Canvas provider and token are required.');
       running = true;
@@ -25,7 +25,7 @@
             if (!blob) throw new Error('Браузер не смог получить кадр canvas.');
             controller = new AbortController();
             const res = await fetch('/api/frame', {
-              method: 'POST', headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'image/png'},
+              method: 'POST', headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'image/png', 'X-Redot-Source': source === 'web-game' ? 'web-game' : 'unspecified'},
               body: blob, cache: 'no-store', signal: controller.signal,
             });
             if (!res.ok) throw new Error(`Мост ответил HTTP ${res.status}.`);
