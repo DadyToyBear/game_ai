@@ -19,3 +19,17 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ---- Mini Studio / Capacitor ----
+-keep class com.getcapacitor.** { *; }
+-keep class com.ministudio.app.** { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keep class * extends com.getcapacitor.Plugin { *; }
+-keepclassmembers class * {
+    @com.getcapacitor.PluginMethod public *;
+}
+# WebView вызывает методы через JS-мост
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-dontwarn org.apache.**

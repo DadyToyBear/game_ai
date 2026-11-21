@@ -1,0 +1,164 @@
+name: Release build (APK + AAB)
+
+# Собирает подписанные релизные файлы:
+#   • APK  — для установки вручную / раздачи
+#   • AAB  — для загрузки в Google Play Console
+# Ключ подписи берётся из GitHub Secrets (см. android/README-APK.md).
+# Если секретов нет — собирается неподписанный release и подписывается отладочным
+# ключом только для проверки сборки (в релиз такой файл не выкладывается).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: 'Версия (например 1.0.2)'
+        required: false
+        default: ''
+      versionCode:
+        description: 'versionCode (целое, больше предыдущего)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Android SDK (platform 34 + build-tools)
+        run: |
+          sudo mkdir -p $ANDROID_HOME/cmdline-tools
+          cd /tmp
+          curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q cmdline.zip -d /tmp/cmdline
+          sudo mv /tmp/cmdline/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+
+      - name: Ключ подписи из секретов
+        id: key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            cat > android/keystore.properties <<PROPS
+          storeFile=$RUNNER_TEMP/release.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          PROPS
+            echo "signed=true" >> $GITHUB_OUTPUT
+            echo "Ключ подписи получен из секретов"
+          else
+            echo "::warning::Секреты подписи не заданы — release будет неподписанным (только для проверки)"
+            echo "signed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Версия
+        id: ver
+        run: |
+          NAME="${{ github.event.inputs.versionName }}"
+          CODE="${{ github.event.inputs.versionCode }}"
+          if [ -z "$NAME" ] && [[ "$GITHUB_REF" == refs/tags/v* ]]; then NAME="${GITHUB_REF#refs/tags/v}"; fi
+          if [ -z "$NAME" ]; then NAME="1.0.1"; fi
+          if [ -z "$CODE" ]; then CODE="${{ github.run_number }}"; fi
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "code=$CODE" >> $GITHUB_OUTPUT
+          echo "Собираем версию $NAME ($CODE)"
+
+      - name: Собрать www/ и синхронизировать
+        run: |
+          bash scripts/build-www.sh
+          npm install --no-audit --no-fund
+          npx cap sync android
+
+      - name: Собрать release APK и AAB
+        env:
+          MS_VERSION_NAME: ${{ steps.ver.outputs.name }}
+          MS_VERSION_CODE: ${{ steps.ver.outputs.code }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace \
+            -PmsVersionName="$MS_VERSION_NAME" -PmsVersionCode="$MS_VERSION_CODE"
+
+      - name: Проверить сборку
+        run: |
+          echo "=== APK ==="
+          find android/app/build/outputs -name "*.apk" -exec ls -lh {} \;
+          echo "=== AAB ==="
+          find android/app/build/outputs -name "*.aab" -exec ls -lh {} \;
+          APK=$(find android/app/build/outputs -name "*.apk" | head -1)
+          AAB=$(find android/app/build/outputs -name "*.aab" | head -1)
+          aapt dump badging "$APK" | head -4
+          if [ "${{ steps.key.outputs.signed }}" = "true" ]; then
+            echo "--- подпись APK ---"
+            apksigner verify --print-certs "$APK" | head -5
+            echo "--- подпись AAB ---"
+            jarsigner -verify -verbose:summary "$AAB" 2>&1 | tail -5
+          fi
+
+      - name: Загрузить артефакты
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-studio-release-${{ steps.key.outputs.signed == 'true' && 'signed' || 'unsigned' }}
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+
+      - name: Инструкция (если ключа нет)
+        if: steps.key.outputs.signed != 'true'
+        run: |
+          cat <<'TXT'
+          ::notice title=Ключ подписи не задан::Release собрался неподписанным.
+            Чтобы получить подписанные APK и AAB:
+              1) bash scripts/gen-keystore.sh            (или scripts/make-signing-key.py без JDK)
+              2) Settings → Secrets and variables → Actions → New secret:
+                 ANDROID_KEYSTORE_BASE64     = base64 -w0 ~/.mini-studio-keys/release.p12
+                 ANDROID_KEYSTORE_PASSWORD   = пароль хранилища
+                 ANDROID_KEY_ALIAS           = ministudio
+                 ANDROID_KEY_PASSWORD        = пароль ключа
+              3) Actions → «Release build (APK + AAB)» → Run workflow
+          TXT
+
+      # Публикуем только подписанные файлы — их можно ставить и загружать в Play
+      - name: Опубликовать релиз
+        if: steps.key.outputs.signed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'release-latest' }}
+          name: Mini Studio ${{ steps.ver.outputs.name }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          body: |
+            Подписанный релиз Mini Studio ${{ steps.ver.outputs.name }} (versionCode ${{ steps.ver.outputs.code }}).
+
+            * `mini-studio-release-*.apk` — установить на телефон напрямую.
+            * `mini-studio-release-*.aab` — загрузить в Google Play Console (Production → Create release).
+
+            Отпечаток ключа и инструкции: `android/README-APK.md`.
+          files: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
