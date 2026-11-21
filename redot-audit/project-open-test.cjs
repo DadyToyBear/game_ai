@@ -35,7 +35,14 @@ async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://
     const cloudURL = `https://127.0.0.1:${cloud.address().port}/project.zip`;
     await page.locator('#redot-cloud-url').fill(cloudURL); await page.locator('#redot-cloud-load').click();
     await page.waitForFunction(() => /ZIP подготовлен|Не удалось/.test(document.querySelector('#redot-project-status').textContent));
-    assert.match(await page.locator('#redot-project-status').textContent(), /ZIP подготовлен/, `TLS test requests: ${requests}; browser: ${diagnostics.join(' | ')}`);
+    const status = await page.locator('#redot-project-status').textContent();
+    if (!status.includes('ZIP подготовлен')) {
+      const probe = await page.evaluate(async url => {try {let r=await fetch(url,{mode:'cors'}); return `OK ${r.status}`;} catch(e){return String(e)}}, cloudURL);
+      const plain = await browser.newPage({ignoreHTTPSErrors:true}); await plain.goto('http://127.0.0.1:8765/project-open.html');
+      const probePlain = await plain.evaluate(async url => {try {let r=await fetch(url,{mode:'cors'}); return `OK ${r.status}`;} catch(e){return String(e)}}, cloudURL);
+      await plain.close();
+      throw new Error(`${status}; TLS requests: ${requests}; editor fetch: ${probe}; plain fetch: ${probePlain}; browser: ${diagnostics.join(' | ')}`);
+    }
     assert.equal(requests,1); assert.equal(await page.locator('#redot-cloud-url').inputValue(),'');
     assert.deepEqual(await page.locator('#zip-file').evaluate(async el=>Array.from(new Uint8Array(await el.files[0].arrayBuffer()))),zipBytes);
     await page.locator('#redot-cloud-url').fill('http://cloud.example/project.zip'); await page.locator('#redot-cloud-load').click();
