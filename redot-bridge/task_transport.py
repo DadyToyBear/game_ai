@@ -27,7 +27,8 @@ RESULT_PREFIX = 'redot-secure-result-'
 IDENT = re.compile(r'^[0-9a-f]{32}$')
 MAC = re.compile(r'^[0-9a-f]{64}$')
 MAX_TASK = 32 * 1024
-MAX_LIST = 2 * 1024 * 1024
+MAX_LIST = 16 * 1024 * 1024
+MAX_LIST_ITEMS = 100000
 MAX_RESULT = 12 * 1024 * 1024
 MAX_AGE = 120
 FUTURE_SKEW = 15
@@ -102,7 +103,7 @@ class WebFTP:
 
     def list_tasks(self):
         data = json.loads(self.request(self.share + '/?json=1', limit=MAX_LIST))
-        if not isinstance(data, dict) or not isinstance(data.get('items'), list) or len(data['items']) > 10000:
+        if not isinstance(data, dict) or not isinstance(data.get('items'), list) or len(data['items']) > MAX_LIST_ITEMS:
             raise ValueError('Invalid or oversized WebFTP listing')
         names = []
         for item in data['items']:

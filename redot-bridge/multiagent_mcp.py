@@ -24,10 +24,9 @@ from task_transport import chat_share
 
 class LimitedResponse:
     """Limit legacy chat HTTP responses without changing its file protocol."""
-    MAX_BYTES = 1024 * 1024
-
-    def __init__(self, response):
+    def __init__(self, response, max_bytes):
         self.response = response
+        self.max_bytes = max_bytes
         self.status = response.status
 
     def __enter__(self):
@@ -37,8 +36,8 @@ class LimitedResponse:
         self.response.close()
 
     def read(self):
-        data = self.response.read(self.MAX_BYTES + 1)
-        if len(data) > self.MAX_BYTES:
+        data = self.response.read(self.max_bytes + 1)
+        if len(data) > self.max_bytes:
             raise ValueError('WebFTP response too large')
         return data
 
@@ -46,7 +45,13 @@ class LimitedResponse:
 def chat_open(request, timeout):
     # The upstream client uses urlopen's redirect-following default. The common
     # MCP refuses redirects, so an HTTPS share cannot redirect requests to HTTP.
-    return LimitedResponse(bridge.HTTP.open(request, timeout=timeout))
+    # The legacy chat uses a full directory listing. Real shares may contain
+    # tens of thousands of task files, so listings have a separate bound.
+    url = request.full_url if isinstance(request, urllib.request.Request) else request
+    parsed = urllib.parse.urlsplit(url)
+    is_listing = urllib.parse.parse_qs(parsed.query) == {'json': ['1']}
+    limit = task_transport.MAX_LIST if is_listing else 1024 * 1024
+    return LimitedResponse(bridge.HTTP.open(request, timeout=timeout), limit)
 
 
 def load_chat(script):

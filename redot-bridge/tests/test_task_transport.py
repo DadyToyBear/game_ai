@@ -167,6 +167,30 @@ class SignedTransportTest(unittest.TestCase):
         names = {tool['name'] for tool in json.loads(process.stdout)['result']['tools']}
         self.assertNotIn('webftp_task_submit', names)
 
+    def test_large_legacy_listing_does_not_block_signed_or_chat_tasks(self):
+        for i in range(21645):
+            Share.files['task-' + str(i).zfill(8) + '-' + 'x' * 70 + '.json'] = b'{}'
+        Share.files['chat-20260101-001.json'] = json.dumps({'from': 'chat-zai', 'text': 'Привет', 'ts': '2026-01-01T00:00:00Z'}, ensure_ascii=False).encode('utf-8')
+        listing_size = len(json.dumps({'items': [{'name': name, 'type': 'file'} for name in Share.files]}).encode())
+        self.assertGreater(listing_size, 2 * 1024 * 1024)
+        self.store.editor_poll(False)
+        identifier = tt.submit(self.client, SECRET, 'game_stop')
+        self.assertEqual(tt.work_once(self.client, SECRET, self.claims, self.editor_url, TOKEN), 1)
+        self.assertEqual(self.store.editor_poll(False), 'stop')
+        self.assertFalse(tt.get_result(self.client, SECRET, identifier)['result'].get('isError', False))
+        request = {'jsonrpc':'2.0', 'id':1, 'method':'tools/call', 'params':{'name':'chat_read', 'arguments':{'scope':'room'}}}
+        proc = subprocess.run([sys.executable, str(ROOT / 'redot-bridge/multiagent_mcp.py')], input=json.dumps(request) + '\n',
+                              capture_output=True, text=True, env=self.env, timeout=15)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        content = json.loads(json.loads(proc.stdout)['result']['content'][0]['text'])
+        self.assertEqual(content['messages'][0]['text'], 'Привет')
+
+    def test_oversized_listing_is_rejected(self):
+        class FakeClient(tt.WebFTP):
+            def request(self, *args, **kwargs):
+                return json.dumps({'items': [None] * (tt.MAX_LIST_ITEMS + 1)}).encode()
+        with self.assertRaises(ValueError): FakeClient(self.client.share).list_tasks()
+
     def test_insecure_share_and_same_secret_rejected(self):
         with self.assertRaises(ValueError): tt.WebFTP('http://example.com/s/test')
         with self.assertRaises(ValueError): tt.work_once(self.client, TOKEN, self.claims, self.editor_url, TOKEN)
