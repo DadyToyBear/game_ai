@@ -18,6 +18,11 @@ public class FileSearchTest {
         assertFalse(FileSearch.matches("photo.JPG","other"));
         assertFalse(FileSearch.matches(null,"other"));
     }
+    @Test public void typeFilterDistinguishesFoldersAndFiles(){
+        String dir=android.provider.DocumentsContract.Document.MIME_TYPE_DIR;
+        assertTrue(FileSearch.matchesType(dir,FileSearch.Type.ALL));assertTrue(FileSearch.matchesType(dir,FileSearch.Type.FOLDERS));assertFalse(FileSearch.matchesType(dir,FileSearch.Type.FILES));
+        assertTrue(FileSearch.matchesType("text/plain",FileSearch.Type.FILES));assertFalse(FileSearch.matchesType("text/plain",FileSearch.Type.FOLDERS));assertTrue(FileSearch.matchesType(null,FileSearch.Type.FILES));
+    }
     @Test public void emptyQueryAndCancellationAreHandled(){
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
         Uri tree=Uri.parse("content://test.provider/tree/root"),start=Uri.parse("content://test.provider/tree/root/document/root");

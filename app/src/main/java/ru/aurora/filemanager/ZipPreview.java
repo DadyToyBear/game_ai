@@ -13,10 +13,7 @@ final class ZipPreview {
     static boolean unsafe(String name){if(name==null||name.isEmpty()||name.startsWith("/")||name.contains("\\")||name.indexOf('\0')>=0)return true;for(String part:name.split("/",-1))if(part.equals(".")||part.equals(".."))return true;return false;}
     static String displayName(String name){StringBuilder b=new StringBuilder();for(int i=0;i<name.length()&&i<500;i++){char c=name.charAt(i);b.append(Character.isISOControl(c)?'�':c);}if(name.length()>500)b.append("…");return b.toString();}
     static Result list(InputStream source,CancellationSignal cancel) throws IOException {
-        PushbackInputStream input=new PushbackInputStream(source,4);byte[] magic=new byte[4];int got=0;
-        while(got<4){cancel.throwIfCanceled();int n=input.read(magic,got,4-got);if(n<0)break;if(n==0)throw new IOException("Чтение архива остановилось");got+=n;}
-        if(got<4||magic[0]!='P'||magic[1]!='K'||!((magic[2]==3&&magic[3]==4)||(magic[2]==5&&magic[3]==6)))throw new IOException("Файл не похож на поддерживаемый ZIP");
-        input.unread(magic);Result result=new Result();
+        PushbackInputStream input=ZipHeader.checked(source,cancel);Result result=new Result();
         try(ZipInputStream zip=new ZipInputStream(input)){
             byte[] buffer=new byte[32768];while(true){cancel.throwIfCanceled();ZipEntry entry=zip.getNextEntry();if(entry==null)break;
                 if(result.items.size()>=MAX_ENTRIES){result.limited=true;break;}long size=0;

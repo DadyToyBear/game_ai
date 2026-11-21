@@ -195,6 +195,11 @@ public class MainActivity extends Activity {
                 while(c.moveToNext()) entries.add(new Entry(DocumentsContract.buildDocumentUriUsingTree(tree,c.getString(0)),c.getString(1),c.getString(2),c.isNull(3)?-1:c.getLong(3)));
             }
             Collections.sort(entries,FileSort.comparator(fileSort));
+            if(zipSelecting){body.addView(button("Выбрать все видимые",()->{
+                List<Entry> visible=new ArrayList<>();for(Entry entry:entries)if(FileVisibility.show(entry.name,showHiddenFiles))visible.add(entry);
+                if(visible.size()>100){toast("Видимых элементов больше 100; выберите их вручную");return;}
+                zipSelected.clear();for(Entry entry:visible)zipSelected.put(entry.uri,entry);list();
+            }));body.addView(button("Снять весь выбор",()->{zipSelected.clear();list();}));}
             int hidden=0;for(Entry e:entries)if(!FileVisibility.show(e.name,showHiddenFiles))hidden++;
             if(entries.isEmpty())note("Папка пуста");else if(hidden==entries.size())note("Нет видимых элементов; имена с точкой скрыты.");
             for(Entry e:entries) { if(!FileVisibility.show(e.name,showHiddenFiles))continue;
@@ -473,15 +478,19 @@ public class MainActivity extends Activity {
     private void searchScreen(){
         if(tree==null||current==null){toast("Сначала выберите папку");return;}
         Uri selectedTree=tree,start=current;List<Uri> baseParents=new ArrayList<>(parents);
-        layout("Поиск файлов");searchScreenVisible=true;note("Поиск по части имени без учёта регистра в текущей папке и её подпапках. Провайдер может ограничивать доступ или отвечать медленно.");
-        EditText query=field("Имя или часть имени",false);TextView status=text("",15);LinearLayout results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);
+        layout("Поиск файлов");searchScreenVisible=true;note("Поиск по части имени без учёта регистра. По умолчанию также проверяются подпапки. Провайдер может ограничивать доступ или отвечать медленно.");
+        EditText query=field("Имя или часть имени",false);
+        Spinner type=new Spinner(this);type.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Все элементы", "Только файлы", "Только папки"}));body.addView(type);
+        CheckBox recursive=new CheckBox(this);recursive.setText("Искать в подпапках");recursive.setChecked(true);body.addView(recursive);
+        TextView status=text("",15);LinearLayout results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);
         Button search=button("Найти",()->{}),cancel=button("Отменить поиск",()->{});cancel.setEnabled(false);body.addView(search);body.addView(cancel);body.addView(status);body.addView(results);body.addView(button("Назад к папке",this::list));
         cancel.setOnClickListener(v->{cancelSearch();search.setEnabled(true);cancel.setEnabled(false);status.setText("Поиск отменён.");});
         search.setOnClickListener(v->{
             String term=query.getText().toString().trim();if(term.isEmpty()||term.length()>256){toast("Введите от 1 до 256 символов");return;}
+            FileSearch.Type selectedType=FileSearch.Type.values()[type.getSelectedItemPosition()];boolean includeSubfolders=recursive.isChecked();
             cancelSearch();android.os.CancellationSignal signal=new android.os.CancellationSignal();searchCancellation=signal;results.removeAllViews();search.setEnabled(false);cancel.setEnabled(true);status.setText("Поиск…");
             new Thread(()->{try{
-                FileSearch.Result found=new FileSearch(getContentResolver(),selectedTree,start,signal).search(term);
+                FileSearch.Result found=new FileSearch(getContentResolver(),selectedTree,start,signal).search(term,selectedType,includeSubfolders);
                 runOnUiThread(()->{
                     if(searchCancellation!=signal||isFinishing()||isDestroyed())return;searchCancellation=null;search.setEnabled(true);cancel.setEnabled(false);
                     status.setText("Найдено: "+found.matches.size()+" · просмотрено: "+found.examined+(found.inaccessible>0?"\nНедоступных папок или элементов: "+found.inaccessible:"")+(found.limited?"\nРезультат неполный: достигнут лимит поиска.":""));

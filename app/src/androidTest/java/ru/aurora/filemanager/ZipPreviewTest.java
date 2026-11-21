@@ -20,6 +20,12 @@ public class ZipPreviewTest {
         byte[] zip=archive(501);ZipPreview.Result result=ZipPreview.list(new ByteArrayInputStream(zip),new CancellationSignal());
         assertEquals(500,result.items.size());assertTrue(result.limited);assertEquals(1500,result.scanned);assertTrue(result.items.get(0).unsafe);assertFalse(result.items.get(1).unsafe);assertEquals(3,result.items.get(0).bytes);
     }
+    @Test public void sharedHeaderCheckRejectsNonZipAndPreservesBytes() throws Exception {
+        byte[] original=archive(1);InputStream checked=ZipHeader.checked(new ByteArrayInputStream(original),null);
+        ByteArrayOutputStream copied=new ByteArrayOutputStream();byte[] buffer=new byte[32];int n;while((n=checked.read(buffer))!=-1)copied.write(buffer,0,n);assertArrayEquals(original,copied.toByteArray());
+        for(byte[] invalid:new byte[][]{new byte[0],new byte[]{'P','K',3},new byte[]{1,2,3,4}}){try{ZipHeader.checked(new ByteArrayInputStream(invalid),null);fail("invalid header");}catch(IOException expected){}}
+        assertEquals('P',ZipHeader.checked(new ByteArrayInputStream(archive(0)),null).read());
+    }
     @Test public void refusesInvalidInputAndHonoursCancellation() throws Exception {
         try{ZipPreview.list(new ByteArrayInputStream(new byte[]{1,2,3,4}),new CancellationSignal());fail("invalid zip");}catch(IOException expected){}
         CancellationSignal signal=new CancellationSignal();signal.cancel();try{ZipPreview.list(new ByteArrayInputStream(archive(1)),signal);fail("cancel");}catch(OperationCanceledException expected){}

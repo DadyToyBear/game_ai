@@ -87,7 +87,7 @@ final class FileOperations {
     }
     void unzip(Item archive,Uri destination,String folderName) throws IOException {
         Uri root=create(destination,DIR,folderName); Map<String,Uri> dirs=new HashMap<>();dirs.put("",root); Set<String> files=new HashSet<>();
-        try(InputStream input=in(archive.uri);ZipInputStream zip=new ZipInputStream(input)){
+        try(InputStream input=in(archive.uri);ZipInputStream zip=new ZipInputStream(ZipHeader.checked(input,null))){
             ZipEntry e; while((e=zip.getNextEntry())!=null){limit(0);String name=e.getName();if(name.startsWith("/")||name.contains("\\"))throw new IOException("Небезопасный путь в архиве");
                 String[] parts=name.split("/",-1);int length=parts.length;if(length>0&&parts[length-1].isEmpty())length--;if(length==0||length>MAX_DEPTH)throw new IOException("Недопустимый путь в архиве");
                 Uri parent=root;String path="";for(int k=0;k<length;k++){valid(parts[k]);boolean dir=k<length-1||e.isDirectory();path+=parts[k];
