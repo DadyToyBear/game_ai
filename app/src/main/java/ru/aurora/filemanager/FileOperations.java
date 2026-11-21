@@ -33,18 +33,22 @@ final class FileOperations {
     private static void valid(String name) throws IOException { if(name==null||name.isEmpty()||name.equals(".")||name.equals("..")||name.contains("/")||name.contains("\\")||name.indexOf('\0')>=0)throw new IOException("Недопустимое имя в архиве или папке"); }
     private void limit(int depth) throws IOException { if(depth>MAX_DEPTH || ++count>MAX_ENTRIES) throw new IOException("Превышено ограничение числа или глубины элементов"); }
     private Uri create(Uri parent,String mime,String name) throws IOException {
-        valid(name); for(Item i:children(parent)) if(name.equals(i.name))throw new IOException("Уже существует: "+name);
+        valid(name); List<Item> before=children(parent); for(Item i:before) if(name.equals(i.name))throw new IOException("Уже существует: "+name);
         Uri u=DocumentsContract.createDocument(resolver,parent,mime==null?"application/octet-stream":mime,name);
         if(u==null)throw new IOException("Не удалось создать: "+name);
+        ensureNewDocument(before,u);
         try { if(!name.equals(info(u).name))throw new IOException("Провайдер изменил имя: "+name); }
         catch(Exception ex){try{DocumentsContract.deleteDocument(resolver,u);}catch(Exception ignored){} if(ex instanceof IOException)throw (IOException)ex;throw new IOException(ex);}
         return u;
+    }
+    static void ensureNewDocument(List<Item> before,Uri created) throws IOException {
+        for(Item item:before)if(item.uri.equals(created))throw new IOException("Провайдер вернул существующий файл; проверьте папку вручную");
     }
     /** Create only; never open an existing document for writing or delete a returned URI. */
     Item createEmptyText(Uri parent,String name) throws IOException {
         valid(name);List<Item> before=children(parent);for(Item item:before)if(name.equals(item.name))throw new IOException("Уже существует: "+name);
         Uri created=DocumentsContract.createDocument(resolver,parent,"text/plain",name);if(created==null)throw new IOException("Провайдер не создал файл");
-        for(Item item:before)if(item.uri.equals(created))throw new IOException("Провайдер вернул существующий файл; проверьте папку вручную");
+        ensureNewDocument(before,created);
         try{return info(created);}catch(Exception ex){throw new IOException("Файл мог быть создан, но проверить его свойства не удалось; проверьте папку вручную",ex);}
     }
     static String textName(String name) throws IOException {

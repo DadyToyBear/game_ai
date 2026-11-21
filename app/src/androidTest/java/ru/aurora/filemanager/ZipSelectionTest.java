@@ -10,6 +10,12 @@ import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
 public class ZipSelectionTest {
+    @Test public void rejectsExistingReturnedDocumentBeforeWriting() throws Exception {
+        Uri existing=Uri.parse("content://provider/a"),fresh=Uri.parse("content://provider/b");
+        List<FileOperations.Item> before=Collections.singletonList(new FileOperations.Item(existing,"old.txt","text/plain"));
+        FileOperations.ensureNewDocument(before,fresh);
+        try{FileOperations.ensureNewDocument(before,existing);fail("existing document");}catch(IOException expected){}
+    }
     @Test public void validatesSelectionsBeforeCreatingArchive() throws Exception {
         FileOperations.Item a=new FileOperations.Item(Uri.parse("content://provider/a"),"a.txt","text/plain"),b=new FileOperations.Item(Uri.parse("content://provider/b"),"b.txt","text/plain");
         FileOperations.validateZipSelection(Arrays.asList(a,b));
