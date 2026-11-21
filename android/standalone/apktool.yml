@@ -1,0 +1,18 @@
+!!brut.androlib.meta.MetaInfo
+apkFileName: mini-studio-standalone.apk
+compressionType: false
+doNotCompress:
+- resources.arsc
+isFrameworkApk: false
+sdkInfo:
+  minSdkVersion: '23'
+  targetSdkVersion: '34'
+sharedLibrary: false
+sparseResources: false
+usesFramework:
+  ids:
+  - 1
+version: 2.4.1
+versionInfo:
+  versionCode: '1'
+  versionName: 1.0.18-local

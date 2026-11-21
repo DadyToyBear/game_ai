@@ -98,6 +98,25 @@ android/app/build/outputs/apk/release/mini-studio-release-1.0.2.apk
 android/app/build/outputs/bundle/release/app-release.aab
 ```
 
+### 4а. Сборка вообще без Android SDK
+
+Если Android SDK, Gradle или Maven Central недоступны, APK всё равно можно
+собрать и подписать: `aapt2` для ресурсов, `dexlib2` для `classes.dex`,
+`apk_sign_ts` для подписи v1+v2. Нужны только git, node и python.
+
+```bash
+bash scripts/install-toolchain.sh     # JDK, aapt2, android.jar API 34, apktool, подписчик → tools/
+bash scripts/build-apk-local.sh       # → android/standalone/build/mini-studio-standalone-<версия>.apk
+python3 scripts/check-standalone-apk.py android/standalone/build/mini-studio-standalone-*.apk
+```
+
+Ключ берётся из `android/keystore.properties` или из `MS_KEYSTORE`,
+`MS_KEYSTORE_PASSWORD`, `MS_KEY_ALIAS`. Такой APK — упрощённая обвязка (один
+`WebView` без плагинов Capacitor), AAB им не собирается; для Google Play
+по-прежнему нужен раздел выше. Подробности: [`android/standalone/README.md`](standalone/README.md).
+Ту же сборку выполняет job `standalone-apk` в CI, его APK лежит в артефакте
+`mini-studio-standalone`.
+
 ## 5. Google Play
 
 1. **Play Console** → Create app (имя, язык, категория «Музыка и аудио»).

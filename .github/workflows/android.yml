@@ -87,6 +87,49 @@ jobs:
             Подписанные release-APK и AAB для Google Play — в релизе `release-latest`.
           files: android/app/build/outputs/apk/debug/*.apk
 
+  # Сборка БЕЗ Gradle и без Android SDK: aapt2 + dexlib2 + JS-подпись.
+  # Независимая от Gradle проверка, что APK собирается из smali, и запасной
+  # путь на случай, если репозитории Google недоступны.
+  standalone-apk:
+    if: github.ref == 'refs/heads/arena/a11b2c5a-game-ai'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Тулчейн без Android SDK
+        run: |
+          set -euo pipefail
+          bash scripts/install-toolchain.sh
+
+      - name: Собрать APK из smali
+        run: |
+          set -euo pipefail
+          python3 scripts/make-signing-key.py --out "$RUNNER_TEMP/proofkeys" \
+            --password 'proof-only-password' --alias ministudio \
+            --dname 'CN=Mini Studio Standalone, O=Mini Studio, C=CZ'
+          MS_KEYSTORE="$RUNNER_TEMP/proofkeys/release.p12" \
+          MS_KEYSTORE_PASSWORD='proof-only-password' \
+          MS_KEY_ALIAS=ministudio \
+            bash scripts/build-apk-local.sh "1.0.18-$GITHUB_RUN_NUMBER"
+          APK="android/standalone/build/mini-studio-standalone-1.0.18-$GITHUB_RUN_NUMBER.apk"
+          tools/build-tools/aapt2 dump badging "$APK" | head -5
+          python3 scripts/check-standalone-apk.py "$APK"
+          echo "::notice title=APK без Gradle::Собран aapt2 + dexlib2, подписан через apk_sign_ts (v1+v2)."
+
+      - name: Загрузить APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-studio-standalone
+          path: android/standalone/build/mini-studio-standalone-*.apk
+          if-no-files-found: error
+
   release:
     runs-on: ubuntu-latest
     env:

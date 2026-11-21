@@ -14,3 +14,7 @@ android/app/src/main/assets/capacitor.config.json
 *.keystore
 android/keystore.properties
 .DS_Store
+# локальный Android-тулчейн и артефакты сборки без Gradle
+/tools/
+android/standalone/build/
+android/standalone/tools/smali-driver/*.class

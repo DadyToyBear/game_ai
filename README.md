@@ -155,3 +155,8 @@ js/app.js       состояние проекта, секвенсор, MIDI, э�
   `scripts/gen-keystore.sh` (JDK) и `scripts/make-signing-key.py` (Python + OpenSSL).
   CI собирает **AAB** для Play Console, проверяет подпись через `apksigner` и публикует
   только подписанные файлы.
+- **Сборка без Android SDK**: `bash scripts/install-toolchain.sh` ставит в `tools/`
+  JDK, `aapt2` (build-tools 34), `android.jar` API 34, `apktool` и подписчик
+  `apk_sign_ts`; `bash scripts/build-apk-local.sh` собирает и подписывает APK
+  (v1 + v2) без Gradle и без Maven Central. Подробности:
+  [`android/standalone/README.md`](android/standalone/README.md).
