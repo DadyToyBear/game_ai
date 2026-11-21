@@ -8,6 +8,9 @@ on:
       - '.github/workflows/redot-android-editor.yml'
       - 'redot-android/**'
       - 'redot-bridge/addons/redot_android_mcp/**'
+      - 'redot-bridge/bridge.py'
+      - 'redot-bridge/project_sync.py'
+      - 'redot-bridge/web/**'
   workflow_dispatch:
 
 permissions:

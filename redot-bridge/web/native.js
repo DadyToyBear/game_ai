@@ -1,6 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
-  let token = '', active = false, busy = false, timer = null, latest = null;
+  let token = '', active = false, busy = false, timer = null, latest = null, generation = 0;
   let recorder = null, recorded = [], stream = null, recordTimer = null;
   const canvas = $('screen'), ctx = canvas.getContext('2d');
   const buttons = ['play', 'stop', 'snapshot', 'delete', 'record'];
@@ -17,11 +17,14 @@
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response;
   }
+  function clearFrame() { latest = null; ctx.clearRect(0, 0, canvas.width, canvas.height); }
   async function refresh() {
     if (!active || busy) return;
+    const currentGeneration = generation;
     busy = true;
     try {
       const state = await (await request('/api/status')).json();
+      if (!active || currentGeneration !== generation) return;
       let label = state.editor_connected ? (state.playing ? 'Игра запущена' : 'Редактор подключён, игра остановлена') : 'Редактор не подключён';
       if (state.pending) label += ' · команда ожидает редактор';
       if (state.frame_available && state.frame_source === 'native-game') label += ` · последний кадр: ${state.frame_age_seconds} с назад`;
@@ -29,21 +32,23 @@
       $('status').textContent = label;
       if (state.frame_available && state.frame_source === 'native-game') {
         const blob = await (await request('/api/frame')).blob();
-        if (!active) return;
+        if (!active || currentGeneration !== generation) return;
         const image = await createImageBitmap(blob);
-        if (!active) { image.close(); return; }
+        if (!active || currentGeneration !== generation) { image.close(); return; }
         if (canvas.width !== image.width || canvas.height !== image.height) {
           canvas.width = image.width; canvas.height = image.height;
         }
         ctx.drawImage(image, 0, 0); image.close(); latest = blob;
+      } else {
+        clearFrame();
       }
-    } catch (err) { $('status').textContent = `Мост недоступен: ${err.message}`; }
+    } catch (err) { if (active && currentGeneration === generation) $('status').textContent = `Мост недоступен: ${err.message}`; }
     finally { busy = false; }
   }
   $('connect').onclick = () => {
     if (active) {
-      active = false; clearInterval(timer); if (recorder && recorder.state !== 'inactive') recorder.stop();
-      token = ''; latest = null; $('token').value = ''; $('token').disabled = false;
+      active = false; generation++; clearInterval(timer); if (recorder && recorder.state !== 'inactive') recorder.stop();
+      token = ''; clearFrame(); $('token').value = ''; $('token').disabled = false;
       $('connect').textContent = 'Подключить'; $('status').textContent = 'Отключено'; controls(false); return;
     }
     token = $('token').value;
@@ -61,7 +66,7 @@
   $('stop').onclick = () => command('stop');
   $('snapshot').onclick = () => { if (latest) download(latest, latest.type === 'image/jpeg' ? 'redot-game.jpg' : 'redot-game.png'); else $('status').textContent = 'Кадров пока нет.'; };
   $('delete').onclick = async () => {
-    try { await request('/api/frame', {method: 'DELETE'}); latest = null; ctx.clearRect(0, 0, canvas.width, canvas.height); $('status').textContent = 'Кадр удалён из памяти моста. Во время игры новый кадр появится снова.'; }
+    try { await request('/api/frame', {method: 'DELETE'}); generation++; clearFrame(); $('status').textContent = 'Кадр удалён из памяти моста. Во время игры новый кадр появится снова.'; }
     catch (err) { $('status').textContent = `Не удалось удалить кадр: ${err.message}`; }
   };
   $('record').onclick = () => {
