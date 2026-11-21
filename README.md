@@ -145,7 +145,13 @@ js/app.js       состояние проекта, секвенсор, MIDI, э�
   запрашивается полноэкранный режим и горизонтальная ориентация — играть большими пальцами.
 - **PWA**: `manifest.webmanifest` + иконки + `sw.js` — «Добавить на главный экран»,
   запуск без адресной строки, работа офлайн. Ярлыки манифеста ведут сразу на `#kaoss` и `#io`.
-- **APK**: Capacitor-обёртка в `android/` (см. `android/README-APK.md`). Собирается
-  на GitHub Actions — свежий файл всегда лежит в релизе
-  [`apk-latest`](https://github.com/DadyToyBear/game_ai/releases/tag/apk-latest)
-  (`app-debug.apk`, ~4.4 МБ).
+- **APK**: Capacitor-обёртка в `android/` (см. `android/README-APK.md`). CI собирает
+  на каждый пуш: устанавливаемый debug APK — в релизе
+  [`apk-latest`](https://github.com/DadyToyBear/game_ai/releases/tag/apk-latest),
+  подписанные release APK и AAB — в релизе
+  [`release-latest`](https://github.com/DadyToyBear/game_ai/releases/tag/release-latest).
+- **Release и Google Play**: подпись берётся из GitHub Secrets (`ANDROID_KEYSTORE_BASE64`
+  и пароли) или из `android/keystore.properties`; ключ создаётся скриптами
+  `scripts/gen-keystore.sh` (JDK) и `scripts/make-signing-key.py` (Python + OpenSSL).
+  CI собирает **AAB** для Play Console, проверяет подпись через `apksigner` и публикует
+  только подписанные файлы.
