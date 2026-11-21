@@ -129,8 +129,10 @@
     });
     state.kaossInst = Kaoss.createInstrument(state.ctx, state.mixer.input);
     state.kaossInst.bpm = song.bpm;
+    state.kaossInst.name = 'Kaossilator';
     state.kaossFX = Kaoss.createFX(state.ctx);
     applyFxRouting();
+    bindKaossMidi();
     return state.ctx;
   }
 
@@ -1073,7 +1075,7 @@
     const fx = state.kaossFX;
 
     if (inst) {
-      area.appendChild(KaossUI.instrumentPanel(inst, () => {}));
+      area.appendChild(KaossUI.instrumentPanel(inst, () => renderKaoss()));
     } else {
       area.appendChild(el('div', { class: 'card', style: { marginBottom: '14px' } }, [
         el('h3', { text: 'Kaossilator 2 (веб-аналог)' }),
@@ -1085,7 +1087,7 @@
     }
 
     if (fx) {
-      area.appendChild(KaossUI.fxPanel(fx, state.mixer, () => {}));
+      area.appendChild(KaossUI.fxPanel(fx, state.mixer, () => renderKaoss()));
       area.appendChild(fxRoutingCard());
     } else if (state.ctx) {
       state.kaossFX = Kaoss.createFX(state.ctx);
@@ -1275,6 +1277,7 @@
     const [status, d1, d2] = e.data;
     const cmd = status & 0xf0;
     const ch = (status & 0x0f) + 1;
+    if (handleKaossMidi(cmd, d1, d2, status & 0x0f)) return;
     if (cmd === 0x90 && d2 > 0) {
       liveNoteOn(d1, d2 / 127, true);
       markKey(d1, true);
@@ -1299,6 +1302,38 @@
         }
       }
     }
+  }
+
+  /* MIDI-управление Kaoss: CC1/CC2 = X/Y, ноты включают сэмплы */
+  function bindKaossMidi() {
+    state.kaossMidi = { x: 0.5, y: 0.5 };
+  }
+
+  function handleKaossMidi(cmd, d1, d2, chan) {
+    if (!state.kaossMidi) return false;
+    const K = window.Kaoss;
+    if (cmd === 0xb0 && (d1 === 1 || d1 === 2 || d1 === 16 || d1 === 17)) {
+      // CC1/CC16 → X, CC2/CC17 → Y
+      if (d1 === 1 || d1 === 16) state.kaossMidi.x = d2 / 127;
+      else state.kaossMidi.y = d2 / 127;
+      if (state.kaossFX) state.kaossFX.setXY(state.kaossMidi.x, state.kaossMidi.y);
+      const inst = state.kaossInst;
+      if (inst && inst.mode === 'sampler') inst.sampler && inst.sampler.play(state.kaossMidi.x, state.kaossMidi.y, 0.9, null);
+      const pad = document.querySelectorAll('.xy-pad')[1];
+      if (pad) pad.setXY(state.kaossMidi.x, state.kaossMidi.y);
+      midiLog('Kaoss XY: ' + Math.round(state.kaossMidi.x * 100) + ' / ' + Math.round(state.kaossMidi.y * 100));
+      return true;
+    }
+    if (cmd === 0x90 && chan === 9 && state.kaossInst && state.kaossInst.sampler) {
+      // ноты 36..43 на 10-м канале — слайсы 1..8
+      const idx = d1 - 36;
+      if (idx >= 0 && idx < 8) {
+        const n = state.kaossInst.sampler.slices.length || 1;
+        state.kaossInst.sampler.play((idx + 0.5) / n, 0.8, d2 / 127, null);
+        return true;
+      }
+    }
+    return false;
   }
 
   function markKey(midi, on) {
@@ -1803,6 +1838,7 @@
 
   // чтобы всё было в едином состоянии
   window.MS = {
+    ensureAudio,
     get song() { return song; },
     state,
     renderAll,

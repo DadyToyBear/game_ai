@@ -29,6 +29,17 @@
 
   const WAVES = ['sawtooth', 'square', 'triangle', 'sine'];
 
+  /* Запись сегмента фразы (общая для синтеза и сэмплера) */
+  function recordSegment(inst, x, y, velocity, midi) {
+    if (inst.recSlot < 0) return;
+    const now = inst.ctx.currentTime - inst.recStart;
+    if (inst.recSegs.length) {
+      const last = inst.recSegs[inst.recSegs.length - 1];
+      if (last.t1 == null) last.t1 = now;
+    }
+    inst.recSegs.push({ t0: now, t1: null, midi, x, y, v: velocity != null ? velocity : 0.9, mode: inst.mode });
+  }
+
   /* Инструмент: возвращает объект с методами для UI и лупером */
   K.createInstrument = function (ctx, dest) {
     const out = ctx.createGain();
@@ -51,6 +62,8 @@
       playingLoops: [false, false],
       loopTimers: [null, null],
       voice: null,
+      sampler: null,       // сэмплер слайсов (создаётся при загрузке)
+      mode: 'synth',       // 'synth' | 'sampler'
       lastMidi: null,
       midi: 60,
       y: 0.5,
@@ -86,6 +99,12 @@
     inst.noteOn = function (x, y, velocity) {
       inst.x = x;
       inst.y = y;
+      if (inst.mode === 'sampler' && inst.sampler) {
+        inst.sampler.play(x, y, velocity, null);
+        inst.midi = inst.quantize(x);
+        recordSegment(inst, x, y, velocity, inst.midi);
+        return inst.midi;
+      }
       const midi = inst.quantize(x);
       inst.midi = midi;
       if (inst.voice && inst.lastMidi === midi) {
@@ -96,15 +115,7 @@
       const p = paramsFor(inst, y);
       inst.voice = newVoice(ctx, out, 'subsynth', p, midi, velocity != null ? velocity : 0.9, ctx.currentTime);
       inst.lastMidi = midi;
-      // запись сегментов фразы
-      if (inst.recSlot >= 0) {
-        const now = ctx.currentTime - inst.recStart;
-        if (inst.recSegs.length) {
-          const last = inst.recSegs[inst.recSegs.length - 1];
-          if (last.t1 == null) last.t1 = now;
-        }
-        inst.recSegs.push({ t0: now, t1: null, midi, y, v: velocity != null ? velocity : 0.9 });
-      }
+      recordSegment(inst, x, y, velocity, midi);
       return midi;
     };
 
@@ -180,7 +191,14 @@
         segs.forEach((s) => {
           const start = t0 + (s.t0 % len);
           const dur = Math.max(0.05, Math.min(s.t1 - s.t0, len));
-          window.AudioEngine.playNote(ctx, out, 'subsynth', paramsFor(inst, s.y), s.midi, s.v, start, dur);
+          if (s.mode === 'sampler' && inst.sampler && inst.sampler.buffer) {
+            // для сэмплерных фраз пересчитываем по X
+            const when = Math.max(0, (start - ctx.currentTime) * 1000);
+            const limit = (s.t1 - s.t0) > 0.02 ? dur : null;
+            setTimeout(() => { if (inst.playingLoops[slot]) inst.sampler.play(s.x, s.y, s.v, limit); }, when);
+          } else {
+            window.AudioEngine.playNote(ctx, out, 'subsynth', paramsFor(inst, s.y), s.midi, s.v, start, dur);
+          }
         });
         inst.loopTimers[slot] = setTimeout(tick, len * 1000);
       };
@@ -192,7 +210,25 @@
       if (inst.loopTimers[slot]) { clearTimeout(inst.loopTimers[slot]); inst.loopTimers[slot] = null; }
     };
 
+    /* Загрузка своих сэмплов: WAV/MP3/OGG → слайсы на пэде */
+    inst.ensureSampler = function () {
+      if (!inst.sampler) inst.sampler = K.createSampler(ctx, out);
+      return inst.sampler;
+    };
+
+    inst.loadSample = function (buffer, name) {
+      inst.ensureSampler().load(buffer, name);
+      inst.mode = 'sampler';
+      return inst.sampler;
+    };
+
+    inst.setMode = function (mode) {
+      inst.mode = mode;
+      if (mode === 'sampler') inst.ensureSampler();
+    };
+
     inst.stopAll = function () {
+      if (inst.sampler) inst.sampler.stopAll();
       inst.noteOff();
       inst.stopLoop(0); inst.stopLoop(1);
     };
@@ -440,8 +476,13 @@
       },
     ];
 
+    /* --- Плеер сэмплов (как MP3-плеер у miniKP2): pitch, speed, слайсы --- */
+    const player = {
+      buffer: null, name: '', src: null, gain: null,
+      playing: false, rate: 1, loop: false,
+    };
     const fx = {
-      input, output, programs: PROGRAMS, program: 0,
+      input, output, programs: PROGRAMS, program: 0, player,
       hold: false,
       x: 0.5, y: 0.5,
       active: false,
@@ -480,7 +521,202 @@
         try { flLfo.stop(); gateLfo.stop(); ringOsc.stop(); } catch (e) {}
       },
     };
+
+    fx.loadAudio = function (buffer, name) {
+      player.buffer = buffer;
+      player.name = name || '';
+      return player;
+    };
+
+    fx.playSample = function (rate, loop) {
+      if (!player.buffer) return;
+      fx.stopSample();
+      const src = ctx.createBufferSource();
+      src.buffer = player.buffer;
+      src.playbackRate.value = rate || player.rate || 1;
+      src.loop = loop != null ? loop : player.loop;
+      const g = ctx.createGain();
+      g.gain.value = 0.9;
+      src.connect(g); g.connect(fx.input);
+      src.start();
+      player.src = src; player.gain = g; player.playing = true;
+      src.onended = () => { player.playing = false; };
+    };
+
+    fx.stopSample = function () {
+      if (player.src) { try { player.src.stop(); } catch (e) {} }
+      player.src = null; player.playing = false;
+    };
+
+    fx.setPitch = function (semitones) {
+      player.rate = Math.pow(2, semitones / 12);
+      if (player.src) player.src.playbackRate.setTargetAtTime(player.rate, ctx.currentTime, 0.02);
+    };
+
+    fx.setPlayerLoop = function (on) {
+      player.loop = !!on;
+      if (player.src) player.src.loop = player.loop;
+    };
+
     return fx;
+  };
+
+  // ---------- Сэмплер слайсов (WAV/MP3 → слайсы на пэд) ----------
+  /* Держит AudioBuffer и раскладку по 8 слайсам. Играет с транспонированием
+     по X и фильтром по Y — как сэмплер miniKP2 / Kaossilator. */
+  K.createSampler = function (ctx, dest) {
+    const root = ctx.createGain();
+    root.gain.value = 1;
+    root.connect(dest);
+
+    const S = {
+      ctx, out: root,
+      buffer: null,          // AudioBuffer
+      name: '',
+      slices: [],            // [{start,end}] — нормализованные позиции 0..1
+      sliceMode: true,       // играть слайс под X или весь сэмпл
+      xMode: 'slice',        // 'slice' | 'pitch' | 'speed'
+      pitchRange: 12,        // полутонов вверх по X
+      reverse: false,
+      voices: [],
+      active: [],
+    };
+
+    S.load = function (buffer, name) {
+      S.buffer = buffer;
+      S.name = name || '';
+      S.sliceByGrid(S.slices.length || 8);
+      return S;
+    };
+
+    /* Равномерная нарезка на n слайсов */
+    S.sliceByGrid = function (n) {
+      n = Math.max(1, Math.min(64, Math.round(n)));
+      const out = [];
+      for (let i = 0; i < n; i++) out.push({ start: i / n, end: (i + 1) / n });
+      S.slices = out;
+      return out;
+    };
+
+    /* Ручная нарезка по отметкам (0..1) — например, по битам/транзиентам */
+    S.sliceByMarks = function (marks) {
+      const pts = marks.slice().sort((a, b) => a - b).filter((v) => v >= 0 && v < 1);
+      if (!pts.length) return S.slices;
+      const out = [];
+      for (let i = 0; i < pts.length; i++) {
+        out.push({ start: pts[i], end: i + 1 < pts.length ? pts[i + 1] : 1 });
+      }
+      S.slices = out;
+      return out;
+    };
+
+    /* Автонарезка: находим самые громкие локальные пики и режем по ним */
+    S.sliceByPeaks = function (count) {
+      if (!S.buffer) return [];
+      count = Math.max(2, Math.min(32, Math.round(Number(count) || 8)));
+      const data = S.buffer.getChannelData(0);
+      const len = data.length;
+      const win = Math.max(32, Math.floor(len / 2000)); // огибающая
+      const env = [];
+      for (let i = 0; i < len; i += win) {
+        let max = 0;
+        for (let j = i; j < Math.min(len, i + win); j++) max = Math.max(max, Math.abs(data[j]));
+        env.push(max);
+      }
+      const flat = env.slice().sort((a, b) => a - b);
+      const floor = flat[Math.floor(flat.length * 0.7)] || 0.05;
+
+      // кандидаты: начало звука после тишины + локальные максимумы
+      const cand = [];
+      for (let i = 1; i < env.length - 1; i++) {
+        const rising = env[i] > floor && (env[i - 1] <= floor || (env[i] > env[i - 1] && env[i] >= env[i + 1]));
+        if (rising) cand.push({ i, a: env[i] });
+      }
+      cand.sort((a, b) => b.a - a.a);
+      const marks = [0];
+      cand.forEach((c) => {
+        if (marks.length >= count) return;
+        const pos = (c.i * win) / len;
+        if (pos < 0.02 || pos > 0.98) return;
+        if (marks.some((m) => Math.abs(m - pos) < 0.015)) return;
+        marks.push(pos);
+      });
+      marks.sort((a, b) => a - b);
+      const res = S.sliceByMarks(marks);
+      if (res.length < count) {
+        // не нашли достаточно пиков — добиваем равномерно
+        return S.sliceByGrid(count);
+      }
+      return res;
+    };
+
+    S.sliceAt = function (x) {
+      const n = S.slices.length || 1;
+      const i = Math.min(n - 1, Math.max(0, Math.floor(clamp(x, 0, 1) * n)));
+      return S.slices[i];
+    };
+
+    /* Играет сэмпл/слайс. x — позиция слайса по пэду, y — тембр, dur — секунды */
+    /* dur — ограничение длительности (для лупа); null = до конца слайса */
+    S.play = function (x, y, velocity, dur) {
+      if (!S.buffer) return null;
+      const now = ctx.currentTime;
+      const src = ctx.createBufferSource();
+      src.buffer = S.buffer;
+      const filt = ctx.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.value = expMap(300, 16000, y != null ? y : 0.7);
+      filt.Q.value = 0.9;
+      const amp = ctx.createGain();
+      const g = Math.max(0.02, Math.min(1, velocity != null ? velocity : 0.9));
+      amp.gain.value = g;
+      src.connect(filt); filt.connect(amp); amp.connect(root);
+
+      let rate = 1;
+      let offset = 0;
+      let length = S.buffer.duration;
+
+      if (S.sliceMode && S.slices.length) {
+        const sl = S.sliceAt(x);
+        offset = sl.start * S.buffer.duration;
+        length = Math.max(0.02, (sl.end - sl.start) * S.buffer.duration);
+      }
+      if (S.xMode === 'pitch') rate = Math.pow(2, (clamp(x, 0, 1) * S.pitchRange) / 12);
+      if (S.xMode === 'speed') rate = lerp(0.5, 2, x);
+
+      src.playbackRate.value = rate;
+      const hold = dur != null ? dur : length;
+      try { src.start(now, offset, Math.max(0.02, hold * Math.abs(rate))); } catch (err) { src.start(now); }
+      const stopAt = now + hold + 0.02;
+      amp.gain.setValueAtTime(g, now);
+      amp.gain.setValueAtTime(g, now + Math.max(0.01, hold * 0.8));
+      amp.gain.linearRampToValueAtTime(0.0001, stopAt);
+      try { src.stop(stopAt + 0.02); } catch (err) {}
+      const voice = { src, amp, filt, start: now, stop: () => { try { src.stop(); } catch (e) {} } };
+      S.active.push(voice);
+      src.onended = () => {
+        S.active = S.active.filter((v) => v !== voice);
+        try { amp.disconnect(); } catch (e) {}
+      };
+      return voice;
+    };
+
+    /* Длительность слайса под X (для лупа) */
+    S.durationAt = function (x) {
+      if (!S.buffer) return 0.5;
+      if (S.sliceMode && S.slices.length) {
+        const sl = S.sliceAt(x);
+        return Math.max(0.05, (sl.end - sl.start) * S.buffer.duration);
+      }
+      return S.buffer.duration;
+    };
+
+    S.stopAll = function () {
+      S.active.forEach((v) => { try { v.stop(); } catch (e) {} });
+      S.active = [];
+    };
+
+    return S;
   };
 
   K.SCALES = SCALES;

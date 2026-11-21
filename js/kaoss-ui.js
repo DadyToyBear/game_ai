@@ -66,9 +66,48 @@
     return root;
   };
 
+  /* Диалог загрузки аудиофайла: WAV / MP3 / OGG / FLAC (что умеет браузер) */
+  KU.loadAudioDialog = function (title, onLoaded) {
+    const box = el('div', {});
+    const info = el('div', { class: 'hint' });
+    const input = el('input', {
+      type: 'file',
+      accept: 'audio/*,.wav,.mp3,.ogg,.m4a,.flac,.aiff,.aif',
+      style: { display: 'none' },
+      onchange: async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        info.textContent = 'Декодирую ' + f.name + '…';
+        try {
+          const ctx = window.MS.ensureAudio ? window.MS.ensureAudio() : (window.MS.state.ctx || new (window.AudioContext)());
+          const arr = await f.arrayBuffer();
+          const buf = await ctx.decodeAudioData(arr.slice(0));
+          info.textContent = 'Готово: ' + f.name + ' · ' + buf.duration.toFixed(2) + ' с · ' +
+            buf.sampleRate + ' Гц · ' + buf.numberOfChannels + ' кан.';
+          onLoaded(buf, f.name);
+        } catch (err) {
+          info.textContent = 'Не удалось декодировать: ' + err.message +
+            '. Поддерживаются WAV/MP3/OGG — формат должен читаться браузером.';
+        }
+      },
+    });
+    box.appendChild(el('p', {
+      class: 'muted',
+      text: 'Можно грузить WAV (любая частота/битность, как у железа), MP3, OGG, M4A. Файл остаётся в памяти вкладки; для проекта сохраняется только ссылка на имя, сами аудиоданные не пишутся в JSON.',
+    }));
+    box.appendChild(el('div', { class: 'row' }, [
+      el('button', { class: 'btn primary', text: 'Выбрать файл', onclick: () => input.click() }),
+      input,
+    ]));
+    box.appendChild(info);
+    return { node: box, input };
+  };
+
   /* ---------- Kaossilator ---------- */
   KU.instrumentPanel = function (inst, onLayoutChange) {
     const wrap = el('div', { class: 'kaoss' });
+    let rebuildSampleCard = null;
+    const refreshHost = () => { if (rebuildSampleCard) rebuildSampleCard(); if (onLayoutChange) onLayoutChange(); };
 
     const head = el('div', { class: 'kaoss-head' }, [
       el('div', { class: 'kaoss-title' }, [
@@ -166,8 +205,83 @@
       ]),
     ]);
 
+    /* --- своя библиотека сэмплов: WAV/MP3 → слайсы --- */
+    inst.ensureSampler();
+    const sampleCard = el('div', { class: 'sample-card' });
+    rebuildSampleCard = () => {
+      sampleCard.innerHTML = '';
+      const has = inst.sampler && inst.sampler.buffer;
+      sampleCard.appendChild(el('div', { class: 'sample-head' }, [
+        el('span', { class: 'pill' + (has ? ' ok' : ''), text: has ? inst.sampler.name : 'сэмпл не загружен' }),
+        has ? el('span', { class: 'hint', text: inst.sampler.buffer.duration.toFixed(2) + ' с · ' + inst.sampler.slices.length + ' слайс(ов)' }) : null,
+      ]));
+
+      const loader = KU.loadAudioDialog('Загрузить сэмпл', (buf, name) => {
+        inst.loadSample(buf, name);
+        rebuildSampleCard();
+      });
+      sampleCard.appendChild(loader.node);
+
+      {
+        const modeSel = el('select', { class: 'preset-select', onchange: (e) => { inst.mode = e.target.value; } }, [
+          el('option', { value: 'synth', text: 'Синтез (X-Y)' }),
+          el('option', { value: 'sampler', text: 'Сэмплы (слайсы)' }),
+        ]);
+        modeSel.value = inst.mode;
+        sampleCard.appendChild(el('div', { class: 'row' }, [
+          el('label', { class: 'hint', text: 'Режим пэда' }), modeSel,
+        ]));
+
+        const xmode = el('select', {
+          class: 'preset-select',
+          onchange: (e) => { inst.sampler.xMode = e.target.value; inst.sampler.sliceMode = e.target.value === 'slice'; },
+        }, [
+          el('option', { value: 'slice', text: 'X — слайс' }),
+          el('option', { value: 'pitch', text: 'X — питч (+12 ст)' }),
+          el('option', { value: 'speed', text: 'X — скорость ×0.5…×2' }),
+        ]);
+        xmode.value = inst.sampler.xMode;
+        sampleCard.appendChild(el('div', { class: 'row' }, [el('label', { class: 'hint', text: 'Что делает X' }), xmode]));
+
+        // нарезка
+        const nSel = el('input', { type: 'number', min: '1', max: '32', value: String(inst.sampler.slices.length), class: 'preset-select', style: { width: '70px' } });
+        sampleCard.appendChild(el('div', { class: 'row' }, [
+          el('label', { class: 'hint', text: 'Слайсов' }), nSel,
+          el('button', {
+            class: 'btn mini', text: 'Ровно',
+            onclick: () => { inst.sampler.sliceByGrid(Number(nSel.value) || 8); refreshHost(); },
+          }),
+          el('button', {
+            class: 'btn mini', text: 'По пикам',
+            onclick: () => { inst.sampler.sliceByPeaks(Number(nSel.value) || 8); refreshHost(); },
+          }),
+        ]));
+
+        // карта слайсов
+        const map = el('div', { class: 'slice-map' });
+        inst.sampler.slices.forEach((sl, i) => {
+          map.appendChild(el('div', {
+            class: 'slice',
+            style: { width: ((sl.end - sl.start) * 100) + '%' },
+            title: 'Слайс ' + (i + 1),
+            onclick: () => { inst.sampler.play((i + 0.5) / inst.sampler.slices.length, 0.8, 0.9, null); },
+          }, [el('span', { text: String(i + 1) })]));
+        });
+        sampleCard.appendChild(map);
+
+        sampleCard.appendChild(el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn mini', text: '▶ Проверить 1-й',
+            onclick: () => inst.sampler.play(0, 0.8, 0.9, null),
+          }),
+          el('button', { class: 'btn ghost mini', text: 'Стоп', onclick: () => inst.sampler.stopAll() }),
+        ]));
+      }
+    };
+    rebuildSampleCard();
+
     wrap.appendChild(head);
-    wrap.appendChild(el('div', { class: 'kaoss-body' }, [side]));
+    wrap.appendChild(el('div', { class: 'kaoss-body' }, [side, sampleCard]));
     return wrap;
   };
 
@@ -214,6 +328,46 @@
       el('button', { class: 'btn ghost mini', text: 'Сброс', onclick: () => { fx.reset(); pad.setXY(0.5, 0.5); pad.classList.remove('active'); } }),
     ]);
 
+    /* --- плеер своих сэмплов (MP3/WAV) с pitch adjust, как у miniKP2 --- */
+    const playerCard = el('div', { class: 'sample-card' });
+    const rebuildPlayer = () => {
+      playerCard.innerHTML = '';
+      const has = fx.player && fx.player.buffer;
+      const loader = KU.loadAudioDialog('Загрузить в плеер', (buf, name) => { fx.loadAudio(buf, name); rebuildPlayer(); });
+      playerCard.appendChild(el('div', { class: 'sample-head' }, [
+        el('span', { class: 'pill' + (has ? ' ok' : ''), text: has ? fx.player.name : 'плеер пуст' }),
+        has ? el('span', { class: 'hint', text: fx.player.buffer.duration.toFixed(2) + ' с · ' + fx.player.buffer.sampleRate + ' Гц' }) : null,
+      ]));
+      playerCard.appendChild(loader.node);
+
+      {
+        const pitch = el('input', {
+          class: 'rng', type: 'range', min: '-24', max: '24', step: '1', value: '0',
+          oninput: (e) => {
+            const v = Number(e.target.value);
+            fx.setPitch(v);
+            pitchVal.textContent = (v > 0 ? '+' : '') + v + ' ст · ×' + Math.pow(2, v / 12).toFixed(2);
+          },
+        });
+        const pitchVal = el('span', { class: 'small', text: '0 ст · ×1.00' });
+        const loopBox = el('label', { class: 'small', style: { display: 'flex', gap: '6px', alignItems: 'center' } }, [
+          el('input', { type: 'checkbox', onchange: (e) => fx.setPlayerLoop(e.target.checked) }),
+          el('span', { text: 'зациклить' }),
+        ]);
+        playerCard.appendChild(el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn mini', text: '▶ Играть',
+            onclick: () => fx.playSample(Math.pow(2, Number(pitch.value) / 12), loopBox.querySelector('input').checked),
+          }),
+          el('button', { class: 'btn ghost mini', text: '■ Стоп', onclick: () => fx.stopSample() }),
+          loopBox,
+        ]));
+        playerCard.appendChild(el('div', { class: 'row' }, [el('label', { class: 'hint', text: 'Pitch' }), pitch, pitchVal]));
+        playerCard.appendChild(el('p', { class: 'muted', text: 'Плеер идёт в тот же процессор: выбирай программу и веди X-Y — получится эффект поверх твоего WAV/MP3 (pitch adjust у miniKP2 работает так же).' }));
+      }
+    };
+    rebuildPlayer();
+
     wrap.appendChild(head);
     wrap.appendChild(el('div', { class: 'kaoss-body fx-body' }, [
       el('div', { class: 'fx-progs' }, [progGrid]),
@@ -221,6 +375,7 @@
         pad,
         el('div', { class: 'hint', text: 'X/Y меняют параметры выбранной программы. Винил-брейк, гейт, эхо, реверб — как в miniKP2.' }),
       ]),
+      playerCard,
     ]));
     return wrap;
   };

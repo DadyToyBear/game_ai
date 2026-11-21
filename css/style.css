@@ -446,3 +446,25 @@ main { flex: 1; padding: 0 16px 28px; }
   .kaoss-body.fx-body { grid-template-columns: 1fr; }
   .xy-pad { max-height: 300px; }
 }
+
+/* ---------- сэмплы в Kaoss: карта слайсов и плеер ---------- */
+.sample-card {
+  border: 1px solid var(--line); border-radius: 12px; background: #101720;
+  padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.kaoss-body.fx-body .sample-card { grid-column: 1 / -1; }
+.sample-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.slice-map {
+  display: flex; gap: 2px; height: 42px; border-radius: 8px; overflow: hidden;
+  background: #0b1118; border: 1px solid var(--line); margin-top: 2px;
+}
+.slice {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, rgba(78,225,193,.28), rgba(78,225,193,.09));
+  border-right: 1px solid #0b1820; cursor: pointer; font-size: 9px; color: #b8e8de;
+  transition: background .12s; min-width: 12px; overflow: hidden;
+}
+.slice:hover { background: linear-gradient(180deg, rgba(78,225,193,.5), rgba(78,225,193,.2)); }
+.slice:active { background: var(--accent); color: #06231e; }
+.sample-card .rng { flex: 1; min-width: 120px; }
+.sample-card .small { font-size: 10px; color: var(--muted); }
