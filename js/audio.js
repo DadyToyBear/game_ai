@@ -159,6 +159,16 @@
     ch.tail.connect(ch.revSend); ch.revSend.connect(mixer.revIn);
   };
 
+  /* Полное отключение канала: при смене состава машин старые каналы
+     оставались подключёнными к мастеру (и к шинам эффектов) — каждый
+     «добавить машину»/«удалить» подмешивал лишние узлы в мастер. */
+  A.disposeChannel = function (ch) {
+    if (!ch) return;
+    [ch.gain, ch.pan, ch.delaySend, ch.revSend].forEach((n) => {
+      if (n && n.disconnect) { try { n.disconnect(); } catch (e) { /* уже отключён */ } }
+    });
+  };
+
   /* Врезка/снятие внешнего процессора */
   A.setChannelFX = function (ch, mixer, fxNode) {
     ch.fxOut = fxNode || null;

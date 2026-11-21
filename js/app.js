@@ -1130,6 +1130,7 @@
 
     if (t.engine === 'beatbox') {
       panel.appendChild(drumNotesInfo(t));
+      panel.appendChild(drumOpsBar(t));
       return;
     }
 
@@ -1217,18 +1218,107 @@
     ].concat(perPad.map((x) => el('span', { class: 'pill', text: x.name + ' ×' + x.n }))));
   }
 
+  /* Операции над паттерном драм-машины: у неё свой секвенсор, но общих кнопок
+     («×2», сдвиг) не было вовсе — приходилось расставлять удары заново. */
+  function drumOpsBar(t) {
+    const rerender = () => { renderMachine(); renderSeq(); };
+    return el('div', { class: 'roll-toolbar' }, [
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Удвоить: первая половина паттерна копируется во вторую',
+        text: '×2',
+        onclick: () => { doubleNotes(t); rerender(); },
+      }),
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Сдвинуть все удары на шаг вперёд',
+        text: 'Сдвиг +1',
+        onclick: () => { shiftPads(t, 1); rerender(); },
+      }),
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Сдвинуть все удары на шаг назад',
+        text: 'Сдвиг −1',
+        onclick: () => { shiftPads(t, -1); rerender(); },
+      }),
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Сдвинуть всю партию на полтакта (на 8 шагов при 16)',
+        text: 'Сдвиг ½',
+        onclick: () => { shiftPads(t, Math.floor(t.patLen / 8) || 2); rerender(); },
+      }),
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Воббл: 16-е только по чётным шагам (классический «человечный» грув)',
+        text: 'Воббл',
+        onclick: () => { humanizePads(t); rerender(); },
+      }),
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Очистить паттерн драм-машины',
+        text: 'Очистить',
+        onclick: () => { Pattern.clear(t); rerender(); UI.toast('Паттерн ' + 'ABCD'[t.patIndex] + ' очищен: ' + t.name); },
+      }),
+    ]);
+  }
+
+  function shiftPads(t, dir) {
+    const pat = Pattern.pattern(t);
+    if (!(pat.pads || []).length) { UI.toast('Ударов нет — сдвигать нечего'); return; }
+    const len = t.patLen;
+    let moved = 0;
+    pat.pads.forEach((e) => {
+      const at = e.at + dir;
+      if (at >= 0 && at < len) { e.at = at; moved++; }
+    });
+    if (!moved) { UI.toast('Сдвигать некуда'); return; }
+    Pattern.markUsed(t);
+    UI.toast('Удары сдвинуты на ' + (dir > 0 ? '+' : '') + dir + ' шаг(ов)');
+  }
+
+  /* Лёгкий «человечный» грув: убираем каждый второй удар подряд идущих
+     подушек, чтобы 16-е не долбили механически. Обратимо через «×2»/отмену. */
+  function humanizePads(t) {
+    const pat = Pattern.pattern(t);
+    if (!(pat.pads || []).length) { UI.toast('Ударов нет'); return; }
+    const keep = [];
+    const seen = {};
+    pat.pads.slice().sort((a, b) => a.at - b.at).forEach((e) => {
+      const key = e.p;
+      const cnt = seen[key] = (seen[key] || 0) + 1;
+      // оставляем сильные доли всегда, «слабые» — через один
+      if (e.at % 4 === 0 || cnt % 2 === 1) keep.push(e);
+    });
+    const removed = pat.pads.length - keep.length;
+    pat.pads = keep;
+    Pattern.markUsed(t);
+    UI.toast(removed ? 'Убрано ' + removed + ' повторных ударов — грув легче' : 'Убирать нечего: партия и так разрежена');
+  }
+
   /* ---------- операции над нотами машины ---------- */
+  /* «×2» — повтор первой половины паттерна во вторую.
+     Копируем и ноты, и удары драм-машины (раньше у драм-машины кнопки не было,
+     а для нот считались только те, что целиком влезают в первую половину). */
   function doubleNotes(t) {
     const pat = Pattern.pattern(t);
     const len = t.patLen;
-    const half = Math.floor(len / 2);
-    const copy = pat.notes.filter((n) => n.at + Pattern.notelen(n) <= half)
-      .map((n) => ({ at: n.at + half, m: n.m, len: n.len, v: n.v }));
-    if (!copy.length) { UI.toast('Нечего удваивать: в первой половине паттерна нет нот'); return; }
-    pat.notes = pat.notes.concat(copy);
+    const half = Math.max(1, Math.floor(len / 2));
+    if (!pat.notes.length && !(pat.pads || []).length) { UI.toast('Паттерн пуст — нечего удваивать'); return; }
+    const fit = (n) => n.at + ((n.len || 1)) <= half;
+    const notes = pat.notes.filter(fit)
+      .map((n) => ({ at: n.at + half, m: n.m, len: n.len, v: n.v }))
+      .filter((n) => n.at < len);
+    const pads = (pat.pads || []).filter(fit)
+      .map((e) => ({ at: e.at + half, p: e.p }))
+      .filter((e) => e.at < len);
+    const total = notes.length + pads.length;
+    if (!total) { UI.toast('Нечего удваивать: в первой половине паттерна нет нот'); return; }
+    pat.notes = pat.notes.concat(notes);
+    pat.pads = (pat.pads || []).concat(pads);
     Pattern.markUsed(t);
     Pattern.refresh(t);
-    UI.toast('Ноты первого такта скопированы во второй (' + copy.length + ')');
+    renderSeq();
+    UI.toast(total + ' нот/ударов скопированы во вторую половину (шаг ' + (half + 1) + ')');
   }
 
   function shiftNotes(t, dir) {
@@ -1248,10 +1338,15 @@
   function transposeNotes(t, semis) {
     const pat = Pattern.pattern(t);
     if (!pat.notes.length) { UI.toast('В паттерне нет нот'); return; }
+    let clamped = 0;
     pat.notes.forEach((n) => {
-      n.m = Math.max(Pattern.ROLL_LO, Math.min(Pattern.ROLL_HI, n.m + semis));
+      const m = n.m + semis;
+      if (m > Pattern.ROLL_HI || m < Pattern.ROLL_LO) clamped++;
+      n.m = Math.max(Pattern.ROLL_LO, Math.min(Pattern.ROLL_HI, m));
     });
+    Pattern.markUsed(t);
     Pattern.refresh(t);
+    if (clamped) UI.toast('Часть нот упёрлась в край диапазона — транспонировать дальше некуда', 'error');
     UI.toast('Транспонировано на ' + (semis > 0 ? '+' : '') + semis + ' полутонов');
   }
 
@@ -1444,6 +1539,10 @@
 
   function refreshChannelsRebuild() {
     if (!state.ctx) return;
+    // старые каналы были подключены к мастеру и оставались там навсегда —
+    // глушим и отключаем их, иначе узлы копятся при каждой смене состава
+    (state.channels || []).forEach((ch) => AE.disposeChannel(ch));
+    state.channels = [];
     // пересоздаём каналы под новый состав дорожек
     state.channels = song.tracks.map((t) => {
       const ch = AE.createChannel(state.ctx, state.mixer);
