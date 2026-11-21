@@ -41,6 +41,24 @@ public class LocalAccountsTest {
             try(NanoHTTPD.Response revoked=authenticated.serve(request(header,NanoHTTPD.Method.GET,"/missing"))){assertEquals(401,revoked.getStatus().getRequestStatus());}
         }finally{Arrays.fill(password,'\0');if(accounts.list().contains(user))accounts.remove(user);}
     }
+    @Test public void perAccountWritePermissionChangesApplyToNextRequest() throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();LocalAccounts accounts=new LocalAccounts(context);
+        String user="test_"+UUID.randomUUID().toString().replace("-","");char[] password="unique test password".toCharArray();
+        try {
+            accounts.add(user,password,false);
+            String header="Basic "+Base64.encodeToString((user+":"+new String(password)).getBytes(StandardCharsets.UTF_8),Base64.NO_WRAP);
+            Uri tree=Uri.parse("content://test.provider/tree/root");
+            WebFilesServer server=new WebFilesServer(context,tree,0,false,true,context.getCacheDir());
+            try(NanoHTTPD.Response response=server.serve(request(header,NanoHTTPD.Method.OPTIONS,"/dav/"))){assertFalse(response.getHeader("allow").contains("PUT"));}
+            try(NanoHTTPD.Response response=server.serve(request(header,NanoHTTPD.Method.DELETE,"/dav/file"))){assertEquals(403,response.getStatus().getRequestStatus());}
+            accounts.setCanWrite(user,true);
+            try(NanoHTTPD.Response response=server.serve(request(header,NanoHTTPD.Method.OPTIONS,"/dav/"))){assertTrue(response.getHeader("allow").contains("PUT"));}
+            WebFilesServer readOnly=new WebFilesServer(context,tree,0,false,false,context.getCacheDir());
+            try(NanoHTTPD.Response response=readOnly.serve(request(header,NanoHTTPD.Method.OPTIONS,"/dav/"))){assertFalse(response.getHeader("allow").contains("PUT"));}
+            accounts.setCanWrite(user,false);
+            try(NanoHTTPD.Response response=server.serve(request(header,NanoHTTPD.Method.DELETE,"/dav/file"))){assertEquals(403,response.getStatus().getRequestStatus());}
+        }finally{Arrays.fill(password,'\0');if(accounts.list().contains(user))accounts.remove(user);}
+    }
     @Test public void rejectsInvalidNamesAndShortPasswords() throws Exception {
         assertFalse(LocalAccounts.validUsername("name:other"));assertFalse(LocalAccounts.validUsername("bad name"));assertTrue(LocalAccounts.validUsername("user.name-1"));
         try{LocalAccounts.validatePassword("short".toCharArray());fail("short passwords must fail");}catch(java.io.IOException expected){/* refused */}

@@ -17,7 +17,8 @@ final class DavAccess {
     private static final String DIR=DocumentsContract.Document.MIME_TYPE_DIR;
     private static class Node { Uri uri; String name,mime; long size; Node(Uri u,String n,String m,long s){uri=u;name=n;mime=m;size=s;} boolean dir(){return DIR.equals(mime);} }
     DavAccess(ContentResolver resolver,Uri tree,File cache,boolean writes){this.resolver=resolver;this.tree=tree;this.cache=cache;this.writes=writes;root=new Node(DocumentsContract.buildDocumentUriUsingTree(tree,DocumentsContract.getTreeDocumentId(tree)),"Aurora Files",DIR,-1);}
-    NanoHTTPD.Response serve(NanoHTTPD.IHTTPSession session) {
+    NanoHTTPD.Response serve(NanoHTTPD.IHTTPSession session, boolean userCanWrite) {
+        boolean writes=this.writes && userCanWrite;
         NanoHTTPD.Method method=session.getMethod();
         if(method==NanoHTTPD.Method.OPTIONS){NanoHTTPD.Response r=NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.OK,"text/plain","");r.addHeader("DAV","1");r.addHeader("Allow",writes?"OPTIONS, GET, HEAD, PROPFIND, PUT, MKCOL, DELETE, MOVE, COPY":"OPTIONS, GET, HEAD, PROPFIND");return r;}
         if(method==NanoHTTPD.Method.PUT || method==NanoHTTPD.Method.MKCOL || method==NanoHTTPD.Method.DELETE || method==NanoHTTPD.Method.MOVE || method==NanoHTTPD.Method.COPY) {

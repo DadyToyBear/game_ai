@@ -649,24 +649,30 @@ public class MainActivity extends Activity {
     }
     private void accountsScreen(){
         layout("Локальные учётные записи");Object token=new Object();accountsView=token;
-        note("Учётные записи используются только для входа в HTTP/WebDAV-сервер этого приложения. У всех одинаковые права: запись определяется настройкой сервера. Пароли хранятся в виде солёных хешей, но передаются по HTTP без шифрования.");
+        note("Учётные записи используются только для входа в HTTP/WebDAV-сервер этого приложения. Запись разрешается отдельно для каждого пользователя и включается на сервере. Пароли хранятся в виде солёных хешей, но передаются по HTTP без шифрования.");
         note("После удаления данных приложения учётные записи исчезнут. Удаление пользователя запрещает новые запросы, но уже начатая операция может завершиться.");
         EditText user=field("Имя: латинские буквы, цифры, . _ -",false),password=field("Пароль: от 8 до 256 символов",true);
+        CheckBox accountWrite=new CheckBox(this);accountWrite.setText("Разрешить этому пользователю запись и удаление через WebDAV");body.addView(accountWrite);
         TextView status=text("",15);Button add=button("Создать учётную запись",()->{});body.addView(add);body.addView(status);
         LinearLayout accounts=new LinearLayout(this);accounts.setOrientation(LinearLayout.VERTICAL);body.addView(accounts);
         body.addView(button("Назад к серверу",this::webScreen));
         try{
             List<String> users=new LocalAccounts(this).list();if(users.isEmpty())accounts.addView(text("Пока нет учётных записей",15));
-            for(String name:users)accounts.addView(button("Удалить пользователя: "+name,()->new AlertDialog.Builder(this).setTitle("Удалить учётную запись?")
+            LocalAccounts store=new LocalAccounts(this);
+            for(String name:users){boolean writable=store.canWrite(name);
+                accounts.addView(button(name+(writable?" · чтение и запись":" · только чтение"),()->new AlertDialog.Builder(this).setTitle("Права: "+name)
+                    .setMessage(writable?"Запретить запись этому пользователю? Уже начатые операции могут завершиться.":"Разрешить пользователю изменять и удалять файлы, когда запись включена на сервере?")
+                    .setNegativeButton("Отмена",null).setPositiveButton(writable?"Запретить запись":"Разрешить запись",(d,w)->{try{new LocalAccounts(this).setCanWrite(name,!writable);accountsScreen();}catch(Exception ex){error(ex);}}).show()));
+                accounts.addView(button("Удалить пользователя: "+name,()->new AlertDialog.Builder(this).setTitle("Удалить учётную запись?")
                 .setMessage("Новые запросы пользователя «"+name+"» будут отклоняться; уже начатые операции могут завершиться.")
-                .setNegativeButton("Отмена",null).setPositiveButton("Удалить",(d,w)->{try{new LocalAccounts(this).remove(name);accountsScreen();}catch(Exception ex){error(ex);}}).show()));
+                .setNegativeButton("Отмена",null).setPositiveButton("Удалить",(d,w)->{try{new LocalAccounts(this).remove(name);accountsScreen();}catch(Exception ex){error(ex);}}).show()));}
         }catch(Exception ex){status.setText("Не удалось прочитать учётные записи: "+ex.getMessage());}
         add.setOnClickListener(v->{
             String name=user.getText().toString().trim();char[] secret=new char[password.length()];password.getText().getChars(0,password.length(),secret,0);
             try{if(!LocalAccounts.validUsername(name))throw new IOException("Имя: только латинские буквы, цифры и . _ -");LocalAccounts.validatePassword(secret);}
             catch(Exception ex){java.util.Arrays.fill(secret,'\0');error(ex);return;}
-            password.setText("");add.setEnabled(false);status.setText("Создание…");
-            new Thread(()->{String problem=null;try{new LocalAccounts(getApplicationContext()).add(name,secret);}catch(Exception ex){problem=ex.getMessage();}finally{java.util.Arrays.fill(secret,'\0');}
+            boolean canWrite=accountWrite.isChecked();password.setText("");add.setEnabled(false);status.setText("Создание…");
+            new Thread(()->{String problem=null;try{new LocalAccounts(getApplicationContext()).add(name,secret,canWrite);}catch(Exception ex){problem=ex.getMessage();}finally{java.util.Arrays.fill(secret,'\0');}
                 String failure=problem;runOnUiThread(()->{if(accountsView!=token||isFinishing()||isDestroyed())return;if(failure!=null){status.setText("Ошибка: "+failure);add.setEnabled(true);}else{toast("Учётная запись создана");accountsScreen();}});
             },"account-create").start();
         });
@@ -688,7 +694,7 @@ public class MainActivity extends Activity {
             boolean anon=anonymous.isChecked(), writable=writes.isChecked(); if(anon && writable){toast("В анонимном режиме запись запрещена");return;}
             try{if(!anon&&new LocalAccounts(this).list().isEmpty()){toast("Сначала создайте локальную учётную запись");return;}}catch(Exception ex){error(ex);return;}
             Uri selected=tree;
-            new AlertDialog.Builder(this).setTitle("Открыть доступ в сети?").setMessage(anon?"Любой пользователь сети сможет читать файлы выбранной папки. Соединение не шифруется.":(writable?"Любая локальная учётная запись сможет перезаписывать и удалять файлы. При сбое записи файл может повредиться. ":"")+"Пароль и файлы передаются без шифрования. Не используйте в недоверенной сети или интернете.")
+            new AlertDialog.Builder(this).setTitle("Открыть доступ в сети?").setMessage(anon?"Любой пользователь сети сможет читать файлы выбранной папки. Соединение не шифруется.":(writable?"Учётные записи с разрешением записи смогут перезаписывать и удалять файлы. При сбое записи файл может повредиться. ":"")+"Пароль и файлы передаются без шифрования. Не используйте в недоверенной сети или интернете.")
               .setNegativeButton("Отмена",null).setPositiveButton("Запустить",(d,w)->{
                 if(webServer!=null) return;
                 try { WebFilesServer server=new WebFilesServer(getApplicationContext(),selected,number,anon,writable,getCacheDir());server.start(10000,false);webServer=server;status.setText("Сервер запущен: "+localAddresses(number)+"\nДля WebDAV добавьте /dav/ к адресу."); }

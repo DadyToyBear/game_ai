@@ -44,6 +44,7 @@ final class WebFilesServer extends NanoHTTPD {
         return response;
     }
     private Response serveRequest(IHTTPSession session) {
+        boolean userCanWrite=false;
         if(!anonymous){
             String authorization=session.getHeaders().getOrDefault("authorization","");
             if(authorization.length()>2048||!authorization.regionMatches(true,0,"Basic ",0,6))return unauthorized();
@@ -55,12 +56,12 @@ final class WebFilesServer extends NanoHTTPD {
                 Arrays.fill(decoded,(byte)0);int separator=login.indexOf(':');
                 if(separator<1)return unauthorized();
                 String username=login.substring(0,separator);password=login.substring(separator+1).toCharArray();
-                if(!accounts.verify(username,password))return unauthorized();
+                Boolean permission=accounts.authenticate(username,password);if(permission==null)return unauthorized();userCanWrite=permission;
             } catch(IllegalArgumentException | java.nio.charset.CharacterCodingException e){return unauthorized();}
               catch(Exception e){return newFixedLengthResponse(Response.Status.INTERNAL_ERROR,"text/plain; charset=utf-8","Проверка учётной записи недоступна");}
             finally {if(password!=null)Arrays.fill(password,'\0');authenticationSlots.release();}
         }
-        if(session.getUri().equals("/dav") || session.getUri().startsWith("/dav/")) return dav.serve(session);
+        if(session.getUri().equals("/dav") || session.getUri().startsWith("/dav/")) return dav.serve(session,userCanWrite);
         if(session.getMethod()!=Method.GET) return newFixedLengthResponse(Response.Status.METHOD_NOT_ALLOWED,"text/plain","Read only");
         String path=session.getUri(); String key=path.equals("/") ? "root" : path.startsWith("/item/") ? path.substring(6) : "";
         Item item=items.get(key);
