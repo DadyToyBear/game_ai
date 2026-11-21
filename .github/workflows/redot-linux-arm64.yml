@@ -8,6 +8,7 @@ on:
       - 'redot-linux-arm64/**'
       - 'redot-audit/native_play_test.py'
       - 'redot-audit/native_viewer_test.cjs'
+      - 'redot-audit/fedora_launcher_test.py'
       - 'redot-bridge/**'
   workflow_dispatch:
 
@@ -88,6 +89,7 @@ jobs:
             export CHROMIUM_EXECUTABLE="$(command -v chromium-browser || command -v chromium)"
             test -x "$CHROMIUM_EXECUTABLE"
             xvfb-run -a -s "-screen 0 1280x800x24" python3 redot-audit/native_play_test.py "$(cat editor-path.txt)"
+            xvfb-run -a -s "-screen 0 1280x800x24" python3 redot-audit/fedora_launcher_test.py
           ' > fedora-test.log 2>&1 || { tail -100 fedora-test.log; python3 -c 'from pathlib import Path; s=Path("fedora-test.log").read_text(errors="replace")[-3500:]; print("::error title=Fedora ARM64 test::"+s.replace("%","%25").replace("\n","%0A"))'; exit 1; }
           tail -40 fedora-test.log
       - uses: actions/upload-artifact@v4
