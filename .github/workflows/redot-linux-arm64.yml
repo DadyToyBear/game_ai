@@ -80,9 +80,9 @@ jobs:
           set -euo pipefail
           mkdir test-bundle && tar -xzf redot-fedora-arm64.tar.gz -C test-bundle
           cp -a redot-audit test-bundle/redot-fedora-arm64/redot-audit
-          docker run --rm --shm-size=2g -v "$PWD/test-bundle/redot-fedora-arm64:/work" -w /work fedora:42 bash -euxo pipefail -c '
+          docker run --rm --shm-size=2g -v "$PWD/test-bundle/redot-fedora-arm64:/work" -w /work fedora:44 bash -euxo pipefail -c '
             test "$(uname -m)" = aarch64
-            dnf install -y python3 python3-pillow xorg-x11-server-Xvfb xorg-x11-xauth mesa-dri-drivers libXcursor libXinerama libXi libXrandr libXrender libX11 libXext libxkbcommon fontconfig dbus-libs alsa-lib nodejs npm chromium
+            dnf install -y dotnet-sdk-8.0 python3 python3-pillow xorg-x11-server-Xvfb xorg-x11-xauth mesa-dri-drivers libXcursor libXinerama libXi libXrandr libXrender libX11 libXext libxkbcommon fontconfig dbus-libs alsa-lib nodejs npm chromium
             npm install --no-save playwright@1.56.1 pngjs@7.0.0
             bash -n start.sh
             export CHROMIUM_EXECUTABLE=/usr/bin/chromium

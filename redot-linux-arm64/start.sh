@@ -5,6 +5,10 @@ cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 if [[ $(uname -s) != Linux || $(uname -m) != aarch64 ]]; then
   echo 'Этот комплект предназначен для Linux aarch64 (ARM64).' >&2; exit 1
 fi
+if ! command -v python3 >/dev/null; then echo 'Установите Python 3.' >&2; exit 1; fi
+if ! command -v dotnet >/dev/null || ! dotnet --list-runtimes | grep -q '^Microsoft.NETCore.App 8\.'; then
+  echo 'Редактор Mono требует .NET 8. Установите dotnet-sdk-8.0 из репозитория Fedora; без него редактор может аварийно завершиться.' >&2; exit 1
+fi
 if (( $# > 1 )); then echo 'Использование: bash start.sh [путь-к-проекту]' >&2; exit 1; fi
 project_args=(); editor_args=()
 if (( $# )); then
