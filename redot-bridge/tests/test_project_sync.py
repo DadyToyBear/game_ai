@@ -65,7 +65,7 @@ class SnapshotTests(unittest.TestCase):
             self.assertEqual(response.status, 201)
             dest = Path(json.load(response)['imported_to'])
         self.assertNotEqual(dest, self.root)
-        self.assertEqual(dest.parent, self.root.parent)
+        self.assertEqual(dest.parent.resolve(), self.root.parent.resolve())
         self.assertEqual((dest / 'project.godot').read_text(), 'web version')
         self.assertEqual((self.root / 'project.godot').read_text(), '[application]\nconfig/name="Original"\n')
         self.assertFalse((dest / '.godot').exists())
@@ -114,13 +114,23 @@ class SnapshotTests(unittest.TestCase):
             [('project.godot', 'x'), ('../project.godot', 'bad')],
             [('project.godot', 'x'), ('same.gd', 'a'), ('SAME.GD', 'b')],
             [('root/project.godot', 'x'), ('elsewhere/data', 'bad')],
-            [('project.godot', 'x'), ('a\\b', 'bad')],
         ]
         for entries in bad:
             with self.subTest(entries=entries), self.assertRaises(project_sync.SnapshotError):
                 project_sync.import_snapshot(make_zip(entries), self.root)
         self.assertEqual(sorted(p.name for p in self.root.parent.iterdir()), ['game'])
         self.assertFalse((self.root.parent / 'escaped').exists())
+
+    def test_raw_zip_backslash_and_nul_rejected_on_all_platforms(self):
+        # ZipFile.writestr normalizes backslashes on Windows and truncates NULs.
+        # Patch equal-length names in both ZIP headers to test real wire bytes.
+        source = make_zip([('project.godot', 'x'), ('a/b', 'payload')])
+        for replacement in (b'a\\b', b'a\x00b'):
+            raw = source.replace(b'a/b', replacement)
+            self.assertNotEqual(raw, source)
+            with self.subTest(name=replacement), self.assertRaises(project_sync.SnapshotError):
+                project_sync.import_snapshot(raw, self.root)
+        self.assertEqual(sorted(p.name for p in self.root.parent.iterdir()), ['game'])
 
     def test_folder_registry_deduplicates_and_exports_without_writing(self):
         def post(endpoint, obj, token=TOKEN):

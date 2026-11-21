@@ -123,7 +123,10 @@ def import_snapshot(data, project):
         total = 0
         seen = set()
         for info in entries:
-            p = valid_path(info.filename)
+            # ZipInfo.filename is normalized by Python: on Windows backslashes
+            # become slashes, and on every platform NUL truncates the name.
+            # Validate the original central-directory name before that happens.
+            p = valid_path(info.orig_filename)
             mode = info.external_attr >> 16
             if stat.S_ISLNK(mode) or (mode and stat.S_IFMT(mode) not in (0, stat.S_IFREG, stat.S_IFDIR)):
                 raise SnapshotError('Links and special files are not supported')
