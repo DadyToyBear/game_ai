@@ -1,0 +1,54 @@
+name: Audit Redot Web and Android artifacts
+
+on:
+  push:
+    branches: [arena/b84b9c4f-game-ai]
+    paths:
+      - '.github/workflows/redot-artifact-audit.yml'
+      - 'redot-audit/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  web-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download successful RC2 Web editor build
+        uses: actions/download-artifact@v4
+        with:
+          name: redot-26.3-rc2-web-editor
+          run-id: 44878548484
+          path: web-editor
+          github-token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.56.1 pngjs@7.0.0
+      - run: npx playwright install --with-deps chromium
+      - name: Start real Web editor in Chromium
+        run: node redot-audit/browser-smoke.cjs web-editor
+
+  android-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download successful Android bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: redot-26.3-rc2-android-latest-bridge
+          run-id: 44904841519
+          path: android-package
+          github-token: ${{ github.token }}
+      - name: Inspect manifest, ABIs and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          test -x "$build_tools/aapt" && test -x "$build_tools/apksigner"
+          python3 redot-audit/check_apks.py android-package "$build_tools/aapt" "$build_tools/apksigner"
