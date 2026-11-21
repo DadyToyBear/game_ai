@@ -662,6 +662,7 @@ main { flex: 1; padding: 0 16px 28px; }
 
 /* анимации пэда */
 @keyframes padPulse { 0% { transform: translate(-50%,-50%) scale(.35); opacity: .9; } 100% { transform: translate(-50%,-50%) scale(1.9); opacity: 0; } }
+@keyframes padPulseBack { 0% { opacity: 0; } 100% { opacity: 1; } }
 .xy-ripple {
   position: absolute; width: 42%; aspect-ratio: 1; border-radius: 50%;
   border: 1px solid rgba(78,225,193,.45); transform: translate(-50%,-50%);
@@ -680,6 +681,8 @@ main { flex: 1; padding: 0 16px 28px; }
 .xy-pad.replay .xy-trail { animation: trailFlash .3s ease; }
 @keyframes trailFlash { 0% { opacity: .2; } 100% { opacity: 1; } }
 .xy-pad.ghost .xy-dot { opacity: .35; }
+/* базовая прозрачность точки — 1: иначе после любой анимации она «исчезает» */
+.xy-dot { opacity: 1; }
 .xy-pad.holdon .xy-dot { box-shadow: 0 0 26px rgba(255,209,102,.8); }
 .xy-pad .xy-dot { transform: translate(-50%,-50%); transition: left .03s linear, top .03s linear, transform .1s; }
 
@@ -740,11 +743,16 @@ main { flex: 1; padding: 0 16px 28px; }
 .dev-slice:hover { background: linear-gradient(180deg, #3a7d6f, #1e4a42); color: #fff; }
 
 /* «включение» деки и живой дисплей */
-@keyframes deckIn { from { opacity: 0; transform: translateY(10px) scale(.995); } to { opacity: 1; transform: none; } }
 @keyframes lcdFlicker { 0%,100% { opacity: 1; } 47% { opacity: .92; } 48% { opacity: .72; } 49% { opacity: 1; } }
 @keyframes scan { from { transform: translateY(-100%); } to { transform: translateY(400%); } }
 .deck { animation: deckIn .45s ease both; }
 .deck > .dev:nth-child(2) { animation: deckIn .45s ease .08s both; }
+/* Ключевой кадр 0% — это БАЗОВОЕ состояние, к которому элемент возвращается
+   после анимации. Раньше в нём стоял opacity: 0 (и .35 у точки X-Y), поэтому
+   при любом перезапуске анимации — перерисовке деки, переключении вкладки,
+   сворачивании окна — приборы мигали в невидимость, а на телефоне могли
+   застыть пустыми. Стартуем с видимого состояния. */
+@keyframes deckIn { 0% { opacity: 1; transform: none; } 100% { opacity: 1; transform: none; } }
 .dev-screen { position: relative; overflow: hidden; }
 .dev-screen::after {
   content: ''; position: absolute; left: 0; right: 0; height: 22%; pointer-events: none;
@@ -895,8 +903,15 @@ html.touch .grid-scroll, html.touch .roll-scroll, html.touch .seq-scroll { -webk
 .pad-focus .deck-bar .deck-title { display: none; }
 .pad-focus main { padding: 4px; }
 .pad-focus .deck { gap: 8px; }
-.pad-focus .dev-bank-block, .pad-focus .dev-samples, .pad-focus .dev-loops,
-.pad-focus .dev-player, .pad-focus .fx-pads, .pad-focus .dev-ctrl { display: none; }
+/* В пэд-режиме должны остаться только пэд и экранчик прибора.
+   Раньше правило не попадало в нижний блок: у Kaossilator это .dev-bank-block,
+   у miniKP2 — .fx-pads с подписями программ, и они оставались на экране. */
+.pad-focus .dev-bank-block, .pad-focus .dev-cats, .pad-focus .dev-progs,
+.pad-focus .dev-samples, .pad-focus .dev-loops, .pad-focus .dev-player,
+.pad-focus .fx-pads, .pad-focus .dev-ctrl, .pad-focus .dev-slice-map,
+.pad-focus .dev-top .dev-vents, .pad-focus .dev-screen .lcd-side { display: none; }
+.pad-focus .dev { padding-bottom: 6px; }
+.pad-focus .dev-screen { margin-bottom: 6px; }
 .pad-focus .dev .xy-pad { aspect-ratio: auto; height: calc(100vh - 150px); max-height: none; }
 .pad-focus .deck-bar { position: fixed; bottom: 0; left: 0; right: 0; border-radius: 0; }
 .pad-btn.on { background: linear-gradient(180deg, #4ee1c1, #26b39a); color: #05231d; border-color: transparent; }
