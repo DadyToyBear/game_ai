@@ -18,6 +18,9 @@ on:
       - '.github/workflows/android.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -75,6 +78,19 @@ jobs:
           name: mini-studio-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      # Готовый APK всегда доступен по ссылке: Releases → apk-latest
+      - name: Выложить APK в Release (apk-latest)
+        if: github.ref == 'refs/heads/arena/a11b2c5a-game-ai'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: Mini Studio — свежий APK
+          prerelease: true
+          body: |
+            Автоматическая сборка из ветки `arena/a11b2c5a-game-ai`.
+            Скачайте `app-debug.apk` ниже и установите на Android (разрешите установку из неизвестных источников).
+          files: android/app/build/outputs/apk/debug/*.apk
 
       - name: Приложить APK к релизу (при теге)
         if: startsWith(github.ref, 'refs/tags/')
