@@ -112,4 +112,4 @@ curl -u login -X DELETE http://IP:8080/dav/test/sample.txt
 
 ### Проверка на эмуляторе в CI
 
-Workflow `Android instrumented tests` запускается вручную из GitHub Actions на эмуляторе Android API 29 с KVM и выполняет `:app:connectedDebugAndroidTest`. Отчёты сохраняются артефактом `android-test-reports` на 14 дней (если тесты успели сформировать отчёты). Это не заменяет проверку SAF-провайдеров, реального устройства и сетевых серверов. Обычный workflow сборки APK по-прежнему только компилирует тестовый APK.
+Workflow `Android instrumented tests` запускается при изменениях приложения или своего workflow в рабочей ветке на эмуляторе Android API 29 с KVM и выполняет `:app:connectedDebugAndroidTest`. Отчёты сохраняются артефактом `android-test-reports` на 14 дней (если тесты успели сформировать отчёты). Это не заменяет проверку SAF-провайдеров, реального устройства и сетевых серверов. Обычный workflow сборки APK по-прежнему только компилирует тестовый APK.

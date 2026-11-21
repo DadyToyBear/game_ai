@@ -2,6 +2,12 @@ name: Android instrumented tests
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'arena/f2de36b4-game-ai'
+    paths:
+      - 'app/**'
+      - '.github/workflows/android-tests.yml'
 
 permissions:
   contents: read
