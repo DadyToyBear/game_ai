@@ -3,6 +3,7 @@
 import argparse
 import base64
 import hmac
+import hashlib
 import json
 import mimetypes
 import os
@@ -14,6 +15,9 @@ import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import project_sync
+
+MAX_MCP_SNAPSHOT = 8 * 1024 * 1024
 MAX_FRAME = 8 * 1024 * 1024
 WEB = Path(__file__).resolve().parent / 'web'
 
@@ -74,7 +78,7 @@ class FrameStore:
             return existed
 
 
-def handler_for(store, token, editor_dir=None):
+def handler_for(store, token, editor_dir=None, project_dir=None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
             # Do not log paths, authorization headers or payloads.
@@ -103,7 +107,7 @@ def handler_for(store, token, editor_dir=None):
             return True
 
         def do_GET(self):
-            if self.path in ('/', '/demo.html', '/capture.js', '/redot-overlay.js', '/native.html', '/native.js'):
+            if self.path in ('/', '/demo.html', '/capture.js', '/redot-overlay.js', '/native.html', '/native.js', '/sync.html', '/sync.js'):
                 name = 'demo.html' if self.path in ('/', '/demo.html') else self.path[1:]
                 kind = 'text/html; charset=utf-8' if name.endswith('.html') else 'text/javascript; charset=utf-8'
                 self.send_bytes(200, (WEB / name).read_bytes(), kind)
@@ -111,6 +115,24 @@ def handler_for(store, token, editor_dir=None):
             if self.path == '/api/status':
                 if self.check_auth():
                     self.send_bytes(200, json.dumps(store.status()).encode('utf-8'), 'application/json')
+                return
+            if self.path == '/api/project/status':
+                if self.check_auth():
+                    info = {'configured': project_dir is not None, 'name': Path(project_dir).name if project_dir else None}
+                    self.send_bytes(200, json.dumps(info).encode('utf-8'), 'application/json')
+                return
+            if self.path == '/api/project/export':
+                if not self.check_auth():
+                    return
+                if project_dir is None:
+                    self.send_bytes(503, b'No project configured')
+                    return
+                try:
+                    data = project_sync.pack_project(project_dir)
+                except (project_sync.SnapshotError, OSError, ValueError) as exc:
+                    self.send_bytes(400, str(exc).encode('utf-8'))
+                    return
+                self.send_bytes(200, data, 'application/zip')
                 return
             if self.path.startswith('/editor/') and editor_dir is not None:
                 # Only files under the configured editor directory are served; no listings or traversal.
@@ -143,7 +165,7 @@ def handler_for(store, token, editor_dir=None):
             self.send_bytes(200, frame[0], frame[1])
 
         def do_POST(self):
-            if self.path not in ('/api/frame', '/api/command', '/api/editor/poll'):
+            if self.path not in ('/api/frame', '/api/command', '/api/editor/poll', '/api/project/import'):
                 self.send_bytes(404, b'Not found')
                 return
             if not self.check_auth():
@@ -156,6 +178,24 @@ def handler_for(store, token, editor_dir=None):
                 self.send_bytes(411, b'Content-Length required')
                 return
             mime = self.headers.get('Content-Type', '').split(';', 1)[0].strip().lower()
+            if self.path == '/api/project/import':
+                if project_dir is None:
+                    self.close_connection = True
+                    self.send_bytes(503, b'No project configured')
+                    return
+                if mime != 'application/zip' or length < 1 or length > project_sync.MAX_ARCHIVE:
+                    self.close_connection = True
+                    self.send_bytes(400, b'ZIP missing or exceeds 128 MiB')
+                    return
+                try:
+                    data = self.rfile.read(length)
+                    if len(data) != length:
+                        raise project_sync.SnapshotError('Truncated upload')
+                    destination = project_sync.import_snapshot(data, project_dir)
+                    self.send_bytes(201, json.dumps({'imported_to': str(destination)}).encode('utf-8'), 'application/json')
+                except (project_sync.SnapshotError, OSError, ValueError) as exc:
+                    self.send_bytes(400, str(exc).encode('utf-8'))
+                return
             if self.path != '/api/frame':
                 if mime != 'application/json' or length < 2 or length > 1024:
                     self.close_connection = True
@@ -220,6 +260,9 @@ def tools():
         {'name': 'game_play', 'description': 'Queue play-main-scene for the connected native editor. Check game_status for actual state.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'game_stop', 'description': 'Queue stop for the connected native editor. Check game_status for actual state.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'game_status', 'description': 'Read native editor connectivity, playing state and frame availability.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'project_status', 'description': 'Check whether a local project is configured for explicit snapshot exchange.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'project_snapshot_export', 'description': 'Export configured local project as an embedded ZIP resource, at most 8 MiB compressed. It may contain private project files; call only with permission.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'project_snapshot_import', 'description': 'Import a base64 ZIP into a NEW sibling directory, never overwrite the configured project. At most 8 MiB compressed. This is not a live merge.', 'inputSchema': {'type': 'object', 'properties': {'zip_base64': {'type': 'string', 'maxLength': 11184816}}, 'required': ['zip_base64'], 'additionalProperties': False}},
     ]
 
 
@@ -264,6 +307,27 @@ def call_editor(url, token, command=None):
         raise ValueError('Bridge unavailable; start the local server first') from exc
 
 
+def call_project(url, token, path, data=None, limit=MAX_MCP_SNAPSHOT):
+    headers = {'Authorization': 'Bearer ' + token}
+    if data is not None:
+        headers['Content-Type'] = 'application/zip'
+    request = urllib.request.Request(url.rstrip('/') + path, data=data, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            length = response.headers.get('Content-Length')
+            if length and int(length) > limit:
+                raise ValueError('Snapshot is too large for MCP; use the local browser instead')
+            body = response.read(limit + 1)
+            if len(body) > limit:
+                raise ValueError('Snapshot is too large for MCP; use the local browser instead')
+            return body
+    except urllib.error.HTTPError as exc:
+        detail = exc.read(2048).decode('utf-8', errors='replace')
+        raise ValueError(f'Project bridge error {exc.code}: {detail}') from exc
+    except urllib.error.URLError as exc:
+        raise ValueError('Bridge unavailable; start the local server first') from exc
+
+
 def mcp_response(message, url, token):
     if not isinstance(message, dict) or message.get('jsonrpc') != '2.0':
         return {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32600, 'message': 'Invalid Request'}}
@@ -283,10 +347,15 @@ def mcp_response(message, url, token):
         if not isinstance(params, dict):
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Invalid params'}}
         name = params.get('name')
-        if name not in ('game_screenshot', 'delete_game_screenshot', 'game_play', 'game_stop', 'game_status'):
+        if name not in ('game_screenshot', 'delete_game_screenshot', 'game_play', 'game_stop', 'game_status', 'project_status', 'project_snapshot_export', 'project_snapshot_import'):
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Unknown tool'}}
-        if params.get('arguments', {}) != {}:
-            return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'No arguments expected'}}
+        arguments = params.get('arguments', {})
+        if name == 'project_snapshot_import':
+            valid_arguments = isinstance(arguments, dict) and set(arguments) == {'zip_base64'} and isinstance(arguments['zip_base64'], str) and len(arguments['zip_base64']) <= 11184816
+        else:
+            valid_arguments = arguments == {}
+        if not valid_arguments:
+            return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Invalid tool arguments'}}
         try:
             if name == 'game_screenshot':
                 body, mime = call_frame(url, token, 'GET')
@@ -297,8 +366,21 @@ def mcp_response(message, url, token):
             elif name in ('game_play', 'game_stop'):
                 call_editor(url, token, 'play' if name == 'game_play' else 'stop')
                 result = {'content': [{'type': 'text', 'text': 'Command queued; check game_status to confirm.'}]}
-            else:
+            elif name == 'game_status':
                 result = {'content': [{'type': 'text', 'text': call_editor(url, token)}]}
+            elif name == 'project_status':
+                body = call_project(url, token, '/api/project/status', limit=4096)
+                result = {'content': [{'type': 'text', 'text': body.decode('utf-8')}]}
+            elif name == 'project_snapshot_export':
+                body = call_project(url, token, '/api/project/export')
+                digest = hashlib.sha256(body).hexdigest()
+                result = {'content': [{'type': 'resource', 'resource': {'uri': 'redot-project://snapshot/' + digest, 'mimeType': 'application/zip', 'blob': base64.b64encode(body).decode('ascii')}}]}
+            else:
+                data = base64.b64decode(arguments['zip_base64'], validate=True)
+                if len(data) > MAX_MCP_SNAPSHOT:
+                    raise ValueError('Snapshot exceeds 8 MiB MCP limit')
+                body = call_project(url, token, '/api/project/import', data, limit=4096)
+                result = {'content': [{'type': 'text', 'text': body.decode('utf-8')}]}
         except (ValueError, OSError) as exc:
             result = {'content': [{'type': 'text', 'text': str(exc)}], 'isError': True}
     else:
@@ -321,6 +403,7 @@ def main():
     parser.add_argument('mode', choices=('serve', 'mcp'))
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--editor-dir', type=Path, help='Unpacked web editor directory (serve mode only)')
+    parser.add_argument('--project-dir', type=Path, help='Local project for explicit snapshot exchange (serve mode only)')
     args = parser.parse_args()
     token = os.environ.get('REDOT_BRIDGE_TOKEN', '')
     if len(token) < 32 or not token.isascii() or any(c.isspace() or ord(c) < 33 or ord(c) > 126 for c in token):
@@ -330,8 +413,14 @@ def main():
     if args.mode == 'serve':
         if args.editor_dir is not None and not (args.editor_dir / 'godot.editor.html').is_file():
             parser.error('Editor directory must contain godot.editor.html')
-        server = ThreadingHTTPServer(('127.0.0.1', args.port), handler_for(FrameStore(), token, args.editor_dir))
+        if args.project_dir is not None:
+            if args.project_dir.is_symlink() or not args.project_dir.is_dir() or not (args.project_dir / 'project.godot').is_file():
+                parser.error('Project directory must be a non-symlink folder containing project.godot')
+            args.project_dir = args.project_dir.resolve()
+        server = ThreadingHTTPServer(('127.0.0.1', args.port), handler_for(FrameStore(), token, args.editor_dir, args.project_dir))
         print(f'Local demo: http://127.0.0.1:{args.port}/', file=sys.stderr, flush=True)
+        if args.project_dir is not None:
+            print(f'Snapshot exchange: http://127.0.0.1:{args.port}/sync.html', file=sys.stderr, flush=True)
         print(f'Native Redot viewer: http://127.0.0.1:{args.port}/native.html', file=sys.stderr, flush=True)
         if args.editor_dir is not None:
             print(f'Local editor: http://127.0.0.1:{args.port}/editor/godot.editor.html', file=sys.stderr, flush=True)

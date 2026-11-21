@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""Add the local bridge and snapshot tools to an unpacked Redot web-editor artifact."""
+from pathlib import Path
+import shutil
+import sys
+import tempfile
+
+SOURCE = Path(__file__).resolve().parent
+START = '''# Redot Web Editor + local bridge (experimental)
+
+This bundle contains the Redot Web editor and an optional local bridge. It does not provide remote Internet access, live file synchronization, or a tested guarantee that all add-ons work.
+
+## Start on Windows
+
+1. Close Redot, save and back up your project. In PowerShell, enter the unpacked bundle directory.
+2. Run the commands below. Replace the example project path with your own directory containing project.godot. Do not share the generated secret.
+
+```powershell
+$env:REDOT_BRIDGE_ENABLED = '1'
+$env:REDOT_BRIDGE_TOKEN = python -c "import secrets; print(secrets.token_hex(32))"
+$env:REDOT_BRIDGE_TOKEN
+python redot-bridge/bridge.py serve --editor-dir . --project-dir 'C:\\path\\to\\your\\project'
+```
+
+3. Open http://127.0.0.1:8765/sync.html and enter the secret locally. Export an explicit ZIP snapshot for Web Editor's Preload project ZIP. In Web Editor, save and use Project → Tools → Download Project Source, then import that ZIP in the sync page. Import creates a new sibling folder; it never merges into or overwrites the current project.
+4. Open http://127.0.0.1:8765/editor/godot.editor.html for the local Web Editor. Browser data is not automatically synchronized. Use explicit snapshots.
+5. For native Redot game viewing and MCP instructions see redot-bridge/README.md. Those features require additional configuration and have not been tested with a real Redot editor.
+
+Snapshots may contain private files. Only .git and .godot directories are excluded. Do not upload snapshots without reviewing their contents.
+'''
+
+
+def bundle_into(editor_dir):
+    root = Path(editor_dir)
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError('The editor directory must be an existing, non-symlink directory')
+    for filename in ('godot.editor.html', 'godot.editor.js', 'godot.editor.wasm'):
+        if not (root / filename).is_file():
+            raise ValueError(f'Missing editor file: {filename}')
+    destination = root / 'redot-bridge'
+    guide = root / 'BRIDGE-START.md'
+    if destination.exists() or destination.is_symlink() or guide.exists() or guide.is_symlink():
+        raise ValueError('Bridge or BRIDGE-START.md already exists; refusing to overwrite')
+    stage = Path(tempfile.mkdtemp(prefix='.bridge-bundle-', dir=root))
+    try:
+        for name in ('bridge.py', 'project_sync.py', 'README.md'):
+            shutil.copy2(SOURCE / name, stage / name)
+        for name in ('web', 'addons'):
+            shutil.copytree(SOURCE / name, stage / name)
+        stage.rename(destination)
+        try:
+            with guide.open('x', encoding='utf-8') as f:
+                f.write(START)
+        except Exception:
+            shutil.rmtree(destination, ignore_errors=True)
+            raise
+    finally:
+        if stage.exists():
+            shutil.rmtree(stage, ignore_errors=True)
+    return destination
+
+
+def main():
+    if len(sys.argv) != 2:
+        raise SystemExit('Usage: python make_bundle.py <unpacked-editor-directory>')
+    try:
+        result = bundle_into(sys.argv[1])
+    except (ValueError, OSError) as exc:
+        raise SystemExit(str(exc)) from exc
+    print(f'Bridge added: {result}. Read BRIDGE-START.md in the editor directory.')
+
+
+if __name__ == '__main__':
+    main()

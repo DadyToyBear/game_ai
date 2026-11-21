@@ -1,0 +1,42 @@
+import importlib.util
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('make_bundle', ROOT / 'make_bundle.py')
+make_bundle = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(make_bundle)
+
+
+class BundleTests(unittest.TestCase):
+    def test_add_bridge_without_overwrite(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            for name in ('godot.editor.html', 'godot.editor.js', 'godot.editor.wasm'):
+                (root / name).write_bytes(b'test editor')
+            result = make_bundle.bundle_into(root)
+            self.assertEqual(result, root / 'redot-bridge')
+            self.assertTrue((result / 'bridge.py').is_file())
+            self.assertTrue((result / 'project_sync.py').is_file())
+            self.assertTrue((result / 'web/sync.html').is_file())
+            self.assertTrue((result / 'addons/redot_local_bridge/plugin.cfg').is_file())
+            self.assertIn('--editor-dir', (root / 'BRIDGE-START.md').read_text())
+            run = subprocess.run([sys.executable, str(result / 'bridge.py'), '--help'], capture_output=True, text=True, timeout=10)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertIn('--project-dir', run.stdout)
+            with self.assertRaises(ValueError):
+                make_bundle.bundle_into(root)
+            self.assertEqual((root / 'godot.editor.wasm').read_bytes(), b'test editor')
+
+    def test_wrong_directory_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaises(ValueError):
+                make_bundle.bundle_into(d)
+            self.assertFalse((Path(d) / 'redot-bridge').exists())
+
+
+if __name__ == '__main__':
+    unittest.main()

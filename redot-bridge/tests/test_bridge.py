@@ -13,6 +13,7 @@ import urllib.request
 from http.server import ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 spec = importlib.util.spec_from_file_location('bridge', ROOT / 'bridge.py')
 bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)
@@ -79,7 +80,7 @@ class BridgeTest(unittest.TestCase):
         replies = [json.loads(line) for line in run.stdout.splitlines()]
         self.assertEqual([r['id'] for r in replies], [1, 2, 3, 4, 5])
         self.assertEqual(replies[0]['result']['protocolVersion'], '2025-03-26')
-        self.assertEqual(len(replies[1]['result']['tools']), 5)
+        self.assertEqual(len(replies[1]['result']['tools']), 8)
         image = replies[2]['result']['content'][0]
         self.assertEqual(image['mimeType'], 'image/png')
         self.assertEqual(base64.b64decode(image['data']), PNG)

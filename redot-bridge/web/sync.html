@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Redot — обмен проектом</title>
+<style>body{font:16px system-ui;background:#101522;color:#e6ecff;max-width:850px;margin:2rem auto;padding:0 1rem;line-height:1.5}button,input{padding:.6rem;margin:.3rem}section{border:1px solid #50617b;padding:1rem;margin:1rem 0;border-radius:.5rem}a{color:#9ed6ff}</style></head><body>
+<h1>Redot: обмен снимками проекта</h1><p>Это ручной обмен ZIP на одном компьютере, не автоматическая синхронизация. Импорт создаёт <b>новую папку</b> и не заменяет текущий проект.</p>
+<label>Секрет моста <input type="password" id="token" autocomplete="off"></label><button id="connect">Подключить</button><p id="status" role="status">Отключено.</p>
+<section><h2>Из установленного Redot в Web-редактор</h2><p>Сохрани изменения в настольном редакторе. Снимок может содержать приватные файлы проекта. Скачать ZIP, затем выбрать его на стартовой странице Web-редактора в «Preload project ZIP».</p><button id="export" disabled>Скачать снимок проекта</button> <a href="/editor/godot.editor.html" target="_blank" rel="noopener">Открыть Web-редактор, если подключён</a></section>
+<section><h2>Из Web-редактора на компьютер</h2><p>В Web-редакторе: Project → Tools → Download Project Source. Выбери скачанный ZIP ниже. Он будет распакован в новую соседнюю папку; оригинал не изменится.</p><input type="file" id="file" accept=".zip,application/zip"><button id="import" disabled>Создать новую копию из ZIP</button></section>
+<p><a href="/native.html">Просмотр игры из установленного Redot</a></p><script src="/sync.js"></script></body></html>
