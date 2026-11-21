@@ -161,7 +161,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace \
             -PmsVersionName="${{ steps.ver.outputs.name }}" \
-            -PmsVersionCode="${{ steps.ver.outputs.code }}"
+            -PmsVersionCode="${{ steps.ver.outputs.code }}" 2>&1 | tail -80
 
       - name: Проверить сборку
         run: |
