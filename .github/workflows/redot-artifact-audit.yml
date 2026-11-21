@@ -38,6 +38,8 @@ jobs:
         run: node redot-audit/browser-smoke.cjs web-editor
       - name: Run a real Web game and inspect the captured frame
         run: node redot-audit/web-game-smoke.cjs web-editor
+      - name: Investigate Web project import flow
+        run: node redot-audit/web-import-test.cjs web-editor
 
   mounted-drive:
     runs-on: ubuntu-24.04
