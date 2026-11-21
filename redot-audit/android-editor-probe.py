@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from PIL import Image
 
@@ -22,6 +23,29 @@ def adb(*args, check=True, timeout=90):
 
 def notice(title, value):
     print(f'::notice title={title}::{value.replace(chr(10), " ")}', flush=True)
+
+
+def dismiss_unrelated_anr():
+    # Background emulator services occasionally show system ANR dialogs.
+    adb('shell', 'uiautomator', 'dump', '/sdcard/window.xml', check=False, timeout=30)
+    raw = adb('shell', 'cat', '/sdcard/window.xml', check=False).stdout
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        return
+    texts = [node.get('text', '') for node in root.iter('node')]
+    dialogs = [text for text in texts if "isn't responding" in text]
+    if not dialogs:
+        return
+    if any(re.search(r'godot|redot', text, re.I) for text in dialogs):
+        raise RuntimeError('The editor is not responding')
+    for node in root.iter('node'):
+        if node.get('text') == 'Close app':
+            coords = [int(n) for n in re.findall(r'\d+', node.get('bounds', ''))]
+            if len(coords) == 4:
+                adb('shell', 'input', 'tap', str((coords[0]+coords[2])//2), str((coords[1]+coords[3])//2))
+                time.sleep(2)
+                return
 
 
 def main():
@@ -83,6 +107,7 @@ def main():
         (project / 'addons/audit/plugin.gd').write_text('@tool\nextends EditorPlugin\nfunc _enter_tree() -> void:\n\tprint("ANDROID_IMPORT_EDITOR_READY")\n')
         adb('push', str(project), '/sdcard/', timeout=90)
     # Open Import in the project manager to investigate the local-folder flow.
+    dismiss_unrelated_anr()
     adb('shell', 'input', 'tap', '130', '68')
     time.sleep(5)
     image = Image.open(io.BytesIO(adb('exec-out', 'screencap', '-p').stdout)).convert('RGB')
