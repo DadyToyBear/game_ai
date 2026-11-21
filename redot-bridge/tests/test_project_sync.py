@@ -101,6 +101,68 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(sorted(p.name for p in self.root.parent.iterdir()), ['game'])
         self.assertFalse((self.root.parent / 'escaped').exists())
 
+    def test_folder_registry_deduplicates_and_exports_without_writing(self):
+        def post(endpoint, obj, token=TOKEN):
+            headers = {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'}
+            request = urllib.request.Request(self.url + endpoint, data=json.dumps(obj).encode(), headers=headers)
+            return urllib.request.urlopen(request, timeout=5)
+
+        with self.assertRaises(urllib.error.HTTPError) as denied:
+            self.request('/api/projects', token='wrong')
+        self.assertEqual(denied.exception.code, 401)
+        with self.assertRaises(urllib.error.HTTPError) as denied:
+            post('/api/projects/add', {'path': str(self.root)}, token='wrong')
+        self.assertEqual(denied.exception.code, 401)
+        with self.request('/api/projects') as response:
+            projects = json.load(response)['projects']
+        self.assertEqual(len(projects), 1)  # --project-dir is registered once
+        first = projects[0]['id']
+        with post('/api/projects/add', {'path': str(self.root / '.' )}) as response:
+            result = json.load(response)
+            self.assertFalse(result['created'])
+            self.assertEqual(result['project']['id'], first)
+        alias = self.root.parent / 'alias'
+        try:
+            alias.symlink_to(self.root, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            pass
+        else:
+            with post('/api/projects/add', {'path': str(alias)}) as response:
+                result = json.load(response)
+                self.assertFalse(result['created'])
+                self.assertEqual(result['project']['id'], first)
+        other = self.root.parent / 'mounted share' / 'game'
+        other.mkdir(parents=True)
+        (other / 'project.godot').write_text('network test')
+        with post('/api/projects/add', {'path': str(other)}) as response:
+            self.assertTrue((info := json.load(response))['created'])
+            second = info['project']['id']
+        with post('/api/projects/export', {'id': second}) as response:
+            with zipfile.ZipFile(io.BytesIO(response.read())) as archive:
+                self.assertEqual(archive.read('project.godot'), b'network test')
+        with post('/api/projects/remove', {'id': second}) as response:
+            self.assertEqual(response.status, 204)
+        self.assertEqual((other / 'project.godot').read_text(), 'network test')
+        with self.assertRaises(urllib.error.HTTPError):
+            post('/api/projects/export', {'id': second})
+        for path in ('relative/path', str(self.root.parent / 'missing'), '', 'https://example.com/project'):
+            with self.subTest(path=path), self.assertRaises(urllib.error.HTTPError):
+                post('/api/projects/add', {'path': path})
+        with self.request('/api/projects') as response:
+            self.assertEqual(len(json.load(response)['projects']), 1)
+
+    def test_registry_rejects_replaced_directory(self):
+        registry = project_sync.ProjectRegistry()
+        info, created = registry.add(str(self.root))
+        self.assertTrue(created)
+        self.root.rename(self.root.parent / 'old')
+        self.root.mkdir()
+        (self.root / 'project.godot').write_text('replacement')
+        with self.assertRaises(project_sync.RegistryError):
+            registry.get(info['id'])
+        with self.assertRaises(project_sync.RegistryError):
+            registry.add(str(self.root))
+
     def test_symlinks_and_overlarge_entries_rejected(self):
         symlink = zipfile.ZipInfo('link')
         symlink.create_system = 3

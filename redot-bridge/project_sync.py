@@ -5,6 +5,7 @@ from pathlib import Path, PurePosixPath
 import shutil
 import stat
 import tempfile
+import threading
 import uuid
 import zipfile
 import zlib
@@ -177,3 +178,70 @@ def import_snapshot(data, project):
             shutil.rmtree(stage, ignore_errors=True)
             raise
     return destination
+
+
+class RegistryError(ValueError):
+    pass
+
+
+def _inspect(path):
+    if not isinstance(path, str) or not path or len(path) > 4096 or any(ord(c) < 32 for c in path):
+        raise RegistryError('Enter an absolute directory path')
+    root = Path(path)
+    if not root.is_absolute():
+        raise RegistryError('Enter an absolute directory path')
+    try:
+        root = root.resolve(strict=True)
+        stat = root.stat()
+        if not root.is_dir() or not (root / 'project.godot').is_file():
+            raise RegistryError('Directory must contain project.godot')
+    except (OSError, RuntimeError) as exc:
+        raise RegistryError('Directory is unavailable or inaccessible') from exc
+    return root, (stat.st_dev, stat.st_ino)
+
+
+class ProjectRegistry:
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.projects = {}
+
+    def add(self, path):
+        root, identity = _inspect(path)
+        with self.lock:
+            for key, (existing, old_identity) in self.projects.items():
+                # A samefile check recognizes aliases where the OS exposes the
+                # same identity. Never trust zero inode values from a filesystem.
+                same_path = os.path.normcase(str(root)) == os.path.normcase(str(existing))
+                same_identity = bool(identity[1] and old_identity[1] and identity == old_identity)
+                if same_path or same_identity:
+                    if identity != old_identity:
+                        raise RegistryError('Directory changed since registration; remove and add it again')
+                    return self._info(key, existing), False
+            if len(self.projects) >= 100:
+                raise RegistryError('Project list is full')
+            key = uuid.uuid4().hex
+            self.projects[key] = (root, identity)
+            return self._info(key, root), True
+
+    @staticmethod
+    def _info(key, root):
+        return {'id': key, 'name': root.name or str(root), 'path': str(root)}
+
+    def list(self):
+        with self.lock:
+            return [self._info(key, root) for key, (root, _) in self.projects.items()]
+
+    def remove(self, key):
+        with self.lock:
+            return self.projects.pop(key, None) is not None
+
+    def get(self, key):
+        with self.lock:
+            entry = self.projects.get(key)
+            if entry is None:
+                raise RegistryError('Project is not connected')
+            root, old_identity = entry
+            current, identity = _inspect(str(root))
+            if current != root or identity != old_identity:
+                raise RegistryError('Directory changed since registration; remove and add it again')
+            return root

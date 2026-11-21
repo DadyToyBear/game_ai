@@ -21,6 +21,22 @@ async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://
     await page.goto('http://127.0.0.1:8765/editor/godot.editor.html');
     await page.locator('#welcome-modal-dismiss').click();
     await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, {timeout:30000});
+    await page.locator('summary').filter({hasText:'сетевые диски'}).click();
+    await page.locator('#reg-token').fill('test-only-secret-012345678901234567890123456789');
+    await page.locator('#reg-connect').click();
+    await page.waitForFunction(() => document.querySelector('#reg-status').textContent.includes('Мост подключён'));
+    await page.locator('#reg-path').fill(folder); await page.locator('#reg-add').click();
+    await page.waitForFunction(() => document.querySelector('#reg-status').textContent.includes('Папка добавлена'));
+    await page.locator('#reg-path').fill(folder + '/.'); await page.locator('#reg-add').click();
+    await page.waitForFunction(() => document.querySelector('#reg-status').textContent.includes('уже есть'));
+    assert.equal(await page.locator('#reg-list option').count(), 1);
+    page.on('dialog', dialog => dialog.accept());
+    await page.locator('#reg-use').click();
+    await page.waitForFunction(() => document.querySelector('#zip-file').files.length === 1);
+    const registryBytes = await page.locator('#zip-file').evaluate(async el => Array.from(new Uint8Array(await el.files[0].arrayBuffer())));
+    const registryZip = path.join(temp,'registered.zip'); fs.writeFileSync(registryZip, Buffer.from(registryBytes));
+    const registryCheck = spawnSync('python3',['-c',`import sys,zipfile\nwith zipfile.ZipFile(sys.argv[1]) as z:\n assert set(z.namelist()) == {'project.godot', 'игра.gd'}\n assert z.testzip() is None`,registryZip], {encoding:'utf8'});
+    assert.equal(registryCheck.status,0,registryCheck.stderr);
     await page.locator('#redot-folder').setInputFiles(folder);
     await page.waitForFunction(() => document.querySelector('#zip-file').files.length === 1);
     const zipBytes = await page.locator('#zip-file').evaluate(async el => Array.from(new Uint8Array(await el.files[0].arrayBuffer())));
@@ -50,11 +66,19 @@ async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://
     await page.waitForFunction(() => document.querySelector('#redot-project-status').textContent.includes('Не удалось'));
     assert.equal(await page.locator('#zip-file').evaluate(el=>el.files.length),0); assert.equal(requests,1);
     await page.goto('http://127.0.0.1:8765/project-open.html');
+    await page.locator('summary').filter({hasText:'сетевые диски'}).click();
+    await page.locator('#reg-token').fill('test-only-secret-012345678901234567890123456789'); await page.locator('#reg-connect').click();
+    await page.waitForFunction(() => document.querySelector('#reg-list').options.length === 1);
+    const [registryDownload] = await Promise.all([page.waitForEvent('download'),page.locator('#reg-use').click()]);
+    assert.equal(registryDownload.suggestedFilename(), 'redot-project.zip');
+    await page.locator('#reg-remove').click();
+    await page.waitForFunction(() => document.querySelector('#reg-list').options.length === 0);
+    assert.equal(fs.readFileSync(path.join(folder, 'project.godot'), 'utf8'), 'config_version=5\n');
     await page.locator('#redot-cloud-url').fill(cloudURL);
     const [download] = await Promise.all([page.waitForEvent('download'),page.locator('#redot-cloud-load').click()]);
     assert.equal(download.suggestedFilename(),'redot-project.zip'); const downloaded = await download.path(); assert.deepEqual(fs.readFileSync(downloaded),Buffer.from(zipBytes));
     assert.deepEqual(errors,[]);
-    console.log('::notice title=Project preparation::Web shell prepared a local-folder ZIP and loaded an HTTPS ZIP through CORS; Android helper downloaded the same ZIP. ZIP contents verified. No Android device or editor import was tested.');
+    console.log('::notice title=Project preparation::Web and Android helper used one authenticated folder list, deduplicated a path, and prepared ZIPs; Web also loaded HTTPS ZIP via CORS. Local test directory only: no network drive, Android device or editor import was tested.');
   } catch(e) { console.error('::error title=Project preparation::'+String(e.stack||e).replace(/%/g,'%25').replace(/\n/g,'%0A')); process.exitCode=1; }
   finally {if(browser) await browser.close(); if(cloud) await new Promise(resolve=>cloud.close(resolve)); server.kill('SIGTERM');fs.rmSync(temp,{recursive:true,force:true});}
 })();

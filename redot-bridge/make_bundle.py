@@ -23,7 +23,7 @@ python redot-bridge/bridge.py serve --editor-dir . --project-dir 'C:\\path\\to\\
 ```
 
 3. Open http://127.0.0.1:8765/sync.html and enter the secret locally. Export an explicit ZIP snapshot for Web Editor's Preload project ZIP. In Web Editor, save and use Project → Tools → Download Project Source, then import that ZIP in the sync page. Import creates a new sibling folder; it never merges into or overwrites the current project.
-4. Open http://127.0.0.1:8765/editor/godot.editor.html for the local Web Editor. Before starting, the project panel can prepare a ZIP copy from a local folder or direct HTTPS ZIP URL. After starting, import /tmp/preload.zip in the project manager. Browser data is not automatically synchronized. Use explicit snapshots; see the README for limits, CORS and trusted-archive warnings.
+4. Open http://127.0.0.1:8765/editor/godot.editor.html for the local Web Editor. The project panel can prepare a ZIP copy from a browser-selected folder, a direct HTTPS ZIP URL, or a registered local/OS-mounted network directory on the bridge computer. After starting, import /tmp/preload.zip in the project manager. Browser data is not automatically synchronized. Use explicit snapshots; see the README for limits, CORS and trusted-archive warnings.
 5. For native Redot game viewing and MCP instructions see redot-bridge/README.md. Those features require additional configuration. An automated Linux/Xvfb test passed; Windows, Android devices and your projects are not verified.
 
 Snapshots may contain private files. Only .git and .godot directories are excluded. Do not upload snapshots without reviewing their contents.

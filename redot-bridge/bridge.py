@@ -136,6 +136,10 @@ class FrameStore:
 
 
 def handler_for(store, token, editor_dir=None, project_dir=None):
+    registry = project_sync.ProjectRegistry()
+    if project_dir is not None:
+        registry.add(str(Path(project_dir).absolute()))
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
             # Do not log paths, authorization headers or payloads.
@@ -178,6 +182,10 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             if self.path == '/api/logs':
                 if self.check_auth():
                     self.send_bytes(200, json.dumps(store.get_logs(), ensure_ascii=False).encode('utf-8'), 'application/json')
+                return
+            if self.path == '/api/projects':
+                if self.check_auth():
+                    self.send_bytes(200, json.dumps({'projects': registry.list()}, ensure_ascii=False).encode('utf-8'), 'application/json')
                 return
             if self.path == '/api/project/status':
                 if self.check_auth():
@@ -236,7 +244,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             self.send_bytes(200, frame[0], frame[1], {'X-Redot-Source': frame[3]})
 
         def do_POST(self):
-            if self.path not in ('/api/frame', '/api/command', '/api/editor/poll', '/api/project/import', '/api/logs'):
+            if self.path not in ('/api/frame', '/api/command', '/api/editor/poll', '/api/project/import', '/api/logs', '/api/projects/add', '/api/projects/remove', '/api/projects/export'):
                 self.send_bytes(404, b'Not found')
                 return
             if not self.check_auth():
@@ -263,6 +271,37 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
                     self.send_bytes(400, b'Invalid log batch')
                     return
                 self.send_bytes(204)
+                return
+            if self.path in ('/api/projects/add', '/api/projects/remove', '/api/projects/export'):
+                if mime != 'application/json' or not 2 <= length <= 8192:
+                    self.close_connection = True
+                    self.send_bytes(400, b'Invalid project request')
+                    return
+                try:
+                    raw = self.rfile.read(length)
+                    if len(raw) != length:
+                        raise ValueError('Truncated request')
+                    payload = json.loads(raw)
+                    if not isinstance(payload, dict):
+                        raise ValueError('Invalid request')
+                    if self.path == '/api/projects/add':
+                        if set(payload) != {'path'}:
+                            raise ValueError('Expected path')
+                        info, created = registry.add(payload['path'])
+                        self.send_bytes(201 if created else 200, json.dumps({'project': info, 'created': created}, ensure_ascii=False).encode('utf-8'), 'application/json')
+                    else:
+                        if set(payload) != {'id'} or not isinstance(payload['id'], str) or len(payload['id']) != 32:
+                            raise ValueError('Invalid project id')
+                        if self.path == '/api/projects/remove':
+                            if not registry.remove(payload['id']):
+                                self.send_bytes(404, b'Project is not connected')
+                            else:
+                                self.send_bytes(204)
+                        else:
+                            data = project_sync.pack_project(registry.get(payload['id']))
+                            self.send_bytes(200, data, 'application/zip')
+                except (project_sync.RegistryError, project_sync.SnapshotError, OSError, ValueError, TypeError) as exc:
+                    self.send_bytes(400, str(exc).encode('utf-8'))
                 return
             if self.path == '/api/project/import':
                 if project_dir is None:

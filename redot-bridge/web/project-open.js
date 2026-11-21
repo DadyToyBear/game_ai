@@ -75,7 +75,11 @@
   const section = document.createElement('section');
   section.style.cssText = 'margin:1em 0;padding:1em;border:1px solid #68758a;border-radius:6px;max-width:38em;text-align:left';
   section.innerHTML = '<strong>Открыть копию проекта</strong><p>Папка или прямая ссылка на ZIP. Это копия, не синхронизация. Используйте только доверенные проекты.</p><label>Локальная папка: <input id="redot-folder" type="file" webkitdirectory multiple></label><br><label>Прямая HTTPS-ссылка на ZIP: <input id="redot-cloud-url" type="url" autocomplete="off" placeholder="https://…/project.zip"></label> <button type="button" id="redot-cloud-load">Загрузить ZIP</button><p id="redot-project-status" role="status">Исходные файлы не изменяются. .git и .godot исключаются из копии папки.</p>';
-  if (editorInput) editorInput.parentNode.insertBefore(section, editorInput.nextSibling); else host.append(section);
+  if (editorInput) {
+    editorInput.parentNode.insertBefore(section, editorInput.nextSibling);
+    const loader = document.getElementById('tab-loader');
+    if (loader) Object.assign(loader.style, {maxHeight:'calc(100vh - 55px)', overflowY:'auto', touchAction:'pan-y'});
+  } else host.append(section);
   const folder = section.querySelector('#redot-folder'), field = section.querySelector('#redot-cloud-url'), button = section.querySelector('#redot-cloud-load'), status = section.querySelector('#redot-project-status');
   const start = document.getElementById('startButton');
   async function prepare(action) {
@@ -92,6 +96,63 @@
     } catch (e) { status.textContent = `Не удалось подготовить копию: ${e.message}. Для облака нужны прямая ссылка и разрешение CORS.`; }
     finally { folder.disabled = false; button.disabled = false; if (start) start.disabled = wasStartDisabled; }
   }
+  // One implementation for Web and the Android helper. Paths are resolved by
+  // the machine running the local bridge, not by the device's browser.
+  const registry = document.createElement('details');
+  registry.innerHTML = '<summary>Папки и подключённые сетевые диски на машине моста</summary><p>Путь должен быть доступен мосту и содержать project.godot. Диск сначала подключается средствами ОС. В Web и Android передаётся копия, не прямая запись.</p><label>Секрет моста <input id="reg-token" type="password" autocomplete="off"></label> <button type="button" id="reg-connect">Подключить мост</button><br><label>Путь к проекту <input id="reg-path" type="text" autocomplete="off" placeholder="C:\\Projects\\Game или /mnt/share/game"></label> <button type="button" id="reg-add" disabled>Добавить папку</button><br><label>Папки <select id="reg-list" disabled></select></label> <button type="button" id="reg-use" disabled>Подготовить копию</button> <button type="button" id="reg-remove" disabled>Убрать из списка</button><p id="reg-status" role="status">Отключено. Список хранится только до остановки моста.</p>';
+  section.append(registry);
+  const reg = id => registry.querySelector('#reg-' + id);
+  let bridgeToken = '', regBusy = false;
+  function regButtons() {
+    reg('connect').disabled = regBusy;
+    reg('add').disabled = regBusy || !bridgeToken;
+    reg('list').disabled = regBusy || !bridgeToken;
+    reg('use').disabled = regBusy || !bridgeToken || !reg('list').value;
+    reg('remove').disabled = regBusy || !bridgeToken || !reg('list').value;
+  }
+  async function bridgeRequest(path, payload) {
+    const options = {headers:{Authorization:`Bearer ${bridgeToken}`}, cache:'no-store'};
+    if (payload) { options.method = 'POST'; options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(payload); }
+    const response = await fetch(path, options);
+    if (!response.ok) throw Error((await response.text()).slice(0, 200) || `HTTP ${response.status}`);
+    return response;
+  }
+  async function refresh(selected) {
+    const result = await (await bridgeRequest('/api/projects')).json();
+    const list = reg('list'); list.replaceChildren();
+    for (const p of result.projects) { const option = document.createElement('option'); option.value = p.id; option.textContent = `${p.name} — ${p.path}`; list.append(option); }
+    if (selected && result.projects.some(p => p.id === selected)) list.value = selected;
+  }
+  async function operate(action) {
+    if (regBusy) return; regBusy = true; regButtons();
+    try { await action(); } catch (e) { reg('status').textContent = `Ошибка: ${e.message}`; }
+    finally { regBusy = false; regButtons(); }
+  }
+  reg('connect').addEventListener('click', () => operate(async () => {
+    if (bridgeToken) { bridgeToken=''; reg('token').value=''; reg('token').disabled=false; reg('connect').textContent='Подключить мост'; reg('list').replaceChildren(); reg('status').textContent='Отключено. Файлы не удалены.'; return; }
+    bridgeToken = reg('token').value; reg('token').value = '';
+    if (!bridgeToken) throw Error('Введите секрет моста.');
+    try { await refresh(); } catch (e) { bridgeToken=''; throw e; }
+    reg('token').disabled=true; reg('connect').textContent='Отключить мост'; reg('status').textContent='Мост подключён. Укажите путь на машине моста.';
+  }));
+  reg('add').addEventListener('click', () => operate(async () => {
+    const path = reg('path').value.trim();
+    const result = await (await bridgeRequest('/api/projects/add', {path})).json();
+    await refresh(result.project.id); reg('path').value='';
+    reg('status').textContent = result.created ? 'Папка добавлена в список без копирования файлов.' : 'Эта папка уже есть в списке; повторная запись не создана.';
+  }));
+  reg('list').addEventListener('change', regButtons);
+  reg('remove').addEventListener('click', () => operate(async () => {
+    const id = reg('list').value;
+    if (!id || !confirm('Убрать папку из списка? Файлы проекта не удаляются.')) return;
+    await bridgeRequest('/api/projects/remove', {id}); await refresh(); reg('status').textContent='Папка убрана из списка; файлы не изменены.';
+  }));
+  reg('use').addEventListener('click', () => operate(async () => {
+    const id = reg('list').value;
+    if (!id || !confirm('Создать копию проекта? Снимок может содержать приватные файлы.')) return;
+    await prepare(async () => (await bridgeRequest('/api/projects/export', {id})).blob());
+  }));
+  regButtons();
   folder.addEventListener('change', () => { if (folder.files.length) prepare(() => folderZip(folder.files)); });
   button.addEventListener('click', () => { const value = field.value.trim(); field.value = ''; if (!value) {status.textContent='Введите прямую ссылку на ZIP.'; return;} prepare(() => cloudZip(value)); });
 })();
