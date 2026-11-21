@@ -20,6 +20,7 @@ async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://
     const page = await browser.newPage({acceptDownloads:true, ignoreHTTPSErrors:true}); const errors=[], diagnostics=[]; page.on('pageerror', e=>errors.push(String(e))); page.on('console', m=>{if(m.type()==='error') diagnostics.push(m.text());}); page.on('requestfailed', req=>diagnostics.push(`${req.url()}: ${req.failure()?.errorText}`));
     await page.goto('http://127.0.0.1:8765/editor/godot.editor.html');
     await page.locator('#welcome-modal-dismiss').click();
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, {timeout:30000});
     await page.locator('#redot-folder').setInputFiles(folder);
     await page.waitForFunction(() => document.querySelector('#zip-file').files.length === 1);
     const zipBytes = await page.locator('#zip-file').evaluate(async el => Array.from(new Uint8Array(await el.files[0].arrayBuffer())));

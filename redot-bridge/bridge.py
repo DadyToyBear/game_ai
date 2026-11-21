@@ -211,6 +211,14 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
                         self.send_bytes(500, b'Editor HTML missing body closing tag')
                         return
                     data = data.replace(marker, b'<script src="/capture.js"></script><script src="/redot-overlay.js"></script><script src="/project-open.js"></script></body>', 1)
+                if target == root / 'service.worker.js':
+                    # RC2's worker may rebuild cross-origin responses as same-origin,
+                    # breaking CORS fetches. Let the browser handle those requests.
+                    marker = b"\t(event) => {\n\t\tconst isNavigate = event.request.mode === 'navigate';"
+                    if marker not in data:
+                        self.send_bytes(500, b'Unsupported editor service worker; expected RC2 fetch handler')
+                        return
+                    data = data.replace(marker, b"\t(event) => {\n\t\tif (new URL(event.request.url).origin !== self.location.origin) return;\n\t\tconst isNavigate = event.request.mode === 'navigate';", 1)
                 kind = mimetypes.guess_type(str(target))[0] or 'application/octet-stream'
                 if target.suffix == '.wasm':
                     kind = 'application/wasm'

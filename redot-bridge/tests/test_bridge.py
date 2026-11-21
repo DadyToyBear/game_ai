@@ -27,6 +27,7 @@ class BridgeTest(unittest.TestCase):
         editor = Path(self.tmp.name)
         (editor / 'godot.editor.html').write_text('<html><body>editor</body></html>')
         (editor / 'godot.editor.wasm').write_bytes(b'\x00asm')
+        (editor / 'service.worker.js').write_bytes(b"self.addEventListener('fetch',\n\t(event) => {\n\t\tconst isNavigate = event.request.mode === 'navigate';\n});")
         self.store = bridge.FrameStore()
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), bridge.handler_for(self.store, TOKEN, editor))
         self.worker = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -53,6 +54,8 @@ class BridgeTest(unittest.TestCase):
             self.assertIn(b'/project-open.js', response.read())
         with urllib.request.urlopen(self.url + '/project-open.js') as response:
             self.assertIn(b'folderZip', response.read())
+        with urllib.request.urlopen(self.url + '/editor/service.worker.js') as response:
+            self.assertIn(b'new URL(event.request.url).origin !== self.location.origin', response.read())
 
     def test_authorization_validation_deletion(self):
         with self.assertRaises(urllib.error.HTTPError) as err:
