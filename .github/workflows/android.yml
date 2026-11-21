@@ -75,6 +75,12 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon 2>&1 | tail -60
           ls -lh app/build/outputs/apk/debug/
+          # На релиз отдаём ОДИН файл с постоянным именем app-debug.apk:
+          # иначе splash-релиз накапливает файлы с версиями, а прямая ссылка
+          # /releases/download/apk-latest/app-debug.apk остаётся на старой сборке.
+          mkdir -p "$RUNNER_TEMP/apk"
+          cp "$(find app/build/outputs/apk/debug -name '*.apk' | head -1)" "$RUNNER_TEMP/apk/app-debug.apk"
+          ls -lh "$RUNNER_TEMP/apk/"
       - name: Опубликовать APK (apk-latest)
         uses: softprops/action-gh-release@v2
         with:
@@ -85,7 +91,9 @@ jobs:
             Автоматическая сборка из ветки `arena/a11b2c5a-game-ai`.
             Устанавливается сразу: скачайте APK ниже → «Установка из неизвестных источников» → открыть.
             Подписанные release-APK и AAB для Google Play — в релизе `release-latest`.
-          files: android/app/build/outputs/apk/debug/*.apk
+
+            Прямая ссылка: https://github.com/DadyToyBear/game_ai/releases/download/apk-latest/app-debug.apk
+          files: ${{ runner.temp }}/apk/app-debug.apk
 
   # Сборка БЕЗ Gradle и без Android SDK: aapt2 + dexlib2 + JS-подпись.
   # Независимая от Gradle проверка, что APK собирается из smali, и запасной
