@@ -47,7 +47,6 @@ jobs:
             [ "$(sha256sum active-patch.py | cut -d' ' -f1)" = "$expected" ] || continue
             echo "Waiting for earlier compatible bundle run $id; success is still verified separately."
             gh run watch "$id" --repo "$GITHUB_REPOSITORY" --exit-status || echo 'Earlier build failed or was cancelled; a fresh build may be required.'
-            break
           done < <(jq -r '.[] | select(.status != "completed" and .workflowName == "Assemble Redot Web Editor with Local Bridge") | [.databaseId, .headSha] | @tsv' active-runs.json)
       - name: Find a compatible unexpired Web build
         id: source
