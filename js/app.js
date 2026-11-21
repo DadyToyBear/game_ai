@@ -2240,12 +2240,16 @@
 
   function saveProject() {
     const clean = serialize();
-    try { localStorage.setItem(LS_KEY, JSON.stringify(clean)); } catch (e) {}
+    // квота браузера может быть занята (сэмплы, другие сохранения) — раньше
+    // ошибка глушилась, а тост всё равно обещал «в браузер»
+    let inBrowser = true;
+    try { localStorage.setItem(LS_KEY, JSON.stringify(clean)); } catch (e) { inBrowser = false; }
     const nameInput = document.getElementById('projName');
     const base = (nameInput && nameInput.value.trim()) || 'mini-studio-project';
     UI.download(new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' }),
       base.replace(/[^\wа-яА-ЯёЁ \-]/g, '').trim().replace(/\s+/g, '-') + '.json');
-    UI.toast('Проект сохранён (в файл и в браузер)', 'ok');
+    if (inBrowser) UI.toast('Проект сохранён (в файл и в браузер)', 'ok');
+    else UI.toast('Файл сохранён, но в браузере места нет — освободите сохранения или пользуйтесь файлом/.zip', 'error');
   }
 
   function loadSlot(slot) {
@@ -2318,18 +2322,51 @@
     p.className = 'pill' + (ok ? ' ok' : '');
   }
 
+  /* Число в безопасных пределах: чужие/битые project.json приносили
+     bpm=0 (транспорт вставал на Infinity), steps=0, arrangeBars=999
+     (рендер на час) и eq без полей (NaN в усилении мастера). */
+  function safeNum(v, def, min, max) {
+    const n = Number(v);
+    if (!isFinite(n)) return def;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  /* Параметры машины из файла: берём только известные движку ключи и только
+     конечные числа — иначе чужой проект присылал строки/NaN в фильтр и звук пропадал. */
+  function sanitizeParams(engine, src) {
+    const def = window.defaultParams(engine) || {};
+    const out = {};
+    if (!src || typeof src !== 'object') return out;
+    Object.keys(def).forEach((k) => {
+      const v = Number(src[k]);
+      if (isFinite(v)) out[k] = v;
+    });
+    return out;
+  }
+
   function loadProject(obj) {
-    if (!obj || !Array.isArray(obj.tracks)) throw new Error('Неверный формат проекта');
+    if (!obj || !Array.isArray(obj.tracks) || !obj.tracks.length) throw new Error('Неверный формат проекта');
+    // 0/отрицательный темп — это битый файл, а не «медленно»: берём 120
+    const bpm = Number(obj.bpm) > 0 ? safeNum(obj.bpm, 120, 40, 220) : 120;
+    const steps = [16, 32].indexOf(Number(obj.steps)) >= 0 ? Number(obj.steps) : 16;
+    const bars = safeNum(obj.bars || 1, 1, 1, 8);
+    const arrangeBars = [2, 4, 8].indexOf(Number(obj.arrangeBars)) >= 0 ? Number(obj.arrangeBars) : 4;
+    const eqIn = obj.eq || {};
     song = {
-      bpm: obj.bpm || 120,
-      steps: obj.steps || 16,
-      bars: obj.bars || 1,
-      arrangeBars: obj.arrangeBars || 4,
-      patternLen: (obj.steps || 16) * (obj.bars || 1),
-      feedback: obj.feedback != null ? obj.feedback : 0.35,
-      masterVol: obj.masterVol != null ? obj.masterVol : 0.85,
-      eq: obj.eq || { low: 0, mid: 0, high: 0 },
+      bpm,
+      steps,
+      bars,
+      arrangeBars,
+      patternLen: steps * bars,
+      feedback: safeNum(obj.feedback, 0.35, 0, 0.8),
+      masterVol: safeNum(obj.masterVol, 0.85, 0, 1),
+      eq: {
+        low: safeNum(eqIn.low, 0, -12, 12),
+        mid: safeNum(eqIn.mid, 0, -12, 12),
+        high: safeNum(eqIn.high, 0, -12, 12),
+      },
       tracks: obj.tracks.map((t) => {
+        if (!t || typeof t !== 'object') t = {};
         const nt = newTrack(t.engine in ENG ? t.engine : 'subsynth', t.name || 'Машина', t.params);
         nt.id = t.id || uid();
         nt.vol = t.vol != null ? t.vol : 0.8;
@@ -2337,12 +2374,12 @@
         nt.delay = t.delay || 0;
         nt.reverb = t.reverb != null ? t.reverb : 0.1;
         nt.mute = !!t.mute;
-        nt.params = Object.assign(window.defaultParams(nt.engine), t.params || {});
+        nt.params = Object.assign(window.defaultParams(nt.engine), sanitizeParams(nt.engine, t.params));
         Pattern.ensureTrack(nt);
         if (Array.isArray(t.bank)) {
-          nt.bank = t.bank.map((b) => ({
-            notes: Pattern.normalizeNotes(b.notes, nt.patLen),
-            pads: Pattern.normalizePads(b.pads, nt.patLen),
+          nt.bank = t.bank.slice(0, 4).map((b) => ({
+            notes: Pattern.normalizeNotes(b && b.notes, nt.patLen),
+            pads: Pattern.normalizePads(b && b.pads, nt.patLen),
           }));
           while (nt.bank.length < 4) nt.bank.push({ notes: [], pads: [] });
         } else {
