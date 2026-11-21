@@ -2,7 +2,16 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1118" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Mini Studio" />
+<meta name="description" content="Mini Studio — мобильная студия: Kaoss Deck, секвенсор, экспорт WAV/MP3" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="assets/icon-192.png" />
+<link rel="icon" type="image/png" href="assets/icon-192.png" />
 <title>Mini Studio — мобильная музыкальная студия</title>
 <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -46,6 +55,7 @@
     </div>
 
     <div class="top-actions">
+      <button class="btn ghost" id="btnPadMode" title="Пэд-режим: крупные X-Y пэды на весь экран">Пэд</button>
       <button class="btn ghost" id="btnQuickSave" title="Быстрое сохранение в браузер (Ctrl+S)">Сохранить</button>
       <button class="btn ghost" id="btnMidi">MIDI</button>
       <button class="btn ghost" id="btnHelp">?</button>
@@ -229,6 +239,7 @@
 <script src="js/audio.js"></script>
 <script src="js/export-mp3.js"></script>
 <script src="js/project-io.js"></script>
+<script src="js/touch.js"></script>
 <script src="js/kaoss.js"></script>
 <script src="js/kaoss-ui.js"></script>
 <script src="js/kaoss-deck.js"></script>

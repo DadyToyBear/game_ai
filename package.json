@@ -1,0 +1,20 @@
+{
+  "name": "mini-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mini Studio — браузерная музыкальная студия (Kaoss Deck, секвенсор, экспорт WAV/MP3) в APK",
+  "scripts": {
+    "sync": "cap sync android",
+    "add:android": "cap add android",
+    "apk:debug": "cd android && ./gradlew assembleDebug",
+    "apk:release": "cd android && ./gradlew assembleRelease",
+    "bundle:release": "cd android && ./gradlew bundleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}

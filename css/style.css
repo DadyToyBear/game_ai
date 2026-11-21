@@ -743,3 +743,72 @@ main { flex: 1; padding: 0 16px 28px; }
 #btnSaveZip { border-color: #2f6f66; }
 #btnSaveZip::before { content: '🗜 '; }
 code { background: #0f1620; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: 11px; }
+
+/* ================= Тач-режим: телефон и планшет ================= */
+:root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
+
+html.touch body { -webkit-text-size-adjust: 100%; overscroll-behavior-y: contain; }
+html.touch .topbar { padding-top: calc(10px + var(--safe-top)); }
+html.touch main { padding-bottom: calc(28px + var(--safe-bottom)); }
+html.touch .btn, html.touch .tab, html.touch .link-btn, html.touch .dev-btn, html.touch .dev-prog,
+html.touch .fx-pad, html.touch .dev-cat, html.touch .pill-btn { min-height: 40px; }
+html.touch .btn.mini, html.touch .dev-btn.ghost { min-height: 34px; }
+html.touch .tab { padding: 11px 14px; }
+html.touch .step, html.touch .pad { min-height: 38px; }
+html.touch .rng, html.touch .dev-range { height: 26px; }
+html.touch .xy-pad { touch-action: none; }
+html.touch input, html.touch select, html.touch textarea { font-size: 16px; }  /* без авто-зума на iOS */
+html.touch .tracklist { scrollbar-width: none; }
+html.touch .tracklist::-webkit-scrollbar { display: none; }
+html.touch .grid-scroll, html.touch .roll-scroll, html.touch .seq-scroll { -webkit-overflow-scrolling: touch; }
+.panning { cursor: grabbing; }
+
+@media (max-width: 820px) {
+  .topbar { position: sticky; top: 0; z-index: 40; backdrop-filter: blur(8px); background: rgba(11,17,24,.92); }
+  .transport { flex-wrap: wrap; gap: 8px; }
+  .bpm input { width: 62px; }
+  .tabs { position: sticky; top: 0; z-index: 30; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; }
+  #toasts { left: 12px; right: 12px; bottom: calc(12px + var(--safe-bottom)); align-items: stretch; }
+  .toast { max-width: none; }
+  .modal { width: 100%; max-height: 92vh; }
+  .modal-actions .btn { flex: 1; }
+  .deck-bar { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(8px); }
+  .dev .xy-pad { aspect-ratio: 4 / 3; }
+}
+
+@media (max-width: 560px) {
+  .brand-title { font-size: 15px; }
+  .btn.play { flex: 1; }
+  .transport .steps-seg, .transport .bpm { flex: 1 1 auto; }
+  .dev-top { padding: 10px 12px 6px; }
+  .dev-mark { font-size: 11px; letter-spacing: .16em; }
+  .dev-model { font-size: 10.5px; }
+  .dev-sub { display: none; }
+  .fx-pads { grid-template-columns: repeat(4, 1fr); }
+  .dev-ctrl { gap: 5px; }
+  .dev-select, .dev-btn { font-size: 10px; padding: 7px 8px; }
+  .deck-title .hint { display: none; }
+  .link-meter { display: none; }
+  .lcd-name { font-size: 11px; }
+  .clip-row { grid-template-columns: 74px 1fr; }
+}
+
+/* Планшет в горизонтали: два прибора рядом, крупные пэды */
+@media (min-width: 821px) and (max-width: 1220px) and (orientation: landscape) {
+  .deck { gap: 12px; }
+  .dev .xy-pad { aspect-ratio: 16 / 10; }
+  .fx-pads { grid-template-columns: repeat(6, 1fr); }
+}
+
+/* Полноэкранный «пэд-режим» для игры пальцами */
+.pad-focus .topbar, .pad-focus .tabs, .pad-focus #kaossArea,
+.pad-focus .deck-bar .deck-title { display: none; }
+.pad-focus main { padding: 4px; }
+.pad-focus .deck { gap: 8px; }
+.pad-focus .dev-bank-block, .pad-focus .dev-samples, .pad-focus .dev-loops,
+.pad-focus .dev-player, .pad-focus .fx-pads, .pad-focus .dev-ctrl { display: none; }
+.pad-focus .dev .xy-pad { aspect-ratio: auto; height: calc(100vh - 150px); max-height: none; }
+.pad-focus .deck-bar { position: fixed; bottom: 0; left: 0; right: 0; border-radius: 0; }
+.pad-btn.on { background: linear-gradient(180deg, #4ee1c1, #26b39a); color: #05231d; border-color: transparent; }

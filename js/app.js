@@ -748,6 +748,12 @@
     const grid = document.getElementById('seqGrid');
     const barBox = document.getElementById('patternBar');
     if (!grid) return;
+    // на тач-устройствах сетку можно тянуть пальцем
+    if (window.TouchUI) {
+      const scroller = grid.parentElement;
+      if (scroller) TouchUI.enableDragScroll(scroller);
+      TouchUI.enableDragScroll(grid);
+    }
     const steps = totalSteps();
     const t = song.tracks[state.activeTrack];
     Pattern.ensureTrack(t);
@@ -1094,6 +1100,10 @@
       }
     }
     if (!deckOk && deckHost) deckHost.innerHTML = '';
+
+    if (deckHost && window.TouchUI) {
+      deckHost.querySelectorAll('.xy-pad').forEach((p) => TouchUI.padMultiTouch(p));
+    }
 
     if (!deckOk) {
       area.classList.remove('hidden-deck');
@@ -2054,6 +2064,23 @@
     const mp3Btn = document.getElementById('btnExportMp3');
     if (mp3Btn) mp3Btn.addEventListener('click', exportMp3);
     document.getElementById('btnExportMidi').addEventListener('click', exportMidi);
+    const padModeBtn = document.getElementById('btnPadMode');
+    if (padModeBtn) padModeBtn.addEventListener('click', () => {
+      const on = document.body.classList.toggle('pad-focus');
+      padModeBtn.classList.toggle('on', on);
+      document.querySelector('.tab[data-view="kaoss"]').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      if (window.TouchUI) TouchUI.haptic(12);
+      if (on && window.TouchUI) TouchUI.toggleFullscreen();
+      UI.toast(on ? 'Пэд-режим: крупные пэды (Esc — выйти)' : 'Обычный режим');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.body.classList.contains('pad-focus')) {
+        document.body.classList.remove('pad-focus');
+        const b = document.getElementById('btnPadMode');
+        if (b) b.classList.remove('on');
+      }
+    });
+
     const quickSave = document.getElementById('btnQuickSave');
     if (quickSave) quickSave.addEventListener('click', () => {
       saveToSlot('', { quiet: true });
@@ -2271,6 +2298,18 @@
       const saved = localStorage.getItem(LS_KEY);
       if (saved) loadProject(JSON.parse(saved));
     } catch (e) { /* используем пустой проект */ }
+    if (window.TouchUI) TouchUI.init();
+    // офлайн-кэш: работает и в APK, и в браузере (по http/https)
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => { /* офлайн не критичен */ });
+      });
+    }
+    // хэш-роутинг вкладок: #kaoss, #io — чтобы работали ярлыки PWA
+    const hashView = (location.hash || '').replace('#', '');
+    if (hashView && document.querySelector('.tab[data-view="' + hashView + '"]')) {
+      document.querySelector('.tab[data-view="' + hashView + '"]').click();
+    }
     bindGlobal();
     renderAll();
     requestAnimationFrame(meterLoop);

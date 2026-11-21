@@ -1,0 +1,12 @@
+{
+  "appId": "com.ministudio.app",
+  "appName": "Mini Studio",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0b1118"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
