@@ -1,6 +1,7 @@
 package ru.aurora.filemanager;
 
 import android.content.ContentResolver;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.DocumentsContract;
@@ -8,7 +9,10 @@ import android.util.Base64;
 import fi.iki.elonen.NanoHTTPD;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import java.nio.ByteBuffer;
+import java.nio.charset.CodingErrorAction;
+import java.util.Arrays;
+import java.util.concurrent.Semaphore;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,7 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
 final class WebFilesServer extends NanoHTTPD {
     private final ContentResolver resolver;
     private final Uri tree;
-    private final String credentials;
+    private final LocalAccounts accounts;
+    private final boolean anonymous;
+    private final Semaphore authenticationSlots=new Semaphore(4);
     private final DavAccess dav;
     private final Map<String, Item> items = new ConcurrentHashMap<>();
     private final Map<String, String> tokens = new ConcurrentHashMap<>();
@@ -25,10 +31,10 @@ final class WebFilesServer extends NanoHTTPD {
         final Uri uri; final boolean directory;
         Item(Uri uri, boolean directory) { this.uri=uri; this.directory=directory; }
     }
-    WebFilesServer(ContentResolver resolver, Uri tree, int port, String user, String password, boolean anonymous, boolean allowWrites, java.io.File cache) {
+    WebFilesServer(Context context, Uri tree, int port, boolean anonymous, boolean allowWrites, java.io.File cache) {
         super(port);
-        this.resolver=resolver; this.tree=tree; this.dav=new DavAccess(resolver,tree,cache,allowWrites && !anonymous);
-        credentials=anonymous ? null : "Basic " + Base64.encodeToString((user+":"+password).getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+        this.resolver=context.getContentResolver(); this.tree=tree; this.anonymous=anonymous;this.accounts=new LocalAccounts(context);
+        this.dav=new DavAccess(resolver,tree,cache,allowWrites && !anonymous);
         items.put("root", new Item(DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree)), true));
     }
     @Override public Response serve(IHTTPSession session) {
@@ -38,9 +44,21 @@ final class WebFilesServer extends NanoHTTPD {
         return response;
     }
     private Response serveRequest(IHTTPSession session) {
-        if(credentials != null && !MessageDigest.isEqual(credentials.getBytes(StandardCharsets.UTF_8), session.getHeaders().getOrDefault("authorization", "").getBytes(StandardCharsets.UTF_8))) {
-            Response response=newFixedLengthResponse(Response.Status.UNAUTHORIZED,"text/plain; charset=utf-8","Требуется вход");
-            response.addHeader("WWW-Authenticate", "Basic realm=\"Aurora Files\""); return response;
+        if(!anonymous){
+            String authorization=session.getHeaders().getOrDefault("authorization","");
+            if(authorization.length()>2048||!authorization.regionMatches(true,0,"Basic ",0,6))return unauthorized();
+            if(!authenticationSlots.tryAcquire())return newFixedLengthResponse(Response.Status.SERVICE_UNAVAILABLE,"text/plain; charset=utf-8","Слишком много запросов входа");
+            char[] password=null;
+            try {
+                byte[] decoded=Base64.decode(authorization.substring(6),Base64.DEFAULT);
+                String login=StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(decoded)).toString();
+                Arrays.fill(decoded,(byte)0);int separator=login.indexOf(':');
+                if(separator<1)return unauthorized();
+                String username=login.substring(0,separator);password=login.substring(separator+1).toCharArray();
+                if(!accounts.verify(username,password))return unauthorized();
+            } catch(IllegalArgumentException | java.nio.charset.CharacterCodingException e){return unauthorized();}
+              catch(Exception e){return newFixedLengthResponse(Response.Status.INTERNAL_ERROR,"text/plain; charset=utf-8","Проверка учётной записи недоступна");}
+            finally {if(password!=null)Arrays.fill(password,'\0');authenticationSlots.release();}
         }
         if(session.getUri().equals("/dav") || session.getUri().startsWith("/dav/")) return dav.serve(session);
         if(session.getMethod()!=Method.GET) return newFixedLengthResponse(Response.Status.METHOD_NOT_ALLOWED,"text/plain","Read only");
@@ -73,5 +91,6 @@ final class WebFilesServer extends NanoHTTPD {
             r.addHeader("Content-Security-Policy","default-src 'none'; base-uri 'none'; form-action 'none'"); r.addHeader("X-Content-Type-Options","nosniff"); return r;
         } catch(Exception e) { return newFixedLengthResponse(Response.Status.INTERNAL_ERROR,"text/plain; charset=utf-8","Файл или папка недоступны"); }
     }
+    private Response unauthorized(){Response r=newFixedLengthResponse(Response.Status.UNAUTHORIZED,"text/plain; charset=utf-8","Требуется вход");r.addHeader("WWW-Authenticate","Basic realm=\"Aurora Files\", charset=\"UTF-8\"");return r;}
     private static String escape(String s) { return s==null?"Без имени":s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace("\"","&quot;").replace("'","&#39;"); }
 }

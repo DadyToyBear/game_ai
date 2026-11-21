@@ -11,6 +11,7 @@ on:
       - 'gradlew'
       - 'gradlew.bat'
       - '*.gradle'
+      - 'gradle.properties'
       - '.github/workflows/android-debug.yml'
 
 permissions:
@@ -32,7 +33,7 @@ jobs:
       - name: Assemble debug APK
         run: |
           set -o pipefail
-          ./gradlew --no-daemon :app:assembleDebug 2>&1 | tee /tmp/android-build.log || {
+          ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest 2>&1 | tee /tmp/android-build.log || {
             tail -40 /tmp/android-build.log | while IFS= read -r line; do echo "::error::$line"; done
             exit 1
           }

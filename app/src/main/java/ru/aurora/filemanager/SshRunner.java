@@ -3,12 +3,14 @@ package ru.aurora.filemanager;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.util.Base64;
+import android.os.CancellationSignal;
 import com.jcraft.jsch.*;
 import java.io.*;
 import java.security.MessageDigest;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Executes one command per connection; verifies the host key interactively on every connection. */
 final class SshRunner {
@@ -17,29 +19,7 @@ final class SshRunner {
         new Thread(() -> {
             Session session=null; ChannelExec channel=null; String output;
             try {
-                JSch jsch=new JSch();
-                jsch.setHostKeyRepository(new HostKeyRepository() {
-                    public int check(String name, byte[] key) {
-                        try {
-                            String fingerprint="SHA256:"+Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(key),Base64.NO_WRAP|Base64.NO_PADDING);
-                            CountDownLatch latch=new CountDownLatch(1); AtomicBoolean approved=new AtomicBoolean(false);
-                            activity.runOnUiThread(() -> {
-                                if(activity.isFinishing() || activity.isDestroyed()){latch.countDown();return;}
-                                new AlertDialog.Builder(activity).setTitle("Проверка SSH-ключа")
-                                    .setMessage("Сравните отпечаток с ключом сервера по независимому каналу:\n\n"+name+"\n"+fingerprint+"\n\nПродолжить только при совпадении.")
-                                    .setPositiveButton("Совпадает",(d,w)->{approved.set(true);latch.countDown();})
-                                    .setNegativeButton("Отмена",(d,w)->latch.countDown())
-                                    .setOnCancelListener(d->latch.countDown()).show();
-                            });
-                            return latch.await(60,TimeUnit.SECONDS) && approved.get() ? OK : CHANGED;
-                        } catch(Exception e) { return CHANGED; }
-                    }
-                    public void add(HostKey h, UserInfo u) {} public void remove(String h,String t) {} public void remove(String h,String t,byte[] k) {}
-                    public String getKnownHostsRepositoryID(){return "interactive";} public HostKey[] getHostKey(){return new HostKey[0];} public HostKey[] getHostKey(String h,String t){return new HostKey[0];}
-                });
-                session=jsch.getSession(user,host,port); session.setPassword(password);
-                session.setConfig("StrictHostKeyChecking","yes"); session.setConfig("PreferredAuthentications","password");
-                session.connect(15000); session.setTimeout(30000);
+                session=connect(activity,host,port,user,password);
                 channel=(ChannelExec)session.openChannel("exec"); channel.setCommand(command);
                 LimitedOutput stderr=new LimitedOutput(); channel.setErrStream(stderr); InputStream in=channel.getInputStream(); channel.connect(15000);
                 LimitedOutput stdout=new LimitedOutput(); byte[] buf=new byte[4096]; int n; while((n=in.read(buf))!=-1) stdout.write(buf,0,n);
@@ -49,6 +29,49 @@ final class SshRunner {
             finally { if(channel!=null) channel.disconnect(); if(session!=null) session.disconnect(); }
             String answer=output; activity.runOnUiThread(() -> { if(!activity.isFinishing()&&!activity.isDestroyed()) result.done(answer); });
         },"ssh-command").start();
+    }
+    static Session connect(Activity activity,String host,int port,String user,String password) throws Exception {
+        return connect(activity,host,port,user,password,null);
+    }
+    static Session connect(Activity activity,String host,int port,String user,String password,CancellationSignal cancel) throws Exception {
+        JSch jsch=new JSch();
+        jsch.setHostKeyRepository(new HostKeyRepository() {
+            public int check(String name,byte[] key){
+                CountDownLatch latch=new CountDownLatch(1);AtomicBoolean approved=new AtomicBoolean(false),active=new AtomicBoolean(true);
+                AtomicReference<AlertDialog> dialogRef=new AtomicReference<>();
+                try {
+                    if(cancel!=null)cancel.setOnCancelListener(()->{
+                        active.set(false);latch.countDown();
+                        activity.runOnUiThread(()->{AlertDialog dialog=dialogRef.getAndSet(null);if(dialog!=null)dialog.dismiss();});
+                    });
+                    String fingerprint="SHA256:"+Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(key),Base64.NO_WRAP|Base64.NO_PADDING);
+                    activity.runOnUiThread(()->{
+                        if(!active.get()||(cancel!=null&&cancel.isCanceled())||activity.isFinishing()||activity.isDestroyed()){latch.countDown();return;}
+                        AlertDialog dialog=new AlertDialog.Builder(activity).setTitle("Проверка SSH-ключа")
+                            .setMessage("Сравните отпечаток с ключом сервера по независимому каналу:\n\n"+name+"\n"+fingerprint+"\n\nПродолжить только при совпадении.")
+                            .setPositiveButton("Совпадает",(d,w)->{approved.set(true);latch.countDown();})
+                            .setNegativeButton("Отмена",(d,w)->latch.countDown()).setOnCancelListener(d->latch.countDown()).create();
+                        dialogRef.set(dialog);
+                        if(!active.get()||(cancel!=null&&cancel.isCanceled())){dialogRef.set(null);latch.countDown();return;}
+                        dialog.show();
+                    });
+                    boolean result=latch.await(60,TimeUnit.SECONDS)&&approved.get()&&(cancel==null||!cancel.isCanceled());
+                    return result?OK:CHANGED;
+                }catch(Exception e){return CHANGED;}
+                finally {
+                    active.set(false);
+                    activity.runOnUiThread(()->{AlertDialog dialog=dialogRef.getAndSet(null);if(dialog!=null)dialog.dismiss();});
+                    if(cancel!=null)cancel.setOnCancelListener(null);
+                }
+            }
+            public void add(HostKey h,UserInfo u){} public void remove(String h,String t){} public void remove(String h,String t,byte[] k){}
+            public String getKnownHostsRepositoryID(){return "interactive";} public HostKey[] getHostKey(){return new HostKey[0];} public HostKey[] getHostKey(String h,String t){return new HostKey[0];}
+        });
+        if(cancel!=null)cancel.throwIfCanceled();
+        Session session=jsch.getSession(user,host,port);session.setPassword(password);
+        session.setConfig("StrictHostKeyChecking","yes");session.setConfig("PreferredAuthentications","password");
+        try{session.connect(15000);if(cancel!=null)cancel.throwIfCanceled();session.setTimeout(30000);return session;}
+        catch(Exception ex){session.disconnect();throw ex;}
     }
     private static final class LimitedOutput extends ByteArrayOutputStream {
         boolean truncated;
