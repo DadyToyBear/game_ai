@@ -19,7 +19,7 @@ public class MainActivity extends Activity {
     private Uri tree, current;
     private final Stack<Uri> parents = new Stack<>();
     private PaintView canvas;
-    private boolean fileScreen, searchScreenVisible, propertiesVisible, bookmarkScreenVisible;
+    private boolean fileScreen, searchScreenVisible, propertiesVisible, bookmarkScreenVisible, zipScreenVisible;
     private FileSort.Mode fileSort=FileSort.Mode.NAME_ASC;
     private boolean mediaScreen;
     private VideoView mediaPlayer;
@@ -32,6 +32,9 @@ public class MainActivity extends Activity {
     private static final class KeySshUi {Uri key;String savedId;TextView status;boolean saving;}
     private Object bookmarksView;
     private Object textViewToken;
+    private TextUi textUi;
+    private static final class TextUi {boolean loading=true,saving;long revision,savedRevision;}
+    private android.os.CancellationSignal zipCancellation;
     private Object accountsView;
     private Object trashView;
     private android.os.CancellationSignal scanCancellation;
@@ -76,10 +79,10 @@ public class MainActivity extends Activity {
     private TextView text(String s, int size) { TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(Color.rgb(28,38,55)); return t; }
     private Button button(String label, Runnable action) { Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setOnClickListener(v -> action.run()); return b; }
     private void layout(String title) {
-        stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelHash();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;bookmarksView=null;textViewToken=null;
+        stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelHash();cancelZip();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;bookmarksView=null;textViewToken=null;textUi=null;
         stopMedia();mediaToken=null;mediaScreen=false;canvas=null;
         sftpUi=null; pendingSftp=null; ftpUi=null; pendingFtp=null; davUi=null; pendingDav=null; smbUi=null; pendingSmb=null; tunnelUi=null; reverseTunnelUi=null;
-        fileScreen="Файлы".equals(title);searchScreenVisible=false;propertiesVisible=false;bookmarkScreenVisible=false;
+        fileScreen="Файлы".equals(title);searchScreenVisible=false;propertiesVisible=false;bookmarkScreenVisible=false;zipScreenVisible=false;
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(18),dp(18),dp(10)); root.setBackgroundColor(Color.rgb(247,249,252)); setContentView(root);
         TextView heading=text(title,26); heading.setTypeface(null,1); root.addView(heading);
         ScrollView scroll=new ScrollView(this); root.addView(scroll, new LinearLayout.LayoutParams(-1,0,1));
@@ -236,7 +239,7 @@ public class MainActivity extends Activity {
     }
     private boolean isText(Entry e) { String n=e.name.toLowerCase(java.util.Locale.ROOT); return e.mime.startsWith("text/") || n.endsWith(".txt") || n.endsWith(".md") || n.endsWith(".json") || n.endsWith(".xml") || n.endsWith(".csv") || n.endsWith(".log"); }
     private void actions(Entry e) {
-        String[] choices={"Открыть", "Копировать", "Вырезать", "Сжать в ZIP", "Распаковать ZIP", "Переименовать", "В корзину", "Удалить навсегда", "Поделиться", "Свойства"};
+        String[] choices={"Открыть", "Копировать", "Вырезать", "Сжать в ZIP", "Распаковать ZIP", "Переименовать", "В корзину", "Удалить навсегда", "Поделиться", "Свойства", "Посмотреть ZIP"};
         new AlertDialog.Builder(this).setTitle(e.name).setItems(choices,(d,n)->{
             if(n==0){if(e.dir()){parents.push(current);current=e.uri;list();}else open(e);}
             if(n==1||n==2){clipboard=e;cut=n==2;toast(cut?"Выбрано для перемещения":"Выбрано для копирования");list();}
@@ -246,8 +249,26 @@ public class MainActivity extends Activity {
             if(n==6){Uri selectedTree=tree,parent=current;if(clipboard!=null&&clipboard.uri.equals(e.uri))clipboard=null;runFileTask(()->new TrashStore(this).moveToTrash(selectedTree,parent,e.uri),"Перемещено в корзину");}
             if(n==7) new AlertDialog.Builder(this).setMessage("Удалить «"+e.name+"» навсегда, минуя корзину? Операция необратима.").setNegativeButton("Отмена",null).setPositiveButton("Удалить",(x,y)->{try{if(!DocumentsContract.deleteDocument(getContentResolver(),e.uri))throw new IOException("Удаление не поддерживается");list();}catch(Exception ex){error(ex);}}).show();
             if(n==9)propertiesScreen(e);
+            if(n==10){if(e.dir()||!e.name.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")){toast("Выберите ZIP-файл");return;}zipScreen(e);}
             if(n==8 && !e.dir()){Intent i=new Intent(Intent.ACTION_SEND);i.setType(e.mime);i.putExtra(Intent.EXTRA_STREAM,e.uri);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"Поделиться"));}
         }).show();
+    }
+    private void cancelZip(){if(zipCancellation!=null){zipCancellation.cancel();zipCancellation=null;}}
+    private void zipScreen(Entry entry){
+        layout("Содержимое ZIP");zipScreenVisible=true;note("Предпросмотр без распаковки. Он читает содержимое архива, но ничего не сохраняет. Показаны не более 500 записей и прочитано не более 64 МиБ распакованных данных; зашифрованные ZIP и некоторые форматы не поддерживаются.");
+        TextView status=text("Чтение…",15);body.addView(status);LinearLayout rows=new LinearLayout(this);rows.setOrientation(LinearLayout.VERTICAL);body.addView(rows);Button cancel=button("Отменить чтение",()->{});body.addView(cancel);body.addView(button("Назад к файлам",this::list));
+        android.os.CancellationSignal signal=new android.os.CancellationSignal();zipCancellation=signal;
+        cancel.setOnClickListener(v->{cancelZip();cancel.setEnabled(false);status.setText("Отменено. Провайдер может остановить чтение не сразу.");});
+        new Thread(()->{ZipPreview.Result found=null;String failure=null;
+            try(android.content.res.AssetFileDescriptor afd=getContentResolver().openAssetFileDescriptor(entry.uri,"r",signal)){if(afd==null)throw new IOException("Архив недоступен");try(InputStream input=afd.createInputStream()){found=ZipPreview.list(input,signal);}}
+            catch(android.os.OperationCanceledException ignored){}catch(Exception ex){failure=ex.getMessage();}
+            ZipPreview.Result answer=found;String error=failure;runOnUiThread(()->{
+                if(zipCancellation!=signal||isFinishing()||isDestroyed())return;zipCancellation=null;cancel.setEnabled(false);
+                if(answer==null){status.setText("Не удалось прочитать ZIP: "+error);return;}
+                status.setText("Записей: "+answer.items.size()+" · прочитано данных: "+android.text.format.Formatter.formatFileSize(this,answer.scanned)+(answer.limited?"\nСписок неполный: достигнут лимит.":""));
+                for(ZipPreview.Item item:answer.items){TextView row=text((item.unsafe?"⚠ ":item.directory?"📁 ":"📄 ")+item.name+(item.directory?"":" · "+android.text.format.Formatter.formatFileSize(this,item.bytes)),15);row.setPadding(dp(6),dp(8),dp(6),dp(8));rows.addView(row);}
+            });
+        },"zip-preview").start();
     }
     private void cancelHash(){if(hashCancellation!=null){hashCancellation.cancel();hashCancellation=null;}}
     private void propertiesScreen(Entry entry){
@@ -347,13 +368,28 @@ public class MainActivity extends Activity {
         runFileTask(()->{FileOperations ops=new FileOperations(getContentResolver(),selectedTree);ops.copy(new FileOperations.Item(selected.uri,selected.name,selected.mime),dest); if(move){try{if(!DocumentsContract.deleteDocument(getContentResolver(),selected.uri))throw new IOException("Удаление не поддерживается");}catch(Exception ex){throw new IOException("Копия создана, но исходный объект не удалён: "+ex.getMessage(),ex);}}},move?"Перемещение завершено":"Копирование завершено");
     }
     private void editText(Entry entry) {
-        layout("Текст · "+entry.name);Object token=new Object();textViewToken=token; note("UTF-8, максимум 1 МиБ. Сохранение перезаписывает исходный файл; рекомендуется сделать копию.");
+        layout("Текст · "+entry.name);Object token=new Object();textViewToken=token;TextUi state=new TextUi();textUi=state; note("UTF-8, максимум 1 МиБ. Сохранение перезаписывает исходный файл; рекомендуется сделать копию. Поворот экрана может привести к потере несохранённого текста.");
         EditText editor=new EditText(this);editor.setGravity(Gravity.TOP|Gravity.START);editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);editor.setMinLines(12);editor.setEnabled(false);body.addView(editor);
+        editor.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){if(!state.loading)state.revision++;}public void afterTextChanged(android.text.Editable e){}});
         EditText find=field("Найти в тексте (до 256 символов)",false);Button findNext=button("Найти далее",()->{String query=find.getText().toString();if(query.isEmpty()||query.length()>256){toast("Введите от 1 до 256 символов");return;}int index=TextFind.next(editor.getText().toString(),query,Math.max(0,editor.getSelectionEnd()));if(index<0){toast("Совпадений нет");return;}editor.requestFocus();editor.setSelection(index,index+query.length());});findNext.setEnabled(false);body.addView(findNext);
-        Button save=button("Сохранить",()->{});save.setEnabled(false);body.addView(save);body.addView(button("Назад",this::list));
-        new Thread(()->{try(InputStream in=getContentResolver().openInputStream(entry.uri)){if(in==null)throw new IOException("Файл недоступен");ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>1048576)throw new IOException("Файл больше 1 МиБ");out.write(b,0,n);}String value=java.nio.charset.StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(out.toByteArray())).toString();runOnUiThread(()->{if(textViewToken==token&&!isFinishing()&&!isDestroyed()){editor.setText(value);editor.setEnabled(true);save.setEnabled(true);findNext.setEnabled(true);}});}catch(Exception ex){runOnUiThread(()->{if(textViewToken==token&&!isDestroyed())error(ex);});}},"text-read").start();
-        save.setOnClickListener(v->{byte[] data=editor.getText().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);if(data.length>1048576){toast("Текст больше 1 МиБ");return;}save.setEnabled(false);new Thread(()->{String message;try(OutputStream out=getContentResolver().openOutputStream(entry.uri,"wt")){if(out==null)throw new IOException("Запись недоступна");out.write(data);message="Сохранено";}catch(Exception ex){message="Ошибка сохранения; файл мог быть изменён: "+ex.getMessage();}String answer=message;runOnUiThread(()->{if(textViewToken==token&&!isDestroyed()){toast(answer);save.setEnabled(true);}});},"text-save").start();});
+        Button save=button("Сохранить",()->{});save.setEnabled(false);body.addView(save);body.addView(button("Назад",()->leaveText(state)));
+        new Thread(()->{try(InputStream in=getContentResolver().openInputStream(entry.uri)){if(in==null)throw new IOException("Файл недоступен");ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>1048576)throw new IOException("Файл больше 1 МиБ");out.write(b,0,n);}String value=java.nio.charset.StandardCharsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).decode(java.nio.ByteBuffer.wrap(out.toByteArray())).toString();runOnUiThread(()->{if(textViewToken==token&&!isFinishing()&&!isDestroyed()){editor.setText(value);state.loading=false;state.savedRevision=state.revision;editor.setEnabled(true);save.setEnabled(true);findNext.setEnabled(true);}});}catch(Exception ex){runOnUiThread(()->{if(textViewToken==token&&!isDestroyed())error(ex);});}},"text-read").start();
+        save.setOnClickListener(v->{
+            if(state.saving||state.loading)return;byte[] data=editor.getText().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);if(data.length>1048576){toast("Текст больше 1 МиБ");return;}
+            state.saving=true;save.setEnabled(false);editor.setEnabled(false);findNext.setEnabled(false);
+            new Thread(()->{String failure=null;try(OutputStream out=getContentResolver().openOutputStream(entry.uri,"wt")){if(out==null)throw new IOException("Запись недоступна");out.write(data);}catch(Exception ex){failure=ex.getMessage()==null?ex.toString():ex.getMessage();}
+                String problem=failure;runOnUiThread(()->{if(textViewToken!=token||isDestroyed())return;state.saving=false;editor.setEnabled(true);save.setEnabled(true);findNext.setEnabled(true);
+                    if(problem==null){state.savedRevision=state.revision;toast("Сохранено");}else toast("Ошибка сохранения; файл мог быть изменён: "+problem);
+                });
+            },"text-save").start();
+        });
     }
+    private void leaveText(TextUi state){
+        if(textUi!=state)return;if(state.saving){toast("Дождитесь завершения сохранения");return;}
+        if(state.revision==state.savedRevision){list();return;}
+        new AlertDialog.Builder(this).setTitle("Несохранённые изменения").setMessage("Выйти без сохранения? Изменения текста будут потеряны.").setNegativeButton("Остаться",null).setPositiveButton("Выйти",(d,w)->{if(textUi==state)list();}).show();
+    }
+
     interface InputAction { void run(String value); }
     private void input(String title,InputAction action){ EditText edit=new EditText(this); new AlertDialog.Builder(this).setTitle(title).setView(edit).setNegativeButton("Отмена",null).setPositiveButton("ОК",(d,w)->{String value=edit.getText().toString().trim();if(!value.isEmpty())action.run(value);}).show(); }
     private EditText field(String hint, boolean secret) {
@@ -946,7 +982,7 @@ public class MainActivity extends Activity {
         if(mediaPlayer!=null){mediaPlayer.stopPlayback();mediaStopped=true;if(videoUi!=null)videoUi.previewReady=false;if(mediaController!=null)mediaController.hide();}
         super.onStop();
     }
-    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelHash();cancelKeySsh();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}if(reverseTunnel!=null){reverseTunnel.stop();reverseTunnel=null;}super.onDestroy();}
+    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelHash();cancelZip();cancelKeySsh();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}if(reverseTunnel!=null){reverseTunnel.stop();reverseTunnel=null;}super.onDestroy();}
     private void pingScreen(){ layout("Проверка сети"); note("ICMP ping: доступность зависит от сети и устройства."); EditText host=new EditText(this); host.setSingleLine(); host.setHint("Адрес или домен"); body.addView(host); TextView result=text("",15); body.addView(button("Проверить",()->{String h=host.getText().toString().trim(); if(!h.matches("[a-zA-Z0-9.:-]{1,253}") || h.startsWith("-")){result.setText("Некорректный адрес");return;} result.setText("Проверка…"); new Thread(()->{String output; try { Process p=new ProcessBuilder("ping","-c","1","-W","3",h).redirectErrorStream(true).start(); ByteArrayOutputStream b=new ByteArrayOutputStream(); try(InputStream in=p.getInputStream()){byte[] buf=new byte[1024];int n;while((n=in.read(buf))!=-1 && b.size()<8192)b.write(buf,0,n);} p.waitFor();output=b.toString("UTF-8"); }catch(Exception ex){output="Ошибка: "+ex.getMessage();} String finalOutput=output;runOnUiThread(()->result.setText(finalOutput));}).start();})); body.addView(result); body.addView(button("Назад",this::home)); }
     private void cancelVideo(){if(videoCancellation!=null){videoCancellation.cancel();videoCancellation=null;}}
     private void videoEditorScreen(){
@@ -1036,6 +1072,7 @@ public class MainActivity extends Activity {
         size.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar b,int value,boolean fromUser){view.width=value+3;width.setText("Толщина: "+(value+3));}public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){}});
         LinearLayout tools=new LinearLayout(this);body.addView(tools);
         tools.addView(button("Отменить",()->{if(!view.undo())toast("Нет действия для отмены");}));
+        tools.addView(button("Повторить",()->{if(!view.redo())toast("Нет действия для повтора");}));
         tools.addView(button("Очистить",()->new AlertDialog.Builder(this).setMessage("Очистить холст?").setNegativeButton("Отмена",null).setPositiveButton("Очистить",(d,w)->view.clear()).show()));
         body.addView(button("Повернуть холст на 90° вправо",()->{if(!view.transform(false))toast("Недостаточно памяти для поворота");}));
         body.addView(button("Отразить холст по горизонтали",()->{if(!view.transform(true))toast("Недостаточно памяти для отражения");}));
@@ -1087,25 +1124,27 @@ public class MainActivity extends Activity {
         },"paint-save").start();
     }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();} private void error(Exception e){toast("Ошибка: "+e.getMessage());}
-    @Override public void onBackPressed(){if(bookmarkScreenVisible){home();return;}if(propertiesVisible && current!=null){list();return;}if(searchScreenVisible && current!=null){list();return;}if(mediaScreen && current!=null){list();return;}if(fileScreen && current!=null && !parents.empty()){current=parents.pop();list();}else{current=null;home();}}
+    @Override public void onBackPressed(){if(textUi!=null){leaveText(textUi);return;}if(zipScreenVisible && current!=null){list();return;}if(bookmarkScreenVisible){home();return;}if(propertiesVisible && current!=null){list();return;}if(searchScreenVisible && current!=null){list();return;}if(mediaScreen && current!=null){list();return;}if(fileScreen && current!=null && !parents.empty()){current=parents.pop();list();}else{current=null;home();}}
     static class Entry { Uri uri; String name,mime; long size; Entry(Uri u,String n,String m,long s){uri=u;name=n==null?"Без имени":n;mime=m==null?"application/octet-stream":m;size=s;} boolean dir(){return DocumentsContract.Document.MIME_TYPE_DIR.equals(mime);} }
     static class PaintView extends View {
         private static final int SIDE=1200;
-        Bitmap bitmap=Bitmap.createBitmap(SIDE,SIDE,Bitmap.Config.ARGB_8888), previous;
+        Bitmap bitmap=Bitmap.createBitmap(SIDE,SIDE,Bitmap.Config.ARGB_8888), previous, nextRedo;
         Canvas drawing=new Canvas(bitmap);Paint brush=new Paint(Paint.ANTI_ALIAS_FLAG);int color=Color.BLACK,width=8;long revision;float px,py;boolean drawingStroke;
         PaintView(Context context){super(context);drawing.drawColor(Color.WHITE);setBackgroundColor(Color.LTGRAY);}
         private void checkpoint(){
+            if(nextRedo!=null){nextRedo.recycle();nextRedo=null;}
             if(previous!=null){previous.recycle();previous=null;}
             try{previous=bitmap.copy(Bitmap.Config.ARGB_8888,true);}catch(OutOfMemoryError ignored){previous=null;}
         }
         void clear(){checkpoint();drawing.drawColor(Color.WHITE);revision++;invalidate();}
-        boolean undo(){if(previous==null)return false;Bitmap old=bitmap;bitmap=previous;previous=null;drawing=new Canvas(bitmap);old.recycle();revision++;invalidate();return true;}
+        boolean undo(){if(previous==null||drawingStroke)return false;if(nextRedo!=null)nextRedo.recycle();nextRedo=bitmap;bitmap=previous;previous=null;drawing=new Canvas(bitmap);revision++;invalidate();return true;}
+        boolean redo(){if(nextRedo==null||drawingStroke)return false;if(previous!=null)previous.recycle();previous=bitmap;bitmap=nextRedo;nextRedo=null;drawing=new Canvas(bitmap);revision++;invalidate();return true;}
         boolean transform(boolean flip){
             Bitmap next=null;
             try{next=Bitmap.createBitmap(SIDE,SIDE,Bitmap.Config.ARGB_8888);Canvas output=new Canvas(next);
                 output.translate(SIDE/2f,SIDE/2f);if(flip)output.scale(-1,1);else output.rotate(90);output.translate(-SIDE/2f,-SIDE/2f);output.drawBitmap(bitmap,0,0,null);
             }catch(OutOfMemoryError e){if(next!=null)next.recycle();return false;}
-            if(previous!=null)previous.recycle();previous=bitmap;bitmap=next;drawing=new Canvas(bitmap);revision++;invalidate();return true;
+            if(nextRedo!=null){nextRedo.recycle();nextRedo=null;}if(previous!=null)previous.recycle();previous=bitmap;bitmap=next;drawing=new Canvas(bitmap);revision++;invalidate();return true;
         }
         void importImage(Bitmap image){
             checkpoint();drawing.drawColor(Color.WHITE);

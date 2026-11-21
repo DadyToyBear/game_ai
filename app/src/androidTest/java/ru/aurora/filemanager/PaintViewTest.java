@@ -34,6 +34,15 @@ public class PaintViewTest {
             assertTrue(view.undo());assertEquals(Color.RED,view.bitmap.getPixel(150,150));
         });
     }
+    @Test public void redoAndNewEditClearRedoHistory() {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+            Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();MainActivity.PaintView view=new MainActivity.PaintView(context);
+            android.graphics.Paint p=new android.graphics.Paint();p.setColor(Color.RED);new android.graphics.Canvas(view.bitmap).drawRect(100,100,200,200,p);
+            assertTrue(view.transform(true));assertTrue(view.undo());assertEquals(Color.RED,view.bitmap.getPixel(150,150));
+            assertTrue(view.redo());assertEquals(Color.RED,view.bitmap.getPixel(1050,150));assertFalse(view.redo());
+            assertTrue(view.undo());view.clear();assertFalse(view.redo());assertTrue(view.undo());assertEquals(Color.RED,view.bitmap.getPixel(150,150));
+        });
+    }
     @Test public void importFitsWithoutStretchingAndCanUndo() {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
             Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();MainActivity.PaintView view=new MainActivity.PaintView(context);
