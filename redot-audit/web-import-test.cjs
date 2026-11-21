@@ -15,7 +15,7 @@ fs.writeFileSync(path.join(project, 'main.tscn'), '[gd_scene format=3]\n[node na
 const server = spawn('python3', ['redot-bridge/bridge.py','serve','--editor-dir',path.resolve(process.argv[2])], {env:{...process.env,REDOT_BRIDGE_TOKEN:secret},stdio:'ignore'});
 async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:8765/project-open.html')).ok)return;}catch(_){} await new Promise(r=>setTimeout(r,100));} throw Error('Bridge did not start');}
 async function capture(page, label) {
-  const data = (await page.screenshot({type:'jpeg',quality:45})).toString('base64');
+  const data = (await page.screenshot({type:'jpeg',quality:15})).toString('base64');
   for (let i=0;i<data.length;i+=3500) console.log(`::notice title=${label}_${String(i/3500).padStart(2,'0')}::${data.slice(i,i+3500)}`);
 }
 (async () => { let browser, page; const issues=[];
@@ -34,7 +34,6 @@ async function capture(page, label) {
     let colors=0;
     for(let i=0;i<30;i++){await page.waitForTimeout(2000);const png=PNG.sync.read(await page.locator('#editor-canvas').screenshot());const set=new Set();for(let p=0;p<png.data.length;p+=64)set.add(`${png.data[p]>>4},${png.data[p+1]>>4},${png.data[p+2]>>4}`);colors=set.size;if(colors>=12)break;}
     assert.ok(colors>=12,`Blank editor (${colors} colors)`);
-    await capture(page,'WEB_IMPORT_INITIAL');
     await page.locator('#editor-canvas').click({position:{x:300,y:300}});
     await page.keyboard.press('Control+i');
     await page.waitForTimeout(3000);
