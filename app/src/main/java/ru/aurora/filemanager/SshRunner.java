@@ -82,11 +82,12 @@ final class SshRunner {
             if(length==0||length>65536)throw new IOException("Файл ключа пуст или больше 64 КиБ");return java.util.Arrays.copyOf(buffer,length);
         }finally{java.util.Arrays.fill(buffer,(byte)0);}
     }
-    static void runWithKey(Activity activity,android.net.Uri keyUri,String host,int port,String user,byte[] passphrase,String command,CancellationSignal cancel,Result result){
+    static void runWithKey(Activity activity,android.net.Uri keyUri,String savedId,String host,int port,String user,byte[] passphrase,String command,CancellationSignal cancel,Result result){
         new Thread(()->{
             JSch jsch=new JSch();Session session=null;ChannelExec channel=null;byte[] key=null;String output;
             try{
-                try(InputStream in=activity.getContentResolver().openInputStream(keyUri)){if(in==null)throw new IOException("Файл ключа недоступен");key=readKey(in,cancel);}
+                if(savedId!=null)key=new StoredSshKeys(activity.getApplicationContext()).load(savedId);
+                else try(InputStream in=activity.getContentResolver().openInputStream(keyUri)){if(in==null)throw new IOException("Файл ключа недоступен");key=readKey(in,cancel);}
                 try{jsch.addIdentity("selected-key",key,null,passphrase.length==0?null:passphrase);}finally{java.util.Arrays.fill(key,(byte)0);key=null;java.util.Arrays.fill(passphrase,(byte)0);}
                 cancel.throwIfCanceled();session=connectWithIdentity(activity,host,port,user,null,cancel,jsch,true);
                 Session active=session;cancel.setOnCancelListener(()->new Thread(active::disconnect,"ssh-key-close").start());cancel.throwIfCanceled();

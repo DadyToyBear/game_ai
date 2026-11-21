@@ -28,7 +28,7 @@ public class MainActivity extends Activity {
     private WebFilesServer webServer;
     private Entry clipboard; private boolean cut;
     private KeySshUi keySshUi;private android.os.CancellationSignal keySshCancel;
-    private static final class KeySshUi {Uri key;TextView status;}
+    private static final class KeySshUi {Uri key;String savedId;TextView status;boolean saving;}
     private Object accountsView;
     private Object trashView;
     private android.os.CancellationSignal scanCancellation;
@@ -108,7 +108,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int req,int result,Intent data) {
         super.onActivityResult(req,result,data);
-        if(req==SSH_KEY_OPEN){if(keySshUi!=null&&result==RESULT_OK&&data!=null&&data.getData()!=null){keySshUi.key=data.getData();keySshUi.status.setText("Ключ выбран. Перед входом проверьте отпечаток сервера.");}return;}
+        if(req==SSH_KEY_OPEN){if(keySshUi!=null&&result==RESULT_OK&&data!=null&&data.getData()!=null){keySshUi.key=data.getData();keySshUi.savedId=null;keySshUi.status.setText("Ключ выбран. Перед входом проверьте отпечаток сервера.");}return;}
         if(req==VIDEO_OPEN){
             if(videoUi!=null && result==RESULT_OK && data!=null && data.getData()!=null){videoUi.source=data.getData();videoUi.status.setText("Исходный видеофайл выбран. Укажите начало и конец в миллисекундах.");videoUi.save.setEnabled(true);}return;
         }
@@ -715,23 +715,56 @@ public class MainActivity extends Activity {
     }
     private void cancelKeySsh(){if(keySshCancel!=null){keySshCancel.cancel();keySshCancel=null;}}
     private void sshKeyScreen(){
-        layout("SSH · команда с ключом");note("Выберите закрытый ключ через Android. Приложение не сохраняет ключ и парольную фразу; используйте только доверенный провайдер документов. Размер ключа — до 64 КиБ. Поддержка форматов и алгоритмов зависит от JSch и Android.");
+        layout("SSH · команда с ключом");note("Выберите закрытый ключ из файла или сохранённых. Добавленные ключи зашифрованы Android Keystore в данных приложения, без биометрической проверки; парольная фраза не сохраняется. Используйте доверенный провайдер. Размер ключа — до 64 КиБ.");
         note("Одна команда за соединение, без интерактивного ввода. Сверьте отпечаток ключа сервера по независимому каналу. При выходе с экрана подключение отменяется; уже запущенная команда на сервере может продолжиться.");
         KeySshUi ui=new KeySshUi();keySshUi=ui;ui.status=text("Ключ не выбран",15);
         EditText host=field("Адрес сервера",false),port=field("Порт SSH (22)",false),user=field("Пользователь",false),passphrase=field("Парольная фраза ключа (если есть)",true),command=field("Команда",false);
         body.addView(button("Выбрать закрытый ключ",()->{Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("*/*");intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);try{startActivityForResult(intent,SSH_KEY_OPEN);}catch(Exception ex){error(ex);}}));
+        body.addView(button("Сохранить выбранный файл ключа",()->saveSelectedSshKey(ui)));
+        body.addView(button("Сохранённые ключи: выбрать или удалить",()->browseSshKeys(ui)));
         Button run=button("Выполнить команду",()->{}),cancel=button("Отменить",()->{});cancel.setEnabled(false);body.addView(run);body.addView(cancel);body.addView(ui.status);body.addView(button("Назад",this::home));
         run.setOnClickListener(v->{
             String h=host.getText().toString().trim(),u=user.getText().toString().trim(),cmd=command.getText().toString();int sshPort;
-            try{String value=port.getText().toString().trim();sshPort=value.isEmpty()?22:Integer.parseInt(value);if(ui.key==null||h.isEmpty()||u.isEmpty()||cmd.trim().isEmpty()||sshPort<1||sshPort>65535||passphrase.length()>1024)throw new IllegalArgumentException();}
+            try{String value=port.getText().toString().trim();sshPort=value.isEmpty()?22:Integer.parseInt(value);if((ui.key==null&&ui.savedId==null)||h.isEmpty()||u.isEmpty()||cmd.trim().isEmpty()||sshPort<1||sshPort>65535||passphrase.length()>1024)throw new IllegalArgumentException();}
             catch(Exception ex){toast("Выберите ключ и заполните адрес, пользователя, порт и команду");return;}
             char[] chars=new char[passphrase.length()];passphrase.getText().getChars(0,passphrase.length(),chars,0);passphrase.setText("");byte[] secret;
             try{java.nio.ByteBuffer bytes=java.nio.charset.StandardCharsets.UTF_8.newEncoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).encode(java.nio.CharBuffer.wrap(chars));secret=new byte[bytes.remaining()];bytes.get(secret);if(bytes.hasArray())java.util.Arrays.fill(bytes.array(),(byte)0);}
             catch(Exception ex){toast("Не удалось прочитать парольную фразу");return;}finally{java.util.Arrays.fill(chars,'\0');}
             android.os.CancellationSignal signal=new android.os.CancellationSignal();keySshCancel=signal;run.setEnabled(false);cancel.setEnabled(true);ui.status.setText("Подключение… Проверьте отпечаток сервера.");
-            SshRunner.runWithKey(this,ui.key,h,sshPort,u,secret,cmd,signal,answer->{if(keySshUi!=ui||keySshCancel!=signal)return;keySshCancel=null;run.setEnabled(true);cancel.setEnabled(false);ui.status.setText(answer);});
+            SshRunner.runWithKey(this,ui.key,ui.savedId,h,sshPort,u,secret,cmd,signal,answer->{if(keySshUi!=ui||keySshCancel!=signal)return;keySshCancel=null;run.setEnabled(true);cancel.setEnabled(false);ui.status.setText(answer);});
         });
         cancel.setOnClickListener(v->{cancelKeySsh();run.setEnabled(true);cancel.setEnabled(false);ui.status.setText("Отменено. Удалённая команда может продолжить работу.");});
+    }
+    private void saveSelectedSshKey(KeySshUi ui){
+        if(ui.saving){toast("Сохранение уже выполняется");return;}if(ui.key==null){toast("Сначала выберите файл ключа");return;}Uri source=ui.key;
+        input("Название ключа (до 80 символов)",name->{
+            if(keySshUi!=ui||ui.saving)return;ui.saving=true;ui.status.setText("Импорт ключа…");
+            new Thread(()->{byte[] key=null;String problem=null;com.jcraft.jsch.JSch jsch=new com.jcraft.jsch.JSch();
+                try{try(InputStream in=getContentResolver().openInputStream(source)){if(in==null)throw new IOException("Файл ключа недоступен");key=SshRunner.readKey(in,new android.os.CancellationSignal());}
+                    jsch.addIdentity("import",key,null,null);new StoredSshKeys(getApplicationContext()).add(name,key);
+                }catch(Exception ex){problem=ex.getMessage();}finally{try{jsch.removeAllIdentity();}catch(Exception ignored){}if(key!=null)java.util.Arrays.fill(key,(byte)0);}
+                String failure=problem;runOnUiThread(()->{if(keySshUi!=ui||isDestroyed()||isFinishing())return;ui.saving=false;ui.status.setText(failure==null?"Ключ сохранён: "+name:"Ошибка сохранения ключа: "+failure);});
+            },"ssh-key-import").start();
+        });
+    }
+    private void browseSshKeys(KeySshUi ui){
+        ui.status.setText("Чтение сохранённых ключей…");
+        new Thread(()->{List<StoredSshKeys.Entry> entries=null;String problem=null;try{entries=new StoredSshKeys(getApplicationContext()).list();}catch(Exception ex){problem=ex.getMessage();}
+            List<StoredSshKeys.Entry> items=entries;String failure=problem;runOnUiThread(()->{
+                if(keySshUi!=ui||isFinishing()||isDestroyed())return;if(failure!=null){ui.status.setText("Ошибка хранилища: "+failure);return;}ui.status.setText("Сохранённых ключей: "+items.size());
+                if(items.isEmpty()){toast("Сохранённых ключей нет");return;}
+                String[] labels=new String[items.size()];for(int i=0;i<labels.length;i++)labels[i]=items.get(i).name+" · "+items.get(i).id.substring(0,8);
+                new AlertDialog.Builder(this).setTitle("Сохранённые ключи").setItems(labels,(dialog,index)->{
+                    StoredSshKeys.Entry entry=items.get(index);
+                    new AlertDialog.Builder(this).setTitle(labels[index]).setItems(entry.readable?new String[]{"Выбрать для команды","Удалить"}:new String[]{"Удалить повреждённую запись"},(d,choice)->{
+                        if(entry.readable&&choice==0){ui.key=null;ui.savedId=entry.id;ui.status.setText("Выбран сохранённый ключ: "+entry.name);return;}
+                        new AlertDialog.Builder(this).setTitle("Удалить сохранённый ключ?").setMessage("Удаляется копия из приложения; исходный файл не меняется. Восстановить эту копию будет нельзя.").setNegativeButton("Отмена",null).setPositiveButton("Удалить",(d2,w)->{
+                            new Thread(()->{String issue=null;try{new StoredSshKeys(getApplicationContext()).delete(entry.id);}catch(Exception ex){issue=ex.getMessage();}String err=issue;runOnUiThread(()->{if(keySshUi!=ui||isDestroyed())return;if(err==null&&entry.id.equals(ui.savedId))ui.savedId=null;ui.status.setText(err==null?"Сохранённый ключ удалён":"Ошибка удаления: "+err);});},"ssh-key-delete").start();
+                        }).show();
+                    }).setNegativeButton("Отмена",null).show();
+                }).setNegativeButton("Отмена",null).show();
+            });
+        },"ssh-key-list").start();
     }
     private void accountsScreen(){
         layout("Локальные учётные записи");Object token=new Object();accountsView=token;
