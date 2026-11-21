@@ -26,6 +26,7 @@ class BundleTests(unittest.TestCase):
             self.assertTrue((result / 'relay-deploy/README.md').is_file())
             self.assertTrue((result / 'make_bundle.py').is_file())
             self.assertTrue((result / 'multiagent_mcp.py').is_file())
+            self.assertTrue((result / 'task_transport.py').is_file())
             self.assertTrue((result / 'multiagent_chat.py').is_file())
             self.assertTrue((result / 'opencode.multiagent.example.json').is_file())
             self.assertTrue((result / 'web/sync.html').is_file())

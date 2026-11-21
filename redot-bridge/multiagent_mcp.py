@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Expose the existing multiagent chat and the local Redot bridge via MCP stdio.
 
-This does not forward WebFTP task files to the local editor bridge. The legacy
-chat_assign tool continues to target the separately running WebFTP bridge.
+With REDOT_TASK_SECRET configured, optional tools submit authenticated tasks
+for the separately started worker. Legacy chat_assign remains unchanged.
 """
 from __future__ import annotations
 
 import argparse
+import hmac
 import importlib.util
 import json
 import os
@@ -15,24 +16,10 @@ import sys
 from types import SimpleNamespace
 import urllib.parse
 import urllib.request
-from urllib.parse import urlsplit
 
 import bridge
-
-
-def chat_share(value):
-    """Require encrypted share access except on the local machine for tests."""
-    try:
-        parsed = urlsplit(value)
-        if (not parsed.hostname or parsed.username is not None or parsed.password is not None or
-                parsed.query or parsed.fragment or any(ord(c) < 33 or ord(c) > 126 for c in value) or
-                parsed.scheme not in ('http', 'https') or (parsed.port is not None and not 1 <= parsed.port <= 65535)):
-            raise ValueError
-        if parsed.scheme == 'http' and parsed.hostname not in ('localhost', '127.0.0.1', '::1'):
-            raise ValueError
-    except ValueError as exc:
-        raise ValueError('WEBFTP_SHARE must be HTTPS (HTTP is allowed only on loopback), without credentials, query or fragment') from exc
-    return value.rstrip('/')
+import task_transport
+from task_transport import chat_share
 
 
 class LimitedResponse:
@@ -80,7 +67,15 @@ def load_chat(script):
     return module
 
 
-def response(message, url, token, chat):
+TASK_TOOLS = [
+    {'name': 'webftp_task_submit', 'description': 'Submit a signed task for an opt-in WebFTP worker. A queued task is not confirmation of execution.',
+     'inputSchema': {'type': 'object', 'properties': {'method': {'type': 'string', 'enum': list(task_transport.METHODS)}}, 'required': ['method'], 'additionalProperties': False}},
+    {'name': 'webftp_task_result', 'description': 'Read and verify a signed task result. Missing or invalid results do not prove a task was not executed.',
+     'inputSchema': {'type': 'object', 'properties': {'id': {'type': 'string', 'pattern': '^[0-9a-f]{32}$'}}, 'required': ['id'], 'additionalProperties': False}},
+]
+
+
+def response(message, url, token, chat, task_client=None, task_secret=''):
     if not isinstance(message, dict) or message.get('jsonrpc') != '2.0':
         return {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32600, 'message': 'Invalid Request'}}
     if 'id' not in message:
@@ -89,9 +84,26 @@ def response(message, url, token, chat):
     if method == 'initialize':
         return {'jsonrpc': '2.0', 'id': rid, 'result': {'protocolVersion': '2025-03-26', 'capabilities': {'tools': {}}, 'serverInfo': {'name': 'redot-multiagent-editor', 'version': '0.1.0'}}}
     if method == 'tools/list':
-        return {'jsonrpc': '2.0', 'id': rid, 'result': {'tools': bridge.tools() + chat.TOOLS}}
+        return {'jsonrpc': '2.0', 'id': rid, 'result': {'tools': bridge.tools() + chat.TOOLS + (TASK_TOOLS if task_client else [])}}
     if method == 'tools/call':
         params = message.get('params')
+        if task_client and isinstance(params, dict) and params.get('name') in ('webftp_task_submit', 'webftp_task_result'):
+            arguments = params.get('arguments', {})
+            name = params['name']
+            if not isinstance(arguments, dict) or set(arguments) != ({'method'} if name == 'webftp_task_submit' else {'id'}):
+                return {'jsonrpc': '2.0', 'id': rid, 'error': {'code': -32602, 'message': 'Invalid tool arguments'}}
+            try:
+                if name == 'webftp_task_submit':
+                    result = {'id': task_transport.submit(task_client, task_secret, arguments['method']), 'status': 'queued; execution not confirmed'}
+                    payload = {'content': [{'type': 'text', 'text': json.dumps(result, ensure_ascii=True)}]}
+                else:
+                    reply = task_transport.get_result(task_client, task_secret, arguments['id'])
+                    payload = reply.get('result')
+                    if not isinstance(payload, dict) or not isinstance(payload.get('content'), list):
+                        raise ValueError('Invalid result content')
+            except (ValueError, OSError, TypeError, RecursionError):
+                payload = {'content': [{'type': 'text', 'text': 'Signed task or result unavailable or invalid; execution is unknown.'}], 'isError': True}
+            return {'jsonrpc': '2.0', 'id': rid, 'result': payload}
         if isinstance(params, dict) and params.get('name') in {item['name'] for item in chat.TOOLS}:
             arguments = params.get('arguments', {})
             if not isinstance(arguments, dict):
@@ -132,11 +144,17 @@ def main():
         # The upstream module reads the environment at import time.
         os.environ['WEBFTP_SHARE'] = share
         chat = load_chat(script)
+        task_secret = os.environ.get('REDOT_TASK_SECRET', '')
+        task_client = None
+        if task_secret:
+            if not task_transport.valid_secret(task_secret) or hmac.compare_digest(task_secret, token):
+                raise ValueError('REDOT_TASK_SECRET must be random and distinct from REDOT_BRIDGE_TOKEN')
+            task_client = task_transport.WebFTP(share, os.environ.get('WEBFTP_BEARER', ''))
     except (ValueError, OSError, ImportError, KeyError) as exc:
         parser.error(str(exc))
     for line in sys.stdin:
         try:
-            reply = response(json.loads(line), url, token, chat)
+            reply = response(json.loads(line), url, token, chat, task_client, task_secret)
         except json.JSONDecodeError:
             reply = {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32700, 'message': 'Parse error'}}
         if reply is not None:

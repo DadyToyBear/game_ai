@@ -91,6 +91,7 @@ jobs:
             npm install --no-save playwright@1.56.1 pngjs@7.0.0
             bash -n start.sh
             python3 -m unittest discover -s redot-bridge/tests -p test_multiagent_mcp.py -v
+            python3 -m unittest discover -s redot-bridge/tests -p test_task_transport.py -v
             export CHROMIUM_EXECUTABLE="$(command -v chromium-browser || command -v chromium)"
             test -x "$CHROMIUM_EXECUTABLE"
             xvfb-run -a -s "-screen 0 1280x800x24" python3 redot-audit/native_play_test.py "$(cat editor-path.txt)"

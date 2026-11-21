@@ -37,7 +37,8 @@ class MultiagentPortTests(unittest.TestCase):
             self.assertEqual((target / 'dashboard.html').read_text(), 'existing dashboard\n')
             self.assertEqual((target / 'multiagent-mcp.py').read_text(), '# existing MCP\n')
             self.assertEqual((target / 'redot-bridge/bridge.py').read_bytes(), files[Path('redot-bridge/bridge.py')])
-            self.assertIn('NOT an integration', (target / 'REDOT-EDITOR-INTEGRATION.md').read_text())
+            self.assertIn('does NOT process', (target / 'REDOT-EDITOR-INTEGRATION.md').read_text())
+            self.assertIn(Path('redot-bridge/task_transport.py'), files)
             with self.assertRaisesRegex(ValueError, 'overwrite'):
                 port.check_target(target, files)
 

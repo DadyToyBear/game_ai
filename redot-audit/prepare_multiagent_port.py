@@ -21,10 +21,10 @@ GUIDE = '''# Redot editor components alongside the multiagent bridge
 
 These files were staged from DadyToyBear/game_ai. Existing dashboard, chat and
 WebFTP components were not replaced. `redot-bridge/multiagent_mcp.py` exposes
-chat and editor tools in one MCP stdio connection. This is NOT an integration of
-the two transports: the editor bridge uses an authenticated local API / optional
-relay, while the existing multiagent system uses WebFTP task/result files and its
-own WebSocket bridge. No tasks are forwarded between them by this overlay.
+chat and editor tools in one MCP stdio connection. The opt-in signed WebFTP
+worker handles a separate task namespace for the new bridge; it does NOT process
+legacy task files or chat_assign. The existing system uses its own WebSocket
+bridge. The actual WebFTP server and original worker were not tested.
 
 The .github/workflows/redot-*.yml workflows have manual triggers in this overlay
 so they do not refer to the source repository's session branch or automatically

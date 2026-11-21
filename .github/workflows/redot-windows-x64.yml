@@ -127,6 +127,15 @@ jobs:
               throw 'Combined multiagent MCP tests failed'
             }
             Get-Content combined.log
+            python -m unittest discover -s redot-bridge/tests -p test_task_transport.py -v > task.log 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              $s = Get-Content task.log -Raw
+              if ($s.Length -gt 3500) { $s = $s.Substring($s.Length - 3500) }
+              $s = $s.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+              Write-Output "::error title=Windows signed task transport::$s"
+              throw 'Signed task transport tests failed'
+            }
+            Get-Content task.log
             python -m unittest discover -s redot-bridge/tests -p test_project_sync.py -v > snapshots.log 2>&1
             if ($LASTEXITCODE -ne 0) {
               $s = (Get-Content snapshots.log -Raw)
