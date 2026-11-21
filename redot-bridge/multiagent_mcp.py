@@ -106,7 +106,9 @@ def main():
         except json.JSONDecodeError:
             reply = {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32700, 'message': 'Parse error'}}
         if reply is not None:
-            print(json.dumps(reply, ensure_ascii=False, separators=(',', ':')), flush=True)
+            # ASCII JSON remains valid UTF-8 while also working with Windows
+            # stdio pipes whose default encoding cannot represent Cyrillic.
+            print(json.dumps(reply, ensure_ascii=True, separators=(',', ':')), flush=True)
     return 0
 
 
