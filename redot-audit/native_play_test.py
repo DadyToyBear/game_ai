@@ -149,7 +149,12 @@ def main():
                 time.sleep(1)
                 if store.get() is not None:
                     raise RuntimeError('New frame appeared after Stop and deletion')
-                print(f'::notice title=Native Redot editor integration::MCP Play launched a real scene; {pixels} red pixels reached MCP; Stop and frame deletion succeeded (Linux Xvfb, software GL).')
+                browser = subprocess.run(['node', str(ROOT / 'redot-audit/native_viewer_test.cjs')], text=True,
+                                         capture_output=True, timeout=150, env=env)
+                if browser.returncode:
+                    raise RuntimeError('Browser viewer test failed: ' + browser.stdout + browser.stderr)
+                print(browser.stdout.strip())
+                print(f'::notice title=Native Redot editor integration::MCP and browser Play/Stop worked; {pixels} red pixels reached MCP and the browser; deletion succeeded (Linux Xvfb, software GL).')
             except Exception:
                 log.flush()
                 log.seek(0)
