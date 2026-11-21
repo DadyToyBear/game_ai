@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Mini Studio — мобильная музыкальная студия</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">MS</div>
+      <div>
+        <div class="brand-title">Mini Studio</div>
+        <div class="brand-sub">демо-минимализм на Web Audio</div>
+      </div>
+    </div>
+
+    <div class="transport">
+      <button id="btnPlay" class="btn play" title="Play / Stop (Space)">
+        <span class="ico">▶</span><span class="lbl">Играть</span>
+      </button>
+      <button id="btnRec" class="btn rec" title="Запись с MIDI">●</button>
+      <button id="btnStopAll" class="btn ghost" title="Паника: заглушить всё">■</button>
+      <div class="bpm">
+        <label>BPM</label>
+        <input id="bpm" type="number" min="40" max="220" value="120" />
+      </div>
+      <div class="steps-seg">
+        <label>Шагов</label>
+        <select id="stepCount">
+          <option value="16">16</option>
+          <option value="32">32</option>
+        </select>
+      </div>
+      <div class="steps-seg">
+        <label title="Длина аранжировки в тактах">Аранжировка</label>
+        <select id="loopBars">
+          <option value="2">2 такта</option>
+          <option value="4" selected>4 такта</option>
+          <option value="8">8 тактов</option>
+        </select>
+      </div>
+      <div class="pos" id="pos">001 : 01</div>
+    </div>
+
+    <div class="top-actions">
+      <button class="btn ghost" id="btnQuickSave" title="Быстрое сохранение в браузер (Ctrl+S)">Сохранить</button>
+      <button class="btn ghost" id="btnMidi">MIDI</button>
+      <button class="btn ghost" id="btnHelp">?</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="rack">Стойка</button>
+    <button class="tab" data-view="seq">Секвенсор</button>
+    <button class="tab" data-view="mix">Микшер</button>
+    <button class="tab" data-view="kaoss">Kaoss</button>
+    <button class="tab" data-view="io">Экспорт</button>
+  </nav>
+
+  <main>
+    <section id="view-rack" class="view active">
+      <div class="rack">
+        <aside class="tracklist" id="tracklist"></aside>
+        <div class="machine-wrap" id="machineWrap"></div>
+      </div>
+    </section>
+
+    <section id="view-seq" class="view">
+      <div class="seq-head">
+        <h2>Редактор паттернов</h2>
+        <div class="seq-tools">
+          <button class="btn ghost" id="btnClearPattern">Очистить паттерн</button>
+          <button class="btn ghost" id="btnRandom">Случайный бит</button>
+          <span class="hint">Сетка = редактор паттерна · ниже пиано-ролл выбранной машины</span>
+        </div>
+      </div>
+      <div id="patternBar"></div>
+      <h2 id="seqTitle" class="seq-title">Редактор паттерна A</h2>
+      <div class="seq-scroll">
+        <div class="grid" id="seqGrid"></div>
+      </div>
+      <div id="rollPanel" class="roll-panel"></div>
+    </section>
+
+    <section id="view-mix" class="view">
+      <div class="seq-head"><h2>Микшер</h2>
+        <div class="seq-tools"><span class="hint">Фейдеры, панорама, посылы в delay/reverb, мастер-эквалайзер и лимитер</span></div>
+      </div>
+      <div class="mixer" id="mixer"></div>
+    </section>
+
+    <section id="view-kaoss" class="view">
+      <div class="seq-head">
+        <h2>Korg Kaoss — веб-аналоги</h2>
+        <div class="seq-tools"><span class="hint">X-Y пэд-синтезатор с двумя лупами и X-Y процессор эффектов на мастер-шине</span></div>
+      </div>
+      <div id="kaossDeckHost"></div>
+      <div id="kaossArea" class="kaoss-extra"></div>
+    </section>
+
+    <section id="view-io" class="view">
+      <div class="io-grid">
+        <div class="card">
+          <h3>Экспорт аудио</h3>
+          <p class="muted">Офлайн-рендер аранжировки встроенными машинами.
+             <b>WAV</b> — без потерь, 16 бит / 44.1 кГц. <b>MP3</b> — сжатый файл для телефона,
+             мессенджеров и веба (LAME, работает прямо в браузере, ничего не отправляется в сеть).</p>
+          <div class="row">
+            <label class="hint" for="mp3kbps">Битрейт MP3</label>
+            <select id="mp3kbps" class="preset-select">
+              <option value="128">128 кбит/с — маленький файл</option>
+              <option value="192" selected>192 кбит/с — обычный</option>
+              <option value="256">256 кбит/с — качество</option>
+              <option value="320">320 кбит/с — максимум</option>
+            </select>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="btnExportWav">Экспорт WAV</button>
+            <button class="btn" id="btnExportMp3">Экспорт MP3</button>
+            <button class="btn" id="btnExportMidi">Экспорт MIDI</button>
+          </div>
+          <div class="meter mono" id="renderStatus"></div>
+          <div class="hint" id="renderInfo"></div>
+        </div>
+
+        <div class="card">
+          <h3>Проекты (сохранения)</h3>
+          <p class="muted">Проект — обычный JSON: дорожки, паттерны, банки A–D, сцены, микшер, BPM.
+             Сохранения лежат в браузере (localStorage) — можно держать несколько версий
+             и вернуться к любой. Файл .json переносит проект на другое устройство.</p>
+          <div class="row">
+            <input id="projName" class="preset-select" style="max-width:260px" placeholder="Название сохранения" />
+            <button class="btn primary" id="btnSaveSlot">Сохранить в браузер</button>
+            <button class="btn" id="btnSaveFile">Скачать .json</button>
+            <button class="btn" id="btnImportJson">Загрузить .json</button>
+            <input type="file" id="fileJson" accept=".json,application/json" hidden />
+          </div>
+          <p class="muted" style="margin-top:6px">Свои WAV-сэмплы и загруженные MP3 в JSON не попадают
+             (это аудио, а не ноты) — после загрузки проекта их надо подставить заново.</p>
+          <div id="projList" class="proj-list"></div>
+          <div class="row">
+            <span class="pill" id="autosaveState">автосохранение включено</span>
+            <button class="btn ghost mini" id="btnAutoRestore">Восстановить автосохранение</button>
+            <button class="btn ghost mini" id="btnClearAll">Стереть все сохранения</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>MIDI-вход</h3>
+          <p class="muted">Подключите USB-MIDI или виртуальный порт. Ноты играют на выбранной машине, а при включённой записи попадают в паттерн.</p>
+          <div class="row">
+            <button class="btn" id="btnMidi2">Подключить MIDI</button>
+            <span id="midiStatus" class="pill">не подключено</span>
+          </div>
+          <div class="row">
+            <label class="hint" for="midiOut">Выход (в DAW с Nexus)</label>
+            <select id="midiOut" class="preset-select" style="max-width:100%">
+              <option value="">выкл</option>
+            </select>
+            <label class="hint" for="midiOutCh">Канал</label>
+            <select id="midiOutCh" class="preset-select">
+              <option value="0">1</option><option value="1">2</option><option value="2">3</option>
+              <option value="3">4</option><option value="4">5</option><option value="5">6</option>
+            </select>
+          </div>
+          <p class="muted" style="margin-top:6px">Партии проекта уходят в выбранный порт (ноты, velocity, длина) —
+             если в DAW на этом входе стоит Nexus, он играет их звуками. Ударные идут на 10-м канале.</p>
+          <pre class="log" id="midiLog"></pre>
+        </div>
+
+        <div class="card">
+          <h3>Демо-проект</h3>
+          <p class="muted">Загрузить встроенный трек, чтобы услышать всё сразу.</p>
+          <div class="row">
+            <button class="btn" id="btnDemo">Загрузить демо</button>
+            <button class="btn ghost" id="btnReset">Новый пустой проект</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Nexus (reFX) и сторонние VST</h3>
+          <p class="muted">Да, FL Studio и другие DAW умеют грузить Nexus как плагин — потому что
+             это настольные программы с доступом к VST. Браузерная страница такого доступа не имеет:
+             она не может ни загрузить .vst3, ни открыть .nks/.ncw. Поэтому связать проект с Nexus
+             можно двумя способами, оба работают без переписывания студии:</p>
+          <ol class="clean">
+            <li><b>Экспорт MIDI</b> — сделать партии здесь, нажать «Экспорт MIDI», открыть файл в DAW,
+                поставить на дорожки Nexus и выбрать пресеты. Переносятся ноты, длительности, velocity.</li>
+            <li><b>MIDI-выход в реальном времени</b> — включить MIDI, выбрать порт вывода выше
+                (loopMIDI, IAC, виртуальный порт DAW) и назначить его входом Nexus в DAW.
+                Тогда транспорт студии играет прямо в Nexus: ноты, velocity, длина, аккомпанемент,
+                часы синхронизации. Ударные идут на 10-м канале.</li>
+          </ol>
+          <p class="muted">Как это выглядит на практике (FL Studio): Options → MIDI Settings → включить
+             входной порт для Nexus → в Channel Rack открыть Nexus → он принимает ноты с этого порта.
+             В Ableton/Reaper/Cubase аналогично: MIDI-in плагина = виртуальный порт.</p>
+        </div>
+
+        <div class="card">
+          <h3>Что внутри</h3>
+          <ul class="clean">
+            <li>BeatBox — драм-машина с 8 каналами и своими WAV-сэмплами</li>
+            <li>Subsynth, BassLine, FMSynth, PadSynth, 8BitSynth</li>
+            <li>Степ-секвенсор и пиано-ролл</li>
+            <li>3 эффект-шины на канал: delay / reverb + мастер-секция</li>
+            <li>MIDI-вход через Web MIDI API</li>
+            <li>Экспорт WAV, MP3 (LAME в браузере), MIDI (SMF type 1) и JSON-проекта</li>
+            <li>Сохранения проектов: слоты в браузере + файлы .json</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="js/engines.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/pattern.js"></script>
+<script src="js/midi-file.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/export-mp3.js"></script>
+<script src="js/kaoss.js"></script>
+<script src="js/kaoss-ui.js"></script>
+<script src="js/kaoss-deck.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
