@@ -23,9 +23,9 @@ Android 11+ ограничивает выбор некоторых папок, �
 
 В проект добавлен Gradle Wrapper 8.9 с проверкой SHA-256: при наличии полного JDK 17 и Android SDK 35 можно также выполнить `./gradlew :app:assembleDebug` (Windows: `gradlew.bat :app:assembleDebug`). Wrapper скачивает Gradle при первом запуске.
 
-В репозитории предусмотрен GitHub Actions workflow **Build Android debug APK** (`.github/workflows/android-debug.yml`): он устанавливает JDK и SDK, собирает debug APK и прикрепляет артефакт `aurora-files-debug` к запуску на 14 дней. Он запускается после push изменений проекта в текущую ветку или вручную через вкладку Actions. Debug APK подписан стандартным временным debug-ключом, а не ключом для публикации.
+В репозитории предусмотрен GitHub Actions workflow **Build Android debug APK** (`.github/workflows/android-debug.yml`): он использует JDK 17 и Android SDK 35 на GitHub-hosted runner, собирает debug APK и прикрепляет артефакт `aurora-files-debug` к запуску на 14 дней. Он запускается после push изменений проекта в текущую ветку или вручную через вкладку Actions. Debug APK подписан стандартным временным debug-ключом, а не ключом для публикации.
 
-В среде Arena удалось установить только Java Runtime 17 без компилятора; доступ к официальным сайтам Gradle и Android SDK заблокирован. Wrapper здесь не смог скачать Gradle, а workflow пока не запускался. APK не собран и работа на устройстве не проверена.
+В среде Arena удалось установить только Java Runtime 17 без компилятора; доступ к официальным сайтам Gradle и Android SDK заблокирован. Wrapper здесь не смог скачать Gradle. Сборка debug APK в GitHub Actions прошла успешно; скачать его можно из артефактов соответствующего запуска. Работа на устройстве не проверена.
 
 ## Далее
 
