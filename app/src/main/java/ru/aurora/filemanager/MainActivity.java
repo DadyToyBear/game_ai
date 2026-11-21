@@ -53,6 +53,8 @@ public class MainActivity extends Activity {
     private InteractiveSsh interactiveSsh;
     private Runnable shellUiReset;
     private SshTunnel sshTunnel;
+    private ReverseSshTunnel reverseTunnel;
+    private TunnelUi reverseTunnelUi;
     private TunnelUi tunnelUi;
     private static final class TunnelUi { TextView status; Button start,stop; }
     private PendingSftp pendingSftp;
@@ -70,7 +72,7 @@ public class MainActivity extends Activity {
     private void layout(String title) {
         stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;
         stopMedia();mediaToken=null;mediaScreen=false;canvas=null;
-        sftpUi=null; pendingSftp=null; ftpUi=null; pendingFtp=null; davUi=null; pendingDav=null; smbUi=null; pendingSmb=null; tunnelUi=null;
+        sftpUi=null; pendingSftp=null; ftpUi=null; pendingFtp=null; davUi=null; pendingDav=null; smbUi=null; pendingSmb=null; tunnelUi=null; reverseTunnelUi=null;
         fileScreen="Файлы".equals(title);searchScreenVisible=false;
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(18),dp(18),dp(10)); root.setBackgroundColor(Color.rgb(247,249,252)); setContentView(root);
         TextView heading=text(title,26); heading.setTypeface(null,1); root.addView(heading);
@@ -94,6 +96,7 @@ public class MainActivity extends Activity {
         body.addView(button("WebDAV — удалённые файлы", this::davClientScreen));
         body.addView(button("SMB3 — папки Windows / NAS", this::smbScreen));
         body.addView(button("SSH — проброс порта", this::tunnelScreen));
+        body.addView(button("SSH — обратный проброс порта", this::reverseTunnelScreen));
         body.addView(button("Web-доступ к файлам", this::webScreen));
         body.addView(button("Paint — рисование", this::paintScreen));
         body.addView(button("Видео — обрезка MP4", this::videoEditorScreen));
@@ -627,6 +630,39 @@ public class MainActivity extends Activity {
         else if(running)ui.status.setText("Туннель активен: "+tunnel.description()+"\nПроверка доступности службы выполняется при подключении клиента.");
         else ui.status.setText("Туннель не активен.");
     }
+    private void reverseTunnelScreen(){
+        layout("SSH · обратный проброс");
+        note("Порт на SSH-сервере перенаправляется к 127.0.0.1 на телефоне. Служба должна уже работать на телефоне; доступ к ней получат пользователи сервера. Это не VPN и не удалённый рабочий стол.");
+        note("Запрашивается прослушивание только 127.0.0.1 сервера, но настройки SSH-сервера могут переопределить адрес и открыть порт в сеть. Проверьте GatewayPorts и брандмауэр сервера; не открывайте чувствительные службы.");
+        note("Туннель закрывается при уничтожении Activity, в том числе при повороте. Android может остановить приложение; пароль не сохраняется.");
+        EditText host=field("SSH-сервер",false),port=field("Порт SSH (22)",false),user=field("Пользователь",false),password=field("Пароль SSH",true);
+        EditText remote=field("Порт на SSH-сервере (1–65535)",false),local=field("Порт службы на телефоне (1–65535)",false);
+        TunnelUi ui=new TunnelUi();reverseTunnelUi=ui;ui.status=text("",15);ui.start=button("Запустить обратный туннель",()->{});ui.stop=button("Остановить",()->{});
+        body.addView(ui.start);body.addView(ui.stop);body.addView(ui.status);body.addView(button("Обновить состояние",()->refreshReverseTunnel(null)));body.addView(button("Назад",this::home));refreshReverseTunnel(null);
+        ui.start.setOnClickListener(v->{
+            if(reverseTunnel!=null&&(reverseTunnel.isConnecting()||reverseTunnel.isRunning())){toast("Остановите текущий обратный туннель");return;}
+            String h=host.getText().toString().trim(),u=user.getText().toString().trim(),p=password.getText().toString();int sshPort,remotePort,localPort;
+            try{String ssh=port.getText().toString().trim();sshPort=ssh.isEmpty()?22:Integer.parseInt(ssh);remotePort=Integer.parseInt(remote.getText().toString().trim());localPort=Integer.parseInt(local.getText().toString().trim());
+                if(h.isEmpty()||u.isEmpty()||p.isEmpty()||sshPort<1||sshPort>65535||remotePort<1||remotePort>65535||localPort<1||localPort>65535)throw new IllegalArgumentException();
+            }catch(Exception ex){toast("Укажите адрес, пользователя, пароль и порты от 1 до 65535");return;}
+            new AlertDialog.Builder(this).setTitle("Открыть обратный туннель?").setMessage("Пользователи SSH-сервера смогут подключиться к службе телефона. Сервер может открыть порт и другим сетевым клиентам. Продолжайте только после проверки настроек сервера.")
+                .setNegativeButton("Отмена",null).setPositiveButton("Подключиться",(d,w)->{
+                    if(reverseTunnel!=null&&(reverseTunnel.isConnecting()||reverseTunnel.isRunning()))return;
+                    if(reverseTunnel!=null)reverseTunnel.stop();ReverseSshTunnel tunnel=new ReverseSshTunnel(remotePort,localPort);reverseTunnel=tunnel;refreshReverseTunnel(null);
+                    tunnel.start(this,new SftpClient.Credentials(h,sshPort,u,p),(finished,error)->{
+                        if(reverseTunnel!=finished)return;
+                        if(error!=null){finished.stop();reverseTunnel=null;refreshReverseTunnel("Ошибка обратного туннеля: "+error.getMessage());}else refreshReverseTunnel(null);
+                    });
+                }).show();
+        });
+        ui.stop.setOnClickListener(v->{ReverseSshTunnel tunnel=reverseTunnel;reverseTunnel=null;if(tunnel!=null)tunnel.stop();refreshReverseTunnel("Туннель остановлен. Незавершённое подключение закроется после завершения попытки.");});
+    }
+    private void refreshReverseTunnel(String message){
+        TunnelUi ui=reverseTunnelUi;if(ui==null)return;ReverseSshTunnel tunnel=reverseTunnel;boolean connecting=tunnel!=null&&tunnel.isConnecting(),running=tunnel!=null&&tunnel.isRunning();
+        ui.start.setEnabled(!connecting&&!running);ui.stop.setEnabled(connecting||running);
+        if(message!=null)ui.status.setText(message);else if(connecting)ui.status.setText("Подключение… Проверьте отпечаток ключа сервера.");
+        else if(running)ui.status.setText("Сервер принял запрос: "+tunnel.description()+"\nФактический адрес прослушивания зависит от настроек сервера. Доступность службы пока не проверена.");else ui.status.setText("Туннель не активен.");
+    }
     private void stopInteractiveSsh(){InteractiveSsh shell=interactiveSsh;interactiveSsh=null;if(shell!=null)shell.stop();}
     private void interactiveSshScreen(){
         layout("SSH · оболочка");
@@ -764,7 +800,7 @@ public class MainActivity extends Activity {
         if(mediaPlayer!=null){mediaPlayer.stopPlayback();mediaStopped=true;if(mediaController!=null)mediaController.hide();}
         super.onStop();
     }
-    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}super.onDestroy();}
+    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}if(reverseTunnel!=null){reverseTunnel.stop();reverseTunnel=null;}super.onDestroy();}
     private void pingScreen(){ layout("Проверка сети"); note("ICMP ping: доступность зависит от сети и устройства."); EditText host=new EditText(this); host.setSingleLine(); host.setHint("Адрес или домен"); body.addView(host); TextView result=text("",15); body.addView(button("Проверить",()->{String h=host.getText().toString().trim(); if(!h.matches("[a-zA-Z0-9.:-]{1,253}") || h.startsWith("-")){result.setText("Некорректный адрес");return;} result.setText("Проверка…"); new Thread(()->{String output; try { Process p=new ProcessBuilder("ping","-c","1","-W","3",h).redirectErrorStream(true).start(); ByteArrayOutputStream b=new ByteArrayOutputStream(); try(InputStream in=p.getInputStream()){byte[] buf=new byte[1024];int n;while((n=in.read(buf))!=-1 && b.size()<8192)b.write(buf,0,n);} p.waitFor();output=b.toString("UTF-8"); }catch(Exception ex){output="Ошибка: "+ex.getMessage();} String finalOutput=output;runOnUiThread(()->result.setText(finalOutput));}).start();})); body.addView(result); body.addView(button("Назад",this::home)); }
     private void cancelVideo(){if(videoCancellation!=null){videoCancellation.cancel();videoCancellation=null;}}
     private void videoEditorScreen(){
