@@ -65,6 +65,17 @@ final class FileOperations {
         try(OutputStream o=out(archive);ZipOutputStream z=new ZipOutputStream(o)){zipEntry(z,source,"",0);}
         catch(Exception e){try{DocumentsContract.deleteDocument(resolver,archive);}catch(Exception ignored){} if(e instanceof IOException)throw (IOException)e;throw new IOException(e);}
     }
+    static void validateZipSelection(List<Item> selected) throws IOException {
+        if(selected==null||selected.isEmpty()||selected.size()>100)throw new IOException("Выберите от 1 до 100 элементов");
+        Set<String> names=new HashSet<>();Set<Uri> uris=new HashSet<>();for(Item item:selected){if(item==null||item.uri==null)throw new IOException("Некорректный элемент");valid(item.name);if(!names.add(item.name)||!uris.add(item.uri))throw new IOException("Повторяющееся имя или элемент: "+item.name);}
+    }
+    void zipMany(List<Item> selection,Uri destination,String name) throws IOException {
+        validateZipSelection(selection);List<Item> available=children(destination);Map<Uri,Item> byUri=new HashMap<>();for(Item item:available)byUri.put(item.uri,item);
+        List<Item> resolved=new ArrayList<>();for(Item selected:selection){Item actual=byUri.get(selected.uri);if(actual==null)throw new IOException("Элемент больше не находится в папке: "+selected.name);resolved.add(actual);}
+        validateZipSelection(resolved);Uri archive=create(destination,"application/zip",name);
+        try(OutputStream o=out(archive);ZipOutputStream zip=new ZipOutputStream(o)){for(Item item:resolved)zipEntry(zip,item,"",0);}
+        catch(Exception ex){try{DocumentsContract.deleteDocument(resolver,archive);}catch(Exception ignored){}if(ex instanceof IOException)throw (IOException)ex;throw new IOException(ex);}
+    }
     private void zipEntry(ZipOutputStream z,Item item,String prefix,int depth) throws IOException {
         limit(depth);valid(item.name);String name=prefix+item.name+(item.dir()?"/":"");z.putNextEntry(new ZipEntry(name));
         if(!item.dir())try(InputStream i=in(item.uri)){transfer(i,z,false);}z.closeEntry();

@@ -22,6 +22,7 @@ public class MainActivity extends Activity {
     private boolean fileScreen, searchScreenVisible, propertiesVisible, bookmarkScreenVisible, zipScreenVisible;
     private FileSort.Mode fileSort=FileSort.Mode.NAME_ASC;
     private boolean showHiddenFiles=true;
+    private boolean zipSelecting;private Uri zipSelectionFolder,zipSelectionTree;private final LinkedHashMap<Uri,Entry> zipSelected=new LinkedHashMap<>();
     private boolean mediaScreen;
     private VideoView mediaPlayer;
     private MediaController mediaController;
@@ -86,6 +87,7 @@ public class MainActivity extends Activity {
         stopVnc();vncUiReset=null;stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelHash();cancelZip();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;bookmarksView=null;textViewToken=null;textUi=null;pendingTextCopy=null;
         stopMedia();mediaToken=null;mediaScreen=false;canvas=null;
         sftpUi=null; pendingSftp=null; ftpUi=null; pendingFtp=null; davUi=null; pendingDav=null; smbUi=null; pendingSmb=null; tunnelUi=null; reverseTunnelUi=null;
+        if(!"Файлы".equals(title))clearZipSelection();
         fileScreen="Файлы".equals(title);searchScreenVisible=false;propertiesVisible=false;bookmarkScreenVisible=false;zipScreenVisible=false;
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(18),dp(18),dp(10)); root.setBackgroundColor(Color.rgb(247,249,252)); setContentView(root);
         TextView heading=text(title,26); heading.setTypeface(null,1); root.addView(heading);
@@ -161,7 +163,14 @@ public class MainActivity extends Activity {
         if(req==PAINT_OPEN_IMAGE && canvas!=null) loadPaint(data.getData(),canvas);
     }
     private void list() {
-        layout("Файлы"); body.addView(button("← Назад", () -> { if(parents.empty()) home(); else {current=parents.pop(); list();} }));
+        layout("Файлы");if(zipSelecting&&(!Objects.equals(current,zipSelectionFolder)||!Objects.equals(tree,zipSelectionTree)))clearZipSelection();
+        body.addView(button("← Назад", () -> { if(zipSelecting){clearZipSelection();list();}else if(parents.empty()) home(); else {current=parents.pop(); list();} }));
+        if(zipSelecting){
+            note("Выберите до 100 элементов в текущей папке. Длительное нажатие и нажатие переключают выбор. Исходники не удаляются.");
+            body.addView(button("Создать ZIP из выбранных: "+zipSelected.size(),this::zipSelectedItems));
+            body.addView(button("Отменить выбор",()->{clearZipSelection();list();}));
+        }else body.addView(button("Выбрать несколько для ZIP",()->{zipSelecting=true;zipSelectionFolder=current;zipSelectionTree=tree;zipSelected.clear();list();}));
+        if(!zipSelecting){
         body.addView(button("Поиск в этой папке",this::searchScreen));
         body.addView(button(showHiddenFiles?"Скрыть имена с точкой":"Показать имена с точкой",()->{showHiddenFiles=!showHiddenFiles;list();}));
         body.addView(button("Добавить папку в закладки",this::addCurrentBookmark));
@@ -177,6 +186,7 @@ public class MainActivity extends Activity {
             },"create-text").start();
         })));
         body.addView(button("＋ Новая папка", () -> input("Имя папки", name -> { try { if(DocumentsContract.createDocument(getContentResolver(),current,DocumentsContract.Document.MIME_TYPE_DIR,name)==null) throw new IOException("Создание не поддерживается"); list(); } catch(Exception e){error(e);} })));
+        }
         try {
             String id=DocumentsContract.getDocumentId(current); Uri children=DocumentsContract.buildChildDocumentsUriUsingTree(tree,id);
             ArrayList<Entry> entries=new ArrayList<>();
@@ -187,8 +197,23 @@ public class MainActivity extends Activity {
             Collections.sort(entries,FileSort.comparator(fileSort));
             int hidden=0;for(Entry e:entries)if(!FileVisibility.show(e.name,showHiddenFiles))hidden++;
             if(entries.isEmpty())note("Папка пуста");else if(hidden==entries.size())note("Нет видимых элементов; имена с точкой скрыты.");
-            for(Entry e:entries) { if(!FileVisibility.show(e.name,showHiddenFiles))continue; TextView row=text((e.dir()?"📁  ":"📄  ")+e.name+(e.dir()||e.size<0?"":"  ·  "+android.text.format.Formatter.formatFileSize(this,e.size)),16); row.setPadding(dp(8),dp(16),dp(8),dp(16)); body.addView(row); row.setOnClickListener(v->{ if(e.dir()){parents.push(current);current=e.uri;list();} else open(e); }); row.setOnLongClickListener(v->{actions(e);return true;}); }
+            for(Entry e:entries) { if(!FileVisibility.show(e.name,showHiddenFiles))continue;
+                String prefix=zipSelecting?(zipSelected.containsKey(e.uri)?"☑  ":"☐  "):(e.dir()?"📁  ":"📄  ");
+                TextView row=text(prefix+e.name+(e.dir()||e.size<0?"":"  ·  "+android.text.format.Formatter.formatFileSize(this,e.size)),16);row.setPadding(dp(8),dp(16),dp(8),dp(16));body.addView(row);
+                row.setOnClickListener(v->{if(zipSelecting){toggleZipEntry(e);return;}if(e.dir()){parents.push(current);current=e.uri;list();}else open(e);});
+                row.setOnLongClickListener(v->{if(zipSelecting)toggleZipEntry(e);else actions(e);return true;});
+            }
         } catch(Exception e) { error(e); }
+    }
+    private void clearZipSelection(){zipSelecting=false;zipSelectionTree=null;zipSelectionFolder=null;zipSelected.clear();}
+    private void toggleZipEntry(Entry entry){if(zipSelected.containsKey(entry.uri))zipSelected.remove(entry.uri);else if(zipSelected.size()>=100){toast("Можно выбрать не более 100 элементов");return;}else zipSelected.put(entry.uri,entry);list();}
+    private void zipSelectedItems(){
+        if(!zipSelecting||zipSelected.isEmpty()){toast("Выберите хотя бы один элемент");return;}Uri destination=zipSelectionFolder,selectedTree=zipSelectionTree;List<FileOperations.Item> selected=new ArrayList<>();
+        for(Entry e:zipSelected.values())selected.add(new FileOperations.Item(e.uri,e.name,e.mime));
+        input("Имя нового ZIP-архива",name->{if(!zipSelecting||!Objects.equals(destination,current)||!Objects.equals(selectedTree,tree))return;
+            String archive=name.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")?name:name+".zip";clearZipSelection();list();
+            runFileTask(()->new FileOperations(getContentResolver(),selectedTree).zipMany(selected,destination,archive),"ZIP-архив создан");
+        });
     }
     private String sortLabel(FileSort.Mode mode){switch(mode){case NAME_DESC:return "имя Я–А";case SIZE_DESC:return "сначала большие";case SIZE_ASC:return "сначала маленькие";default:return "имя А–Я";}}
     private void open(Entry e) {
@@ -889,6 +914,9 @@ public class MainActivity extends Activity {
         EditText host=field("Адрес VNC (для SSH-туннеля 127.0.0.1)",false),port=field("Порт VNC (5900)",false),password=field("Пароль VNC: 1–8 ASCII-символов",true);host.setText("127.0.0.1");
         CheckBox noPassword=new CheckBox(this);noPassword.setText("Разрешить вход без пароля, если сервер его предлагает");body.addView(noPassword);
         TextView status=text("Не подключено",15);body.addView(status);VncView display=new VncView(this);body.addView(display,new LinearLayout.LayoutParams(-1,dp(300)));
+        LinearLayout zoom=new LinearLayout(this);body.addView(zoom);Button zoomOut=button("−",()->display.setZoom(display.zoom/1.5f)),zoomIn=button("+",()->display.setZoom(display.zoom*1.5f)),resetZoom=button("Сброс",display::resetZoom),pan=button("Режим: управление",()->{});zoom.addView(zoomOut);zoom.addView(zoomIn);zoom.addView(resetZoom);body.addView(pan);
+        pan.setOnClickListener(v->{display.setPanMode(!display.panMode);pan.setText(display.panMode?"Режим: перемещение экрана":"Режим: управление");});
+        note("При увеличении включите режим перемещения, чтобы перетаскивать картинку без кликов; затем вернитесь в режим управления.");
         EditText input=field("Текст для отправки (до 256 символов)",false);
         EditText clipInput=new EditText(this);clipInput.setHint("Текст в буфер удалённой системы (Latin-1)");clipInput.setMinLines(2);clipInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);clipInput.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(65536)});body.addView(clipInput);
         final String[] remoteClipboard={null};Button sendClipboard=button("Отправить текст в буфер сервера",()->{}),copyClipboard=button("Показать буфер сервера",()->{});sendClipboard.setEnabled(false);copyClipboard.setEnabled(false);body.addView(sendClipboard);body.addView(copyClipboard);
@@ -900,7 +928,7 @@ public class MainActivity extends Activity {
         left.setEnabled(false);up.setEnabled(false);down.setEnabled(false);rightArrow.setEnabled(false);delete.setEnabled(false);
         note("Правая кнопка и прокрутка действуют в последней выбранной точке экрана; если точка не выбиралась — по центру.");
         LinearLayout mouse=new LinearLayout(this);body.addView(mouse);Button right=button("Правый клик",()->{}),wheelUp=button("↑",()->{}),wheelDown=button("↓",()->{});mouse.addView(right);mouse.addView(wheelUp);mouse.addView(wheelDown);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);body.addView(button("Назад",this::home));
-        Runnable disconnected=()->{connect.setEnabled(true);disconnect.setEnabled(false);send.setEnabled(false);enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);left.setEnabled(false);up.setEnabled(false);down.setEnabled(false);rightArrow.setEnabled(false);delete.setEnabled(false);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);sendClipboard.setEnabled(false);copyClipboard.setEnabled(false);remoteClipboard[0]=null;display.clear();};
+        Runnable disconnected=()->{connect.setEnabled(true);disconnect.setEnabled(false);send.setEnabled(false);enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);left.setEnabled(false);up.setEnabled(false);down.setEnabled(false);rightArrow.setEnabled(false);delete.setEnabled(false);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);sendClipboard.setEnabled(false);copyClipboard.setEnabled(false);remoteClipboard[0]=null;display.clear();pan.setText("Режим: управление");};
         vncUiReset=()->{disconnected.run();status.setText("Соединение закрыто при переходе приложения в фон.");};
         connect.setOnClickListener(v->{
             if(vncClient!=null)return;String h=host.getText().toString().trim(),secret=password.getText().toString();boolean anonymous=noPassword.isChecked();int number;
@@ -928,24 +956,33 @@ public class MainActivity extends Activity {
         });
         send.setOnClickListener(v->{VncClient client=vncClient;String text=input.getText().toString();if(client!=null&&client.keys(text))input.setText("");else toast("Текст до 256 символов без управляющих знаков или соединение недоступно");});
         left.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff51);});up.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff52);});rightArrow.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff53);});down.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff54);});delete.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xffff);});
-        right.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,4);});
-        wheelUp.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,8);});wheelDown.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,16);});
+        right.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down&&!display.panMode)vncClient.click(display.lastX,display.lastY,4);});
+        wheelUp.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down&&!display.panMode)vncClient.click(display.lastX,display.lastY,8);});wheelDown.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down&&!display.panMode)vncClient.click(display.lastX,display.lastY,16);});
         enter.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff0d);});backspace.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff08);});escape.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff1b);});tab.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff09);});
     }
     static class VncView extends View {
-        VncClient client;Bitmap frame;int frameWidth,frameHeight,lastX,lastY;boolean down;long lastMove;
+        VncClient client;Bitmap frame;int frameWidth,frameHeight,lastX,lastY;boolean down,panMode,panning;long lastMove;float zoom=1,panX,panY,touchX,touchY;
         VncView(Context context){super(context);setBackgroundColor(Color.DKGRAY);}
-        void updateFrame(int width,int height,int[] pixels){try{if(frame==null||frameWidth!=width||frameHeight!=height){if(frame!=null)frame.recycle();frame=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);frameWidth=width;frameHeight=height;lastX=width/2;lastY=height/2;}frame.setPixels(pixels,0,width,0,0,width,height);invalidate();}catch(OutOfMemoryError e){VncClient old=client;clear();if(old!=null)old.stop();}}
-        void clear(){client=null;down=false;if(frame!=null){frame.recycle();frame=null;}frameWidth=frameHeight=0;invalidate();}
-        @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);if(frame==null)return;float scale=Math.min((float)getWidth()/frameWidth,(float)getHeight()/frameHeight);float w=frameWidth*scale,h=frameHeight*scale;canvas.drawBitmap(frame,null,new RectF((getWidth()-w)/2,(getHeight()-h)/2,(getWidth()+w)/2,(getHeight()+h)/2),null);}
+        void updateFrame(int width,int height,int[] pixels){try{if(frame==null||frameWidth!=width||frameHeight!=height){if(frame!=null)frame.recycle();frame=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);frameWidth=width;frameHeight=height;lastX=width/2;lastY=height/2;clampPan();}frame.setPixels(pixels,0,width,0,0,width,height);invalidate();}catch(OutOfMemoryError e){VncClient old=client;clear();if(old!=null)old.stop();}}
+        void clear(){client=null;down=false;panning=false;panMode=false;zoom=1;panX=panY=0;if(frame!=null){frame.recycle();frame=null;}frameWidth=frameHeight=0;invalidate();}
+        void setZoom(float value){if(down||panning||Float.isNaN(value)||Float.isInfinite(value))return;zoom=Math.max(1,Math.min(4,value));clampPan();invalidate();}
+        void resetZoom(){if(down||panning)return;zoom=1;panX=panY=0;invalidate();}
+        void setPanMode(boolean value){if(down&&client!=null){client.pointer(lastX,lastY,false);down=false;}if(getParent()!=null)getParent().requestDisallowInterceptTouchEvent(false);panning=false;panMode=value;}
+        private float scale(){return frame==null||getWidth()<=0||getHeight()<=0?0:Math.min((float)getWidth()/frameWidth,(float)getHeight()/frameHeight)*zoom;}
+        private void clampPan(){if(frame==null)return;float scale=scale(),x=Math.max(0,(frameWidth*scale-getWidth())/2),y=Math.max(0,(frameHeight*scale-getHeight())/2);panX=Math.max(-x,Math.min(x,panX));panY=Math.max(-y,Math.min(y,panY));}
+        @Override protected void onSizeChanged(int w,int h,int ow,int oh){super.onSizeChanged(w,h,ow,oh);clampPan();}
+        @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);if(frame==null)return;float scale=scale(),w=frameWidth*scale,h=frameHeight*scale;canvas.drawBitmap(frame,null,new RectF((getWidth()-w)/2+panX,(getHeight()-h)/2+panY,(getWidth()+w)/2+panX,(getHeight()+h)/2+panY),null);}
         @Override public boolean onTouchEvent(MotionEvent event){
-            if(client==null||frame==null||getWidth()<=0||getHeight()<=0)return false;float scale=Math.min((float)getWidth()/frameWidth,(float)getHeight()/frameHeight);if(scale<=0)return false;
-            float left=(getWidth()-frameWidth*scale)/2,top=(getHeight()-frameHeight*scale)/2;float xx=(event.getX()-left)/scale,yy=(event.getY()-top)/scale;
-            if(event.getAction()==MotionEvent.ACTION_DOWN){if(xx<0||yy<0||xx>=frameWidth||yy>=frameHeight)return false;down=true;getParent().requestDisallowInterceptTouchEvent(true);}
+            if(client==null||frame==null||scale()<=0)return false;int action=event.getActionMasked();
+            if(panMode){if(action==MotionEvent.ACTION_DOWN){panning=true;touchX=event.getX();touchY=event.getY();if(getParent()!=null)getParent().requestDisallowInterceptTouchEvent(true);return true;}
+                if(!panning)return false;if(action==MotionEvent.ACTION_MOVE){panX+=event.getX()-touchX;panY+=event.getY()-touchY;touchX=event.getX();touchY=event.getY();clampPan();invalidate();return true;}
+                if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_CANCEL){panning=false;if(getParent()!=null)getParent().requestDisallowInterceptTouchEvent(false);return true;}return true;}
+            float scale=scale(),left=(getWidth()-frameWidth*scale)/2+panX,top=(getHeight()-frameHeight*scale)/2+panY,xx=(event.getX()-left)/scale,yy=(event.getY()-top)/scale;
+            if(action==MotionEvent.ACTION_DOWN){if(xx<0||yy<0||xx>=frameWidth||yy>=frameHeight)return false;down=true;if(getParent()!=null)getParent().requestDisallowInterceptTouchEvent(true);}
             if(!down)return false;lastX=Math.max(0,Math.min(frameWidth-1,(int)xx));lastY=Math.max(0,Math.min(frameHeight-1,(int)yy));
-            if(event.getAction()==MotionEvent.ACTION_MOVE){long now=android.os.SystemClock.uptimeMillis();if(now-lastMove>=50){client.pointer(lastX,lastY,true);lastMove=now;}return true;}
-            if(event.getAction()==MotionEvent.ACTION_DOWN){client.pointer(lastX,lastY,true);return true;}
-            if(event.getAction()==MotionEvent.ACTION_UP||event.getAction()==MotionEvent.ACTION_CANCEL){client.pointer(lastX,lastY,false);down=false;getParent().requestDisallowInterceptTouchEvent(false);if(event.getAction()==MotionEvent.ACTION_UP)performClick();return true;}return true;
+            if(action==MotionEvent.ACTION_MOVE){long now=android.os.SystemClock.uptimeMillis();if(now-lastMove>=50){client.pointer(lastX,lastY,true);lastMove=now;}return true;}
+            if(action==MotionEvent.ACTION_DOWN){client.pointer(lastX,lastY,true);return true;}
+            if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_CANCEL){client.pointer(lastX,lastY,false);down=false;if(getParent()!=null)getParent().requestDisallowInterceptTouchEvent(false);if(action==MotionEvent.ACTION_UP)performClick();return true;}return true;
         }
         @Override public boolean performClick(){super.performClick();return true;}
     }
@@ -1252,7 +1289,7 @@ public class MainActivity extends Activity {
         },"paint-save").start();
     }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();} private void error(Exception e){toast("Ошибка: "+e.getMessage());}
-    @Override public void onBackPressed(){if(textUi!=null){leaveText(textUi);return;}if(zipScreenVisible && current!=null){list();return;}if(bookmarkScreenVisible){home();return;}if(propertiesVisible && current!=null){list();return;}if(searchScreenVisible && current!=null){list();return;}if(mediaScreen && current!=null){list();return;}if(fileScreen && current!=null && !parents.empty()){current=parents.pop();list();}else{current=null;home();}}
+    @Override public void onBackPressed(){if(zipSelecting){clearZipSelection();list();return;}if(textUi!=null){leaveText(textUi);return;}if(zipScreenVisible && current!=null){list();return;}if(bookmarkScreenVisible){home();return;}if(propertiesVisible && current!=null){list();return;}if(searchScreenVisible && current!=null){list();return;}if(mediaScreen && current!=null){list();return;}if(fileScreen && current!=null && !parents.empty()){current=parents.pop();list();}else{current=null;home();}}
     static class Entry { Uri uri; String name,mime; long size; Entry(Uri u,String n,String m,long s){uri=u;name=n==null?"Без имени":n;mime=m==null?"application/octet-stream":m;size=s;} boolean dir(){return DocumentsContract.Document.MIME_TYPE_DIR.equals(mime);} }
     static class PaintView extends View {
         private static final int SIDE=1200;
