@@ -11,6 +11,8 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'redot-folder-'));
 const folder = path.join(temp, 'Project'); fs.mkdirSync(path.join(folder, '.git'), {recursive:true}); fs.mkdirSync(path.join(folder, '.godot'));
 fs.writeFileSync(path.join(folder, 'project.godot'), 'config_version=5\n');
 fs.writeFileSync(path.join(folder, 'игра.gd'), 'extends Node\n');
+fs.mkdirSync(path.join(folder, 'scenes', 'levels'), {recursive:true});
+fs.writeFileSync(path.join(folder, 'scenes', 'levels', 'scene.tscn'), '[gd_scene format=3]\n');
 fs.writeFileSync(path.join(folder, '.git', 'secret'), 'excluded'); fs.writeFileSync(path.join(folder, '.godot', 'cache'), 'excluded');
 const server = spawn('python3', ['redot-bridge/bridge.py','serve','--editor-dir',editor], {env:{...process.env,REDOT_BRIDGE_TOKEN:'test-only-secret-012345678901234567890123456789'},stdio:'ignore'});
 async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:8765/project-open.html')).ok)return;}catch(_){} await new Promise(r=>setTimeout(r,100));} throw Error('Bridge did not start');}
@@ -35,13 +37,13 @@ async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://
     await page.waitForFunction(() => document.querySelector('#zip-file').files.length === 1);
     const registryBytes = await page.locator('#zip-file').evaluate(async el => Array.from(new Uint8Array(await el.files[0].arrayBuffer())));
     const registryZip = path.join(temp,'registered.zip'); fs.writeFileSync(registryZip, Buffer.from(registryBytes));
-    const registryCheck = spawnSync('python3',['-c',`import sys,zipfile\nwith zipfile.ZipFile(sys.argv[1]) as z:\n assert set(z.namelist()) == {'project.godot', 'игра.gd'}\n assert z.testzip() is None`,registryZip], {encoding:'utf8'});
+    const registryCheck = spawnSync('python3',['-c',`import sys,zipfile\nwith zipfile.ZipFile(sys.argv[1]) as z:\n assert set(z.namelist()) == {'project.godot', 'игра.gd', 'scenes/', 'scenes/levels/', 'scenes/levels/scene.tscn'}\n assert z.testzip() is None`,registryZip], {encoding:'utf8'});
     assert.equal(registryCheck.status,0,registryCheck.stderr);
     await page.locator('#redot-folder').setInputFiles(folder);
     await page.waitForFunction(() => document.querySelector('#zip-file').files.length === 1);
     const zipBytes = await page.locator('#zip-file').evaluate(async el => Array.from(new Uint8Array(await el.files[0].arrayBuffer())));
     const zipPath = path.join(temp,'folder.zip'); fs.writeFileSync(zipPath, Buffer.from(zipBytes));
-    const check = spawnSync('python3',['-c',`import sys,zipfile\nwith zipfile.ZipFile(sys.argv[1]) as z:\n assert set(z.namelist()) == {'project.godot', 'игра.gd'}\n assert z.read('игра.gd') == b'extends Node\\n'\n assert z.testzip() is None`,zipPath], {encoding:'utf8'});
+    const check = spawnSync('python3',['-c',`import sys,zipfile\nwith zipfile.ZipFile(sys.argv[1]) as z:\n assert set(z.namelist()) == {'project.godot', 'игра.gd', 'scenes/', 'scenes/levels/', 'scenes/levels/scene.tscn'}\n assert z.read('игра.gd') == b'extends Node\\n'\n assert z.testzip() is None`,zipPath], {encoding:'utf8'});
     assert.equal(check.status,0,check.stderr);
     let requests = 0;
     const key = path.join(temp, 'key.pem'), cert = path.join(temp, 'cert.pem');

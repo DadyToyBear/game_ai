@@ -32,17 +32,36 @@
       files.push({file, name, encoded});
     }
     if (!files.some(f => f.name === 'project.godot')) throw Error('Выберите корневую папку с project.godot.');
+    // Redot's installer needs explicit parent-directory entries. Browser file
+    // selection does not expose empty directories, but preserves every parent.
+    const dirs = new Map();
+    for (const {name} of files) {
+      const parts = name.split('/'); parts.pop();
+      for (let i = 1; i <= parts.length; i++) {
+        const dir = parts.slice(0, i).join('/'), key = dir.toLowerCase();
+        if (seen.has(key) || (dirs.has(key) && dirs.get(key) !== dir)) throw Error('Имена файлов или папок различаются только регистром.');
+        dirs.set(key, dir);
+      }
+    }
+    if (dirs.size + files.length > MAX_ENTRIES) throw Error('Проект содержит более 10 000 записей.');
+    const entries = Array.from(dirs.values()).sort().map(name => ({file:null, encoded:encoder.encode(name + '/')}));
+    for (const entry of entries) {
+      if (entry.encoded.length > 65535) throw Error('Имя папки слишком длинное.');
+      total += 30 + 46 + entry.encoded.length * 2;
+    }
+    if (total > MAX_ARCHIVE) throw Error('Проект превышает лимит 128 МиБ.');
+    entries.push(...files);
     const local = [], central = []; let offset = 0;
-    for (const {file, encoded} of files) {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      if (bytes.length !== file.size) throw Error('Размер файла изменился; попробуйте снова.');
+    for (const {file, encoded} of entries) {
+      const bytes = file ? new Uint8Array(await file.arrayBuffer()) : new Uint8Array();
+      if (file && bytes.length !== file.size) throw Error('Размер файла изменился; попробуйте снова.');
       const crc = crc32(bytes), size = bytes.length;
       const lh = header(30, [[0,0x04034b50,4],[4,20,2],[6,0x800,2],[14,crc,4],[18,size,4],[22,size,4],[26,encoded.length,2]]);
       const ch = header(46, [[0,0x02014b50,4],[4,20,2],[6,20,2],[8,0x800,2],[16,crc,4],[20,size,4],[24,size,4],[28,encoded.length,2],[42,offset,4]]);
       local.push(lh, encoded, bytes); central.push(ch, encoded); offset += lh.length + encoded.length + size;
     }
     const centralSize = central.reduce((n, b) => n + b.length, 0);
-    const end = header(22, [[0,0x06054b50,4],[8,files.length,2],[10,files.length,2],[12,centralSize,4],[16,offset,4]]);
+    const end = header(22, [[0,0x06054b50,4],[8,entries.length,2],[10,entries.length,2],[12,centralSize,4],[16,offset,4]]);
     return new Blob([...local, ...central, end], {type:'application/zip'});
   }
   function allowedURL(value) {
@@ -91,7 +110,7 @@
       const blob = await action();
       if (editorInput) {
         const transfer = new DataTransfer(); transfer.items.add(new File([blob], 'redot-project.zip', {type:'application/zip'})); editorInput.files = transfer.files;
-        status.textContent = 'ZIP подготовлен. Нажмите Start Redot editor, затем импортируйте /tmp/preload.zip в менеджере проектов.';
+        status.textContent = 'ZIP подготовлен. Нажмите Start Redot editor, затем подтвердите Install Project и выберите новую папку назначения.';
       } else { download(blob); status.textContent = 'ZIP скачан. В Android Redot импортируйте его в новую папку.'; }
     } catch (e) { status.textContent = `Не удалось подготовить копию: ${e.message}. Для облака нужны прямая ссылка и разрешение CORS.`; }
     finally { folder.disabled = false; button.disabled = false; if (start) start.disabled = wasStartDisabled; }

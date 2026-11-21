@@ -70,6 +70,27 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual((self.root / 'project.godot').read_text(), '[application]\nconfig/name="Original"\n')
         self.assertFalse((dest / '.godot').exists())
 
+    def test_snapshot_contains_directories_for_redot_installer(self):
+        nested = self.root / 'scenes' / 'levels'
+        nested.mkdir(parents=True)
+        (nested / 'level.tscn').write_text('[gd_scene format=3]')
+        with zipfile.ZipFile(io.BytesIO(project_sync.pack_project(self.root))) as archive:
+            names = archive.namelist()
+            self.assertIn('scenes/', names)
+            self.assertIn('scenes/levels/', names)
+            self.assertLess(names.index('scenes/'), names.index('scenes/levels/level.tscn'))
+            self.assertLess(names.index('scenes/levels/'), names.index('scenes/levels/level.tscn'))
+            self.assertEqual(archive.read('scenes/levels/level.tscn'), b'[gd_scene format=3]')
+
+    def test_snapshot_rejects_case_conflicting_directories(self):
+        first, second = self.root / 'Assets', self.root / 'assets'
+        first.mkdir()
+        if second.exists():
+            self.skipTest('Case-insensitive filesystem')
+        second.mkdir()
+        with self.assertRaises(project_sync.SnapshotError):
+            project_sync.pack_project(self.root)
+
     def test_mcp_export_import_and_auth(self):
         with self.assertRaises(urllib.error.HTTPError) as exc:
             self.request('/api/project/export', token='wrong')

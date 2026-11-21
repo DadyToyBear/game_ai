@@ -48,6 +48,7 @@ def pack_project(project):
     root = root.resolve()
     out = io.BytesIO()
     total = count = 0
+    seen = set()
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, allowZip64=False) as archive:
         for current, dirs, files in os.walk(root, followlinks=False):
             current = Path(current)
@@ -59,6 +60,20 @@ def pack_project(project):
                     dirs.remove(dirname)
                 elif child.is_symlink():
                     raise SnapshotError('Symlinks are not supported in project snapshots')
+                else:
+                    # Redot's project installer creates directories only for ZIP
+                    # directory entries; file entries alone do not create parents.
+                    valid_path(str(rel))
+                    key = str(rel).casefold()
+                    if key in seen:
+                        raise SnapshotError('Duplicate or case-conflicting paths')
+                    seen.add(key)
+                    count += 1
+                    if count > MAX_ENTRIES:
+                        raise SnapshotError('Project exceeds snapshot size or file limit')
+                    archive.writestr(str(rel) + '/', b'')
+                    if out.tell() > MAX_ARCHIVE:
+                        raise SnapshotError('Compressed snapshot exceeds 128 MiB')
             for name in files:
                 src = current / name
                 rel = valid_path(src.relative_to(root).as_posix())
@@ -66,6 +81,10 @@ def pack_project(project):
                     continue
                 if src.is_symlink() or not src.is_file():
                     raise SnapshotError('Symlinks and special files are not supported')
+                key = str(rel).casefold()
+                if key in seen:
+                    raise SnapshotError('Duplicate or case-conflicting paths')
+                seen.add(key)
                 before = src.stat()
                 if before.st_size > MAX_FILE:
                     raise SnapshotError('Project contains a file larger than 64 MiB')
