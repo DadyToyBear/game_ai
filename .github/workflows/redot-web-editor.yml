@@ -1,22 +1,72 @@
-Ranlib Library bin/obj/modules/libmodule_soundsmith.web.editor.wasm32.a ...
-Compiling thirdparty/tinyexr/tinyexr.cc ...
-Linking Static Library bin/obj/modules/libmodule_tga.web.editor.wasm32.a ...
-Ranlib Library bin/obj/modules/libmodule_tga.web.editor.wasm32.a ...
-Compiling modules/upnp/register_types.cpp ...
-Compiling modules/upnp/upnp.cpp ...
-Compiling modules/tinyexr/image_saver_tinyexr.cpp ...
-Compiling modules/tinyexr/register_types.cpp ...
-Compiling modules/tinyexr/image_loader_tinyexr.cpp ...
-Compiling modules/upnp/upnp_device.cpp ...
-modules/tinyexr/image_loader_tinyexr.cpp:301:29: error: non-constant-expression cannot be narrowed from type 'uint64_t' (aka 'unsigned long long') to 'size_type' (aka 'unsigned long') in initializer list [-Wc++11-narrowing]
-  301 |         const std::span buffer{ w, src_image_len };
-      |                                    ^~~~~~~~~~~~~
-modules/tinyexr/image_loader_tinyexr.cpp:301:29: note: insert an explicit cast to silence this issue
-  301 |         const std::span buffer{ w, src_image_len };
-      |                                    ^~~~~~~~~~~~~
-      |                                    static_cast<size_type>( )
-1 error generated.
-scons: *** [bin/obj/modules/tinyexr/image_loader_tinyexr.web.editor.wasm32.o] Error 1
-scons: building terminated because of errors.
-INFO: Time elapsed: 00:08:30.56
-Error: Process completed with exit code 2.
+name: Build Redot 26.3 RC2 Web Editor
+
+on:
+  push:
+    branches:
+      - arena/b84b9c4f-game-ai
+    paths:
+      - '.github/workflows/redot-web-editor.yml'
+      - 'redot-web/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Web editor (Emscripten 4.0.11)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout build instructions and smoke test
+        uses: actions/checkout@v4
+
+      - name: Checkout Redot RC2 source
+        uses: actions/checkout@v4
+        with:
+          repository: Redot-Engine/redot-engine
+          ref: 80d31f765b0ead5551c277704e52bb51c515db1f
+          path: engine
+          persist-credentials: false
+
+      - name: Verify source revision
+        run: test "$(git -C engine rev-parse HEAD)" = 80d31f765b0ead5551c277704e52bb51c515db1f
+
+      - name: Install Emscripten
+        uses: emscripten-core/setup-emsdk@v16
+        with:
+          version: 4.0.11
+          no-cache: true
+
+      - name: Install Python and SCons
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'scons==4.10.1'
+
+      - name: Fix TinyEXR for WebAssembly
+        run: python build-patches/fix_tinyexr.py engine
+
+      - name: Build Web editor
+        working-directory: engine
+        run: scons platform=web target=editor threads=yes debug_symbols=no -j2
+
+      - name: Package editor and plugin smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in godot.editor.html godot.editor.js godot.editor.wasm service.worker.js; do
+            test -s "engine/bin/.web_zip/$file"
+          done
+          mkdir -p artifact
+          cp -a engine/bin/.web_zip/. artifact/
+          cp redot-web/serve.py redot-web/README.md artifact/
+          (cd redot-web/plugin-smoke-test && python -m zipfile -c ../../artifact/plugin-smoke-test.zip project.godot addons)
+
+      - name: Upload editor
+        uses: actions/upload-artifact@v4
+        with:
+          name: redot-26.3-rc2-web-editor
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 14
