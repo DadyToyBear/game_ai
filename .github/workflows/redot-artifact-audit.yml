@@ -7,6 +7,7 @@ on:
       - '.github/workflows/redot-artifact-audit.yml'
       - 'redot-audit/**'
       - 'redot-bridge/bridge.py'
+      - 'redot-bridge/project_sync.py'
       - 'redot-bridge/web/project-open.*'
   workflow_dispatch:
 
