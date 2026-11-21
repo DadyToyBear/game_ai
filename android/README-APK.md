@@ -6,6 +6,7 @@
 | Что | Куда | Зачем |
 |---|---|---|
 | `app-debug.apk` | релиз [`apk-latest`](https://github.com/DadyToyBear/game_ai/releases/tag/apk-latest) | просто установить и играть |
+| `proof-signed.apk` | релиз [`apk-proof-signed`](https://github.com/DadyToyBear/game_ai/releases/tag/apk-proof-signed) | доказательство, что подпись в CI работает (временный ключ) |
 | `mini-studio-release-*.apk` | релиз [`release-latest`](https://github.com/DadyToyBear/game_ai/releases/tag/release-latest) | подписанный release, обновляется поверх |
 | `mini-studio-release-*.aab` | Google Play Console | загрузка в магазин |
 
@@ -55,9 +56,15 @@ Settings → Secrets and variables → Actions → **New repository secret**:
 
 После этого Actions → **Build APK** → Run workflow (или просто пуш): job `release` соберёт
 **подписанные** APK и AAB, проверит подпись через `apksigner verify --print-certs` и
-опубликует их в релизе `release-latest`. Пока секретов нет, job собирает неподписанный
-release и дополнительно проверяет цепочку подписи на временном ключе — чтобы было видно,
-что конвейер рабочий (такой файл не публикуется).
+опубликует их в релизе `release-latest`.
+
+Пока секретов нет, тот же job:
+1. собирает release APK и AAB **без подписи** (только проверка, что сборка проходит);
+2. генерирует временный ключ и подписывает им APK → `apksigner verify` должен сказать
+   «Verifies» (этот файл выложен в релизе `apk-proof-signed`);
+3. проверяет, что AAB читается `jarsigner`.
+
+Так видно, что конвейер подписи рабочий ещё до появления вашего ключа.
 
 ## 4. Локальная сборка
 
