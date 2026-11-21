@@ -166,7 +166,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             return True
 
         def do_GET(self):
-            if self.path in ('/', '/demo.html', '/capture.js', '/redot-overlay.js', '/native.html', '/native.js', '/sync.html', '/sync.js'):
+            if self.path in ('/', '/demo.html', '/capture.js', '/redot-overlay.js', '/native.html', '/native.js', '/sync.html', '/sync.js', '/project-open.html', '/project-open.js'):
                 name = 'demo.html' if self.path in ('/', '/demo.html') else self.path[1:]
                 kind = 'text/html; charset=utf-8' if name.endswith('.html') else 'text/javascript; charset=utf-8'
                 self.send_bytes(200, (WEB / name).read_bytes(), kind)
@@ -210,7 +210,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
                     if marker not in data:
                         self.send_bytes(500, b'Editor HTML missing body closing tag')
                         return
-                    data = data.replace(marker, b'<script src="/capture.js"></script><script src="/redot-overlay.js"></script></body>', 1)
+                    data = data.replace(marker, b'<script src="/capture.js"></script><script src="/redot-overlay.js"></script><script src="/project-open.js"></script></body>', 1)
                 kind = mimetypes.guess_type(str(target))[0] or 'application/octet-stream'
                 if target.suffix == '.wasm':
                     kind = 'application/wasm'

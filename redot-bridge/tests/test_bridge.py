@@ -46,6 +46,14 @@ class BridgeTest(unittest.TestCase):
         req = urllib.request.Request(self.url + path, data=data, method=method, headers=headers)
         return urllib.request.urlopen(req, timeout=3)
 
+    def test_project_open_pages_are_served_and_injected(self):
+        with urllib.request.urlopen(self.url + '/editor/godot.editor.html') as response:
+            self.assertIn(b'<script src="/project-open.js"></script>', response.read())
+        with urllib.request.urlopen(self.url + '/project-open.html') as response:
+            self.assertIn(b'/project-open.js', response.read())
+        with urllib.request.urlopen(self.url + '/project-open.js') as response:
+            self.assertIn(b'folderZip', response.read())
+
     def test_authorization_validation_deletion(self):
         with self.assertRaises(urllib.error.HTTPError) as err:
             self.request(token='wrong')
