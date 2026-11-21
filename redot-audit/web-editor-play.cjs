@@ -114,7 +114,7 @@ async function capture(page, label) {
     }
     assert.ok(frame && countRed(frame)>1000, 'Web editor game frame was blank or unavailable');
     const mcp = name => {
-      const message = JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name}})+'\\n';
+      const message = JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name}})+'\n';
       const result = spawnSync('python3',['redot-bridge/bridge.py','mcp'],{input:message,encoding:'utf8',env:{...process.env,REDOT_BRIDGE_TOKEN:secret},timeout:10000});
       assert.equal(result.status,0,result.stderr); const reply=JSON.parse(result.stdout).result;
       assert.ok(!reply.isError,JSON.stringify(reply)); return reply;
