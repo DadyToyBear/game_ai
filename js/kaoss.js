@@ -331,6 +331,24 @@
       tick();
     };
 
+    /* Смена темпа: уже играющие лупы считались по старому шагу, и они
+       расходились с транспортом. Перезапускаем их на новом темпе. */
+    inst.setBpm = function (bpm) {
+      const v = Math.max(30, Math.min(300, Number(bpm) || 120));
+      if (v === inst.bpm) return inst.bpm;
+      inst.bpm = v;
+      [0, 1].forEach((slot) => {
+        if (inst.playingLoops[slot]) {
+          const wasProgram = inst.loopTimers[slot] != null;
+          inst.stopLoop(slot);
+          inst.playingLoops[slot] = true;
+          inst.startLoop(slot);
+          if (wasProgram && inst.startProgramLoop) { /* программный луп заводится отдельно */ }
+        }
+      });
+      return inst.bpm;
+    };
+
     inst.stopLoop = function (slot) {
       inst.playingLoops[slot] = false;
       if (inst.loopTimers[slot]) { clearTimeout(inst.loopTimers[slot]); inst.loopTimers[slot] = null; }
@@ -397,10 +415,11 @@
       inst.stopLoop(slot);
       inst.playingLoops[slot] = true;
       const loop = pr.loop;
-      const stepMs = (60 / inst.bpm / 4) * 1000;
       let i = 0;
       const tick = () => {
         if (!inst.playingLoops[slot]) return;
+        // шаг считаем на каждом тике: иначе смена BPM на ходу не слышна
+        const stepMs = (60 / inst.bpm / 4) * 1000;
         const step = loop.steps || 16;
         const x = (i % step) / step;
         if (loop.drum) {

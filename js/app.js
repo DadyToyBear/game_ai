@@ -188,6 +188,7 @@
 
   function stopTransport() {
     state.playing = false;
+    state.stoppedBar = state.currentBar || 0;   // запоминаем, где остановились
     clearInterval(state.timer);
     state.timer = null;
     const bp = document.getElementById('btnPlay');
@@ -829,7 +830,9 @@
   /* Какой паттерн машины РЕАЛЬНО звучит сейчас: его задаёт сцена такта,
      а редактируется слот patIndex — это не всегда одно и то же. */
   function playingPatternIndex(t, bar) {
-    const b = bar != null ? bar : (state.currentBar || 0);
+    // на остановленном транспорте показываем такт, на котором остановились,
+    // а не первый — иначе панель обещала «Играет A», хотя вы слушали B
+    const b = bar != null ? bar : (state.playing ? (state.currentBar || 0) : (state.stoppedBar || 0));
     const letter = (t.scenes || 'A').charAt(b % Math.max(1, song.arrangeBars)) || 'A';
     const idx = 'ABCD'.indexOf(letter);
     return idx < 0 ? 0 : idx;
@@ -859,7 +862,7 @@
           })
         )),
         (() => {
-          const playing = playingPatternIndex(t, state.currentBar || 0);
+          const playing = playingPatternIndex(t);
           // если сцена играет другой паттерн, правки в текущем не слышны — говорим об этом прямо
           return el('button', {
             class: 'btn ghost' + (playing !== t.patIndex ? ' warn' : ''),
@@ -943,7 +946,7 @@
     if (!t) return;
     const bars = song.arrangeBars || 4;
     const arr = (t.scenes || 'A').padEnd(bars, 'A').slice(0, bars).split('');
-    const from = playingPatternIndex(t, state.currentBar || 0);
+    const from = playingPatternIndex(t);
     for (let b = 0; b < bars; b++) if (arr[b] === 'ABCD'[from]) arr[b] = 'ABCD'[idx];
     t.scenes = arr.join('');
     renderSeq();
@@ -2554,7 +2557,11 @@
       e.target.value = song.bpm;
       updateStepDur();
       applyDelayTime();
-      if (state.kaossInst) state.kaossInst.bpm = song.bpm;
+      // лупы Kaoss перезапускаются на новом темпе, иначе расходятся с транспортом
+      if (state.kaossInst) {
+        if (state.kaossInst.setBpm) state.kaossInst.setBpm(song.bpm);
+        else state.kaossInst.bpm = song.bpm;
+      }
     });
 
     document.getElementById('stepCount').addEventListener('change', (e) => {
