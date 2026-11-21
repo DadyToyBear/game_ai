@@ -44,10 +44,21 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install 'scons==4.10.1'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
       - name: Install Redot Android dependencies
-        run: sdkmanager 'platforms;android-36' 'build-tools;36.1.0' 'ndk;29.0.14206865' 'platform-tools'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_HOME:-}" ] || [ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            echo '::error::GitHub runner Android SDK or sdkmanager not found' >&2
+            exit 1
+          fi
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if ! "$SDKMANAGER" 'platforms;android-36' 'build-tools;36.1.0' 'ndk;29.0.14206865' 'platform-tools' > sdk-install.log 2>&1; then
+            tail -n 80 sdk-install.log
+            echo '::error::Android SDK installation failed; inspect the Install Redot Android dependencies step log' >&2
+            exit 1
+          fi
+          tail -n 30 sdk-install.log
 
       - name: Build ARM64 editor library
         working-directory: engine
