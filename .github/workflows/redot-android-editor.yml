@@ -9,6 +9,8 @@ on:
       - 'redot-android/**'
       - 'redot-bridge/addons/redot_android_mcp/**'
       - 'redot-bridge/bridge.py'
+      - 'redot-bridge/relay.py'
+      - 'redot-bridge/requirements-relay.txt'
       - 'redot-bridge/project_sync.py'
       - 'redot-bridge/web/**'
   workflow_dispatch:
@@ -100,7 +102,8 @@ jobs:
           if [ "${#apks[@]}" -eq 0 ]; then echo 'No Android editor APK was produced' >&2; exit 1; fi
           cp "${apks[@]}" artifact/
           cp -a redot-bridge/addons/redot_android_mcp artifact/addons/
-          cp redot-bridge/bridge.py redot-bridge/project_sync.py artifact/
+          cp redot-bridge/bridge.py redot-bridge/project_sync.py redot-bridge/relay.py redot-bridge/requirements-relay.txt artifact/
+          cp -a redot-bridge/relay-deploy artifact/relay-deploy
           cp -a redot-bridge/web artifact/web
           cp redot-android/README.md artifact/README.md
 

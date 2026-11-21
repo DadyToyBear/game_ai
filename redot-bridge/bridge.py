@@ -13,6 +13,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import project_sync
@@ -20,6 +21,28 @@ import project_sync
 MAX_MCP_SNAPSHOT = 8 * 1024 * 1024
 MAX_FRAME = 8 * 1024 * 1024
 WEB = Path(__file__).resolve().parent / 'web'
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Never forward bearer credentials to a redirect target.
+        return None
+
+
+HTTP = urllib.request.build_opener(NoRedirect())
+
+
+def remote_origin(value):
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme != 'https' or not parsed.hostname or parsed.username is not None or
+                parsed.password is not None or parsed.path not in ('', '/') or parsed.query or parsed.fragment or
+                any(ord(c) < 33 or ord(c) > 126 for c in value) or
+                (parsed.port is not None and not 1 <= parsed.port <= 65535)):
+            raise ValueError
+    except ValueError as exc:
+        raise ValueError('Remote bridge must be an HTTPS origin without credentials, path, query or fragment') from exc
+    return value.rstrip('/')
 
 
 class FrameStore:
@@ -269,7 +292,7 @@ def tools():
 def call_frame(url, token, method):
     request = urllib.request.Request(url.rstrip('/') + '/api/frame', method=method, headers={'Authorization': 'Bearer ' + token})
     try:
-        with urllib.request.urlopen(request, timeout=5) as response:
+        with HTTP.open(request, timeout=5) as response:
             body = response.read(MAX_FRAME + 1)
             if len(body) > MAX_FRAME:
                 raise ValueError('Frame exceeds size limit')
@@ -295,7 +318,7 @@ def call_editor(url, token, command=None):
         headers['Content-Type'] = 'application/json'
     request = urllib.request.Request(url.rstrip('/') + path, data=data, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=5) as response:
+        with HTTP.open(request, timeout=5) as response:
             return response.read(4096).decode('utf-8')
     except urllib.error.HTTPError as exc:
         if exc.code == 503:
@@ -313,7 +336,7 @@ def call_project(url, token, path, data=None, limit=MAX_MCP_SNAPSHOT):
         headers['Content-Type'] = 'application/zip'
     request = urllib.request.Request(url.rstrip('/') + path, data=data, headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
+        with HTTP.open(request, timeout=60) as response:
             length = response.headers.get('Content-Length')
             if length and int(length) > limit:
                 raise ValueError('Snapshot is too large for MCP; use the local browser instead')
@@ -402,6 +425,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('mode', choices=('serve', 'mcp'))
     parser.add_argument('--port', type=int, default=8765)
+    parser.add_argument('--url', help='HTTPS relay origin for MCP mode only; no paths or credentials')
     parser.add_argument('--editor-dir', type=Path, help='Unpacked web editor directory (serve mode only)')
     parser.add_argument('--project-dir', type=Path, help='Local project for explicit snapshot exchange (serve mode only)')
     args = parser.parse_args()
@@ -411,6 +435,8 @@ def main():
     if not 1 <= args.port <= 65535:
         parser.error('Invalid port')
     if args.mode == 'serve':
+        if args.url is not None:
+            parser.error('--url is for MCP mode only')
         if args.editor_dir is not None and not (args.editor_dir / 'godot.editor.html').is_file():
             parser.error('Editor directory must contain godot.editor.html')
         if args.project_dir is not None:
@@ -431,7 +457,14 @@ def main():
         finally:
             server.server_close()
     else:
-        mcp_stdio(f'http://127.0.0.1:{args.port}', token)
+        if args.url is not None:
+            try:
+                url = remote_origin(args.url)
+            except ValueError as exc:
+                parser.error(str(exc))
+        else:
+            url = f'http://127.0.0.1:{args.port}'
+        mcp_stdio(url, token)
 
 
 if __name__ == '__main__':

@@ -10,7 +10,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -147,6 +147,32 @@ class BridgeTest(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as err:
             self.request('/editor/../bridge.py')
         self.assertEqual(err.exception.code, 404)
+
+    def test_remote_origin_and_redirects(self):
+        self.assertEqual(bridge.remote_origin('https://relay.example.org/'), 'https://relay.example.org')
+        for value in ('http://example.org', 'https://user@example.org', 'https://example.org/path', 'https://example.org?x=1', 'https://example.org:99999', 'https://example.org\n'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                bridge.remote_origin(value)
+        received = []
+        class Redirect(BaseHTTPRequestHandler):
+            def do_GET(self):
+                received.append(self.path)
+                self.send_response(302)
+                self.send_header('Location', '/target')
+                self.end_headers()
+            def log_message(self, *args):
+                pass
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Redirect)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with self.assertRaises(ValueError):
+                bridge.call_frame(f'http://127.0.0.1:{server.server_port}', TOKEN, 'GET')
+            self.assertEqual(received, ['/api/frame'])
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join()
 
     def test_token_required(self):
         env = dict(os.environ, REDOT_BRIDGE_TOKEN='weak')
