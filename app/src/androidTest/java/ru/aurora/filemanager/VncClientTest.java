@@ -25,16 +25,41 @@ public class VncClientTest {
                     assertEquals(3,in.readUnsignedByte());byte[] req=new byte[9];in.readFully(req);assertEquals(0,req[0]);
                     out.writeByte(0);out.writeByte(0);out.writeShort(1);out.writeShort(0);out.writeShort(0);out.writeShort(2);out.writeShort(2);out.writeInt(0);
                     out.write(new byte[]{0,0,(byte)255,0, 0,(byte)255,0,0, (byte)255,0,0,0, (byte)255,(byte)255,(byte)255,0});out.flush();
-                    int pointer=0,key=0;while(pointer<2||key<2){int type=in.readUnsignedByte();if(type==3){in.readFully(req);}else if(type==5){int mask=in.readUnsignedByte(),x=in.readUnsignedShort(),y=in.readUnsignedShort();assertEquals(1,x);assertEquals(0,y);assertEquals(pointer==0?1:0,mask);pointer++;}else if(type==4){int down=in.readUnsignedByte();in.readUnsignedShort();int sym=in.readInt();assertEquals('A',sym);assertEquals(key==0?1:0,down);key++;}else throw new IOException("Unexpected message: "+type);}
+                    int pointer=0,key=0;while(pointer<6||key<4){int type=in.readUnsignedByte();if(type==3){in.readFully(req);}else if(type==5){int mask=in.readUnsignedByte(),x=in.readUnsignedShort(),y=in.readUnsignedShort();assertEquals(1,x);assertEquals(0,y);assertEquals(new int[]{1,0,4,0,16,0}[pointer],mask);pointer++;}else if(type==4){int down=in.readUnsignedByte();in.readUnsignedShort();int sym=in.readInt();assertEquals(new int[]{'A','A',0x0100042f,0x0100042f}[key],sym);assertEquals(key%2==0?1:0,down);key++;}else throw new IOException("Unexpected message: "+type);}
                     events.countDown();
                 }catch(Throwable ex){failure.set(ex);events.countDown();}
             },"test-vnc-server");peer.start();
             CountDownLatch received=new CountDownLatch(1);AtomicReference<int[]> pixels=new AtomicReference<>();AtomicReference<String> problem=new AtomicReference<>();
             VncClient client=new VncClient(new VncClient.Listener(){public void connected(int w,int h,String name){assertEquals(2,w);assertEquals(2,h);assertEquals("test",name);}public void frame(int w,int h,int[] p){pixels.set(p);received.countDown();}public void finished(String reason){problem.set(reason);}});
             try{client.start("127.0.0.1",server.getLocalPort(),"password",false);assertTrue("frame "+problem.get(),received.await(15,TimeUnit.SECONDS));assertArrayEquals(new int[]{0xffff0000,0xff00ff00,0xff0000ff,0xffffffff},pixels.get());
-                assertTrue(client.pointer(1,0,true));assertTrue(client.pointer(1,0,false));assertTrue(client.keys("A"));assertTrue(events.await(15,TimeUnit.SECONDS));if(failure.get()!=null)throw new AssertionError(failure.get());
+                assertTrue(client.pointer(1,0,true));assertTrue(client.pointer(1,0,false));assertTrue(client.click(1,0,4));assertTrue(client.click(1,0,16));assertTrue(client.keys("AЯ"));assertTrue(events.await(15,TimeUnit.SECONDS));if(failure.get()!=null)throw new AssertionError(failure.get());
             }finally{client.stop();peer.join(5000);}
         }
+    }
+    @Test public void acceptsLegacyNoneAndPasswordWithoutImplicitDowngrade() throws Exception {
+        for(int minor:new int[]{3,7})for(boolean auth:new boolean[]{false,true}){
+            try(ServerSocket server=new ServerSocket(0,1,InetAddress.getByName("127.0.0.1"))){
+                CountDownLatch connected=new CountDownLatch(1);AtomicReference<Throwable> failure=new AtomicReference<>();Thread peer=new Thread(()->{
+                    try(Socket socket=server.accept()){
+                        socket.setSoTimeout(15000);DataInputStream in=new DataInputStream(socket.getInputStream());DataOutputStream out=new DataOutputStream(socket.getOutputStream());
+                        String banner=String.format(java.util.Locale.ROOT,"RFB 003.%03d\n",minor);out.write(banner.getBytes(StandardCharsets.US_ASCII));out.flush();byte[] version=new byte[12];in.readFully(version);assertEquals(banner,new String(version,StandardCharsets.US_ASCII));
+                        if(minor==3){out.writeInt(auth?2:1);out.flush();}else{out.writeByte(1);out.writeByte(auth?2:1);out.flush();assertEquals(auth?2:1,in.readUnsignedByte());}
+                        if(auth){byte[] challenge=new byte[16];out.write(challenge);out.flush();byte[] response=new byte[16];in.readFully(response);out.writeInt(0);out.flush();}
+                        assertEquals(1,in.readUnsignedByte());out.writeShort(1);out.writeShort(1);out.write(new byte[16]);out.writeInt(1);out.writeByte('x');out.flush();
+                        byte[] config=new byte[28];in.readFully(config);assertEquals(3,in.readUnsignedByte());byte[] request=new byte[9];in.readFully(request);
+                        out.writeByte(0);out.writeByte(0);out.writeShort(1);out.writeShort(0);out.writeShort(0);out.writeShort(1);out.writeShort(1);out.writeInt(0);out.write(new byte[]{0,0,0,0});out.flush();
+                    }catch(Throwable ex){failure.set(ex);connected.countDown();}
+                });peer.start();
+                VncClient client=new VncClient(new VncClient.Listener(){public void connected(int w,int h,String name){}public void frame(int w,int h,int[] pixels){connected.countDown();}public void finished(String reason){}});
+                try{client.start("127.0.0.1",server.getLocalPort(),auth?"password":"",!auth);assertTrue(connected.await(15,TimeUnit.SECONDS));}finally{client.stop();peer.join(5000);}if(failure.get()!=null)throw new AssertionError(failure.get());
+            }
+        }
+    }
+    @Test public void encodesUnicodeKeysymsAndRejectsControls() throws Exception {
+        assertArrayEquals(new int[]{'A',0x0100042f,0x0101f642},VncClient.keysyms("AЯ🙂"));
+        assertNull(VncClient.keysyms("a\n"));assertNull(VncClient.keysyms("\ud800"));assertNull(VncClient.keysyms(""));
+        assertEquals(3,VncClient.version("RFB 003.003\n"));assertEquals(7,VncClient.version("RFB 003.007\n"));assertEquals(8,VncClient.version("RFB 003.008\n"));
+        try{VncClient.version("RFB 004.000\n");fail("unsupported version");}catch(IOException expected){}
     }
     @Test public void refusesAnonymousUnlessExplicitlyAllowed() throws Exception {
         try(ServerSocket server=new ServerSocket(0,1,InetAddress.getByName("127.0.0.1"))){

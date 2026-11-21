@@ -8,7 +8,7 @@ import java.util.concurrent.*;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 
-/** Minimal RFB 3.8 client: raw true-colour frames, pointer and ASCII keys. No TLS. */
+/** Minimal RFB 3.3/3.7/3.8 client: raw true-colour frames and basic input. No TLS. */
 final class VncClient {
     static final int MAX_PIXELS=1920*1080,MAX_RECTS=256,MAX_UPDATE_BYTES=16*1024*1024;
     interface Listener {void connected(int width,int height,String name);void frame(int width,int height,int[] argb);void finished(String reason);}
@@ -31,16 +31,16 @@ final class VncClient {
                 s.connect(new InetSocketAddress(host,port),15000);s.setSoTimeout(20000);
                 DataInputStream in=new DataInputStream(new BufferedInputStream(s.getInputStream()));DataOutputStream output=new DataOutputStream(new BufferedOutputStream(s.getOutputStream()));
                 synchronized(lock){if(stopped)return;out=output;}
-                byte[] version=new byte[12];in.readFully(version);String banner=new String(version,StandardCharsets.US_ASCII);
-                if(!banner.equals("RFB 003.008\n"))throw new IOException("Поддерживается только RFB 3.8");
-                output.write(version);output.flush();
-                int count=in.readUnsignedByte();if(count==0)throw new IOException("Сервер отклонил соединение: "+readMessage(in));
-                boolean none=false,vnc=false;for(int i=0;i<count;i++){int type=in.readUnsignedByte();none|=type==1;vnc|=type==2;}
-                int chosen=vnc&&validPassword(password)?2:allowNone&&none?1:0;
+                byte[] version=new byte[12];in.readFully(version);String banner=new String(version,StandardCharsets.US_ASCII);int minor=version(banner);
+                output.write(String.format(java.util.Locale.ROOT,"RFB 003.%03d\n",minor).getBytes(StandardCharsets.US_ASCII));output.flush();
+                boolean none=false,vnc=false;int chosen;
+                if(minor==3){int offered=in.readInt();if(offered==0)throw new IOException("Сервер отклонил соединение: "+readMessage(in));none=offered==1;vnc=offered==2;}
+                else {int count=in.readUnsignedByte();if(count==0)throw new IOException("Сервер отклонил соединение: "+readMessage(in));for(int i=0;i<count;i++){int type=in.readUnsignedByte();none|=type==1;vnc|=type==2;}}
+                chosen=vnc&&validPassword(password)?2:allowNone&&none?1:0;
                 if(chosen==0)throw new IOException("Нет подходящего способа входа: нужен пароль VNC или явно разрешённый вход без пароля");
-                output.writeByte(chosen);output.flush();
+                if(minor!=3){output.writeByte(chosen);output.flush();}
                 if(chosen==2){byte[] challenge=new byte[16];in.readFully(challenge);byte[] response=challengeResponse(password,challenge);try{output.write(response);output.flush();}finally{Arrays.fill(response,(byte)0);}}
-                int auth=in.readInt();if(auth!=0)throw new IOException("Вход отклонён: "+readMessage(in));
+                if(chosen==2||minor==8){int auth=in.readInt();if(auth!=0)throw new IOException(minor==8?"Вход отклонён: "+readMessage(in):"Вход отклонён сервером");}
                 output.writeByte(1);output.flush();int w=in.readUnsignedShort(),h=in.readUnsignedShort();validateSize(w,h);
                 byte[] format=new byte[16];in.readFully(format);String name=readMessage(in);
                 synchronized(lock){if(stopped)return;width=w;height=h;}
@@ -70,14 +70,26 @@ final class VncClient {
             finally{stop();listener.finished(reason);}
         },"vnc-reader").start();
     }
+    static int version(String banner) throws IOException {
+        if("RFB 003.003\n".equals(banner))return 3;if("RFB 003.007\n".equals(banner))return 7;if("RFB 003.008\n".equals(banner))return 8;
+        throw new IOException("Поддерживаются только RFB 3.3, 3.7 и 3.8");
+    }
     private static void validateSize(int w,int h) throws IOException {if(w<1||h<1||(long)w*h>MAX_PIXELS)throw new IOException("Размер экрана превышает 2073600 пикселей");}
     private static String readMessage(DataInputStream in) throws IOException {long length=Integer.toUnsignedLong(in.readInt());if(length>4096)throw new IOException("Слишком длинное сообщение сервера");byte[] bytes=new byte[(int)length];in.readFully(bytes);return new String(bytes,StandardCharsets.UTF_8);}
     private void request(boolean incremental,int w,int h) throws IOException {synchronized(writeLock){DataOutputStream o=out;if(o==null)throw new IOException("Соединение закрыто");o.writeByte(3);o.writeByte(incremental?1:0);o.writeShort(0);o.writeShort(0);o.writeShort(w);o.writeShort(h);o.flush();}}
     private boolean enqueue(Runnable action){synchronized(lock){if(stopped||!ready)return false;}try{writer.execute(action);return true;}catch(RejectedExecutionException ex){stop();return false;}}
     boolean pointer(int x,int y,boolean down){int w,h;synchronized(lock){w=width;h=height;}if(x<0||y<0||x>=w||y>=h)return false;
         return enqueue(()->{try{synchronized(writeLock){if(out==null)return;out.writeByte(5);out.writeByte(down?1:0);out.writeShort(x);out.writeShort(y);out.flush();}}catch(IOException ex){stop();}});}
-    boolean keys(String text){if(text==null||text.isEmpty()||text.length()>256)return false;for(int i=0;i<text.length();i++){char c=text.charAt(i);if(c<32||c>126)return false;}
-        return enqueue(()->{try{synchronized(writeLock){if(out==null)return;for(int i=0;i<text.length();i++){writeKey(out,true,text.charAt(i));writeKey(out,false,text.charAt(i));}out.flush();}}catch(IOException ex){stop();}});}
+    boolean click(int x,int y,int mask){int w,h;synchronized(lock){w=width;h=height;}if(x<0||y<0||x>=w||y>=h||(mask!=4&&mask!=8&&mask!=16))return false;
+        return enqueue(()->{try{synchronized(writeLock){if(out==null)return;out.writeByte(5);out.writeByte(mask);out.writeShort(x);out.writeShort(y);out.writeByte(5);out.writeByte(0);out.writeShort(x);out.writeShort(y);out.flush();}}catch(IOException ex){stop();}});}
+    static int[] keysyms(String text){
+        if(text==null||text.isEmpty()||text.codePointCount(0,text.length())>256)return null;int[] result=new int[text.codePointCount(0,text.length())];int n=0;
+        for(int i=0;i<text.length();){int cp=text.codePointAt(i);if(Character.isISOControl(cp)||(cp>=0xd800&&cp<=0xdfff))return null;
+            result[n++]=cp<=0xff?cp:0x01000000|cp;i+=Character.charCount(cp);
+        }return result;
+    }
+    boolean keys(String text){int[] keys=keysyms(text);if(keys==null)return false;
+        return enqueue(()->{try{synchronized(writeLock){if(out==null)return;for(int key:keys){writeKey(out,true,key);writeKey(out,false,key);}out.flush();}}catch(IOException ex){stop();}});}
     boolean special(int keysym){if(keysym!=0xff0d&&keysym!=0xff08&&keysym!=0xff1b&&keysym!=0xff09)return false;
         return enqueue(()->{try{synchronized(writeLock){if(out==null)return;writeKey(out,true,keysym);writeKey(out,false,keysym);out.flush();}}catch(IOException ex){stop();}});}
     private static void writeKey(DataOutputStream out,boolean down,int key) throws IOException {out.writeByte(4);out.writeByte(down?1:0);out.writeShort(0);out.writeInt(key);}

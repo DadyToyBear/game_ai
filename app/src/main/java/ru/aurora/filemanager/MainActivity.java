@@ -194,9 +194,10 @@ public class MainActivity extends Activity {
     }
     private void imageScreen(Entry entry) {
         layout("Изображение · "+entry.name);mediaScreen=true;Object token=new Object();mediaToken=token;
-        note("Предпросмотр уменьшен для экономии памяти. Для неподдерживаемых форматов используйте другое приложение.");
+        note("Предпросмотр уменьшен для экономии памяти. Увеличение показывает эту уменьшенную копию; после увеличения её можно перетаскивать одним пальцем. Для неподдерживаемых форматов используйте другое приложение.");
         TextView status=text("Загрузка…",15);body.addView(status);
-        ImageView image=new ImageView(this);image.setAdjustViewBounds(true);image.setScaleType(ImageView.ScaleType.FIT_CENTER);body.addView(image,new LinearLayout.LayoutParams(-1,dp(400)));
+        ZoomImageView image=new ZoomImageView(this);body.addView(image,new LinearLayout.LayoutParams(-1,dp(400)));
+        LinearLayout zoomControls=new LinearLayout(this);body.addView(zoomControls);zoomControls.addView(button("−",()->image.setZoom(image.getZoom()/1.5f)));zoomControls.addView(button("+",()->image.setZoom(image.getZoom()*1.5f)));zoomControls.addView(button("Сброс",image::reset));
         body.addView(button("Редактировать в Paint",()->{paintScreen();if(canvas!=null)loadPaint(entry.uri,canvas);}));
         body.addView(button("Открыть в другом приложении",()->openExternal(entry)));body.addView(button("Назад",this::list));
         new Thread(()->{
@@ -371,7 +372,9 @@ public class MainActivity extends Activity {
     }
     private void editText(Entry entry) {
         layout("Текст · "+entry.name);Object token=new Object();textViewToken=token;TextUi state=new TextUi();textUi=state; note("UTF-8, максимум 1 МиБ. Сохранение перезаписывает исходный файл; рекомендуется сделать копию. Поворот экрана может привести к потере несохранённого текста.");
-        EditText editor=new EditText(this);editor.setGravity(Gravity.TOP|Gravity.START);editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);editor.setMinLines(12);editor.setEnabled(false);body.addView(editor);
+        EditText editor=new EditText(this);editor.setGravity(Gravity.TOP|Gravity.START);editor.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);editor.setMinLines(12);editor.setTextSize(18);editor.setEnabled(false);body.addView(editor);
+        TextView fontLabel=text("Размер текста: 18 sp",15);body.addView(fontLabel);SeekBar fontSize=new SeekBar(this);fontSize.setMax(16);fontSize.setProgress(4);body.addView(fontSize);
+        fontSize.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar bar,int value,boolean user){int size=14+value;editor.setTextSize(size);fontLabel.setText("Размер текста: "+size+" sp");}public void onStartTrackingTouch(SeekBar bar){}public void onStopTrackingTouch(SeekBar bar){}});
         editor.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){if(!state.loading)state.revision++;}public void afterTextChanged(android.text.Editable e){}});
         EditText find=field("Найти в тексте (до 256 символов)",false);Button findNext=button("Найти далее",()->{String query=find.getText().toString();if(query.isEmpty()||query.length()>256){toast("Введите от 1 до 256 символов");return;}int index=TextFind.next(editor.getText().toString(),query,Math.max(0,editor.getSelectionEnd()));if(index<0){toast("Совпадений нет");return;}editor.requestFocus();editor.setSelection(index,index+query.length());});findNext.setEnabled(false);body.addView(findNext);
         Button save=button("Сохранить",()->{});save.setEnabled(false);body.addView(save);body.addView(button("Назад",()->leaveText(state)));
@@ -843,17 +846,19 @@ public class MainActivity extends Activity {
     private void stopVnc(){VncClient client=vncClient;vncClient=null;if(client!=null)client.stop();}
     private void vncScreen(){
         layout("Удалённый рабочий стол · VNC");
-        note("Подключение к уже запущенному VNC-серверу (RFB 3.8). Нужны разрешение владельца и настройки сервера. Поддерживаются обычный пароль VNC или явно разрешённый вход без пароля, только raw-картинка и управление левой кнопкой.");
+        note("Подключение к уже запущенному VNC-серверу (RFB 3.3, 3.7 или 3.8). Нужны разрешение владельца и настройки сервера. Поддерживаются обычный пароль VNC или явно разрешённый вход без пароля, только raw-картинка и базовое управление мышью.");
         note("VNC не шифрует изображение, ввод и пароль; проверка подлинности сервера отсутствует. Используйте доверенную сеть или проверенный SSH-туннель к серверу, не выставляйте VNC в интернет. Для Android нужен отдельный сервер с разрешением на трансляцию и управление.");
         EditText host=field("Адрес VNC (для SSH-туннеля 127.0.0.1)",false),port=field("Порт VNC (5900)",false),password=field("Пароль VNC: 1–8 ASCII-символов",true);host.setText("127.0.0.1");
         CheckBox noPassword=new CheckBox(this);noPassword.setText("Разрешить вход без пароля, если сервер его предлагает");body.addView(noPassword);
         TextView status=text("Не подключено",15);body.addView(status);VncView display=new VncView(this);body.addView(display,new LinearLayout.LayoutParams(-1,dp(300)));
-        EditText input=field("Текст для отправки (только ASCII)",false);
+        EditText input=field("Текст для отправки (до 256 символов)",false);
         Button connect=button("Подключиться",()->{}),disconnect=button("Отключиться",()->{}),send=button("Отправить текст",()->{});disconnect.setEnabled(false);send.setEnabled(false);
         body.addView(connect);body.addView(disconnect);body.addView(send);
         LinearLayout keys=new LinearLayout(this);body.addView(keys);Button enter=button("Enter",()->{}),backspace=button("⌫",()->{}),escape=button("Esc",()->{}),tab=button("Tab",()->{});keys.addView(enter);keys.addView(backspace);keys.addView(escape);keys.addView(tab);
-        enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);body.addView(button("Назад",this::home));
-        Runnable disconnected=()->{connect.setEnabled(true);disconnect.setEnabled(false);send.setEnabled(false);enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);display.clear();};
+        enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);
+        note("Правая кнопка и прокрутка действуют в последней выбранной точке экрана; если точка не выбиралась — по центру.");
+        LinearLayout mouse=new LinearLayout(this);body.addView(mouse);Button right=button("Правый клик",()->{}),wheelUp=button("↑",()->{}),wheelDown=button("↓",()->{});mouse.addView(right);mouse.addView(wheelUp);mouse.addView(wheelDown);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);body.addView(button("Назад",this::home));
+        Runnable disconnected=()->{connect.setEnabled(true);disconnect.setEnabled(false);send.setEnabled(false);enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);display.clear();};
         vncUiReset=()->{disconnected.run();status.setText("Соединение закрыто при переходе приложения в фон.");};
         connect.setOnClickListener(v->{
             if(vncClient!=null)return;String h=host.getText().toString().trim(),secret=password.getText().toString();boolean anonymous=noPassword.isChecked();int number;
@@ -864,7 +869,7 @@ public class MainActivity extends Activity {
                     if(vncClient!=null)return;connect.setEnabled(false);disconnect.setEnabled(true);status.setText("Подключение…");password.setText("");
                     Object frameLock=new Object();final int[][] pending={null};final int[] dimensions={0,0};final boolean[] scheduled={false};VncClient[] reference=new VncClient[1];
                     VncClient client=new VncClient(new VncClient.Listener(){
-                        public void connected(int width,int height,String name){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;status.setText("Подключено: "+name+" · "+width+" × "+height+". Нажатие — левая кнопка мыши.");send.setEnabled(true);enter.setEnabled(true);backspace.setEnabled(true);escape.setEnabled(true);tab.setEnabled(true);});}
+                        public void connected(int width,int height,String name){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;status.setText("Подключено: "+name+" · "+width+" × "+height+". Нажатие — левая кнопка мыши.");send.setEnabled(true);enter.setEnabled(true);backspace.setEnabled(true);escape.setEnabled(true);tab.setEnabled(true);right.setEnabled(true);wheelUp.setEnabled(true);wheelDown.setEnabled(true);});}
                         public void frame(int width,int height,int[] pixels){synchronized(frameLock){pending[0]=pixels;dimensions[0]=width;dimensions[1]=height;if(scheduled[0])return;scheduled[0]=true;}
                             runOnUiThread(()->{int[] frame;int fw,fh;synchronized(frameLock){frame=pending[0];pending[0]=null;fw=dimensions[0];fh=dimensions[1];scheduled[0]=false;}if(vncClient==reference[0]&&!isDestroyed()&&frame!=null)display.updateFrame(fw,fh,frame);});}
                         public void finished(String reason){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;vncClient=null;disconnected.run();status.setText(reason);});}
@@ -872,13 +877,15 @@ public class MainActivity extends Activity {
                 }).show();
         });
         disconnect.setOnClickListener(v->{stopVnc();disconnected.run();status.setText("Отключено");});
-        send.setOnClickListener(v->{VncClient client=vncClient;String text=input.getText().toString();if(client!=null&&client.keys(text))input.setText("");else toast("Только ASCII-текст до 256 символов или соединение недоступно");});
+        send.setOnClickListener(v->{VncClient client=vncClient;String text=input.getText().toString();if(client!=null&&client.keys(text))input.setText("");else toast("Текст до 256 символов без управляющих знаков или соединение недоступно");});
+        right.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,4);});
+        wheelUp.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,8);});wheelDown.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,16);});
         enter.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff0d);});backspace.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff08);});escape.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff1b);});tab.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff09);});
     }
     static class VncView extends View {
         VncClient client;Bitmap frame;int frameWidth,frameHeight,lastX,lastY;boolean down;long lastMove;
         VncView(Context context){super(context);setBackgroundColor(Color.DKGRAY);}
-        void updateFrame(int width,int height,int[] pixels){try{if(frame==null||frameWidth!=width||frameHeight!=height){if(frame!=null)frame.recycle();frame=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);frameWidth=width;frameHeight=height;}frame.setPixels(pixels,0,width,0,0,width,height);invalidate();}catch(OutOfMemoryError e){VncClient old=client;clear();if(old!=null)old.stop();}}
+        void updateFrame(int width,int height,int[] pixels){try{if(frame==null||frameWidth!=width||frameHeight!=height){if(frame!=null)frame.recycle();frame=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);frameWidth=width;frameHeight=height;lastX=width/2;lastY=height/2;}frame.setPixels(pixels,0,width,0,0,width,height);invalidate();}catch(OutOfMemoryError e){VncClient old=client;clear();if(old!=null)old.stop();}}
         void clear(){client=null;down=false;if(frame!=null){frame.recycle();frame=null;}frameWidth=frameHeight=0;invalidate();}
         @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);if(frame==null)return;float scale=Math.min((float)getWidth()/frameWidth,(float)getHeight()/frameHeight);float w=frameWidth*scale,h=frameHeight*scale;canvas.drawBitmap(frame,null,new RectF((getWidth()-w)/2,(getHeight()-h)/2,(getWidth()+w)/2,(getHeight()+h)/2),null);}
         @Override public boolean onTouchEvent(MotionEvent event){
