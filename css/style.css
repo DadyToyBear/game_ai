@@ -738,3 +738,8 @@ main { flex: 1; padding: 0 16px 28px; }
   .proj-row { flex-direction: column; align-items: stretch; }
   .proj-actions { justify-content: flex-start; }
 }
+
+/* ZIP-архив проекта */
+#btnSaveZip { border-color: #2f6f66; }
+#btnSaveZip::before { content: '🗜 '; }
+code { background: #0f1620; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: 11px; }

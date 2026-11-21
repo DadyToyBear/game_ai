@@ -137,9 +137,15 @@
             <button class="btn" id="btnSaveFile">Скачать .json</button>
             <button class="btn" id="btnImportJson">Загрузить .json</button>
             <input type="file" id="fileJson" accept=".json,application/json" hidden />
+            <button class="btn primary" id="btnSaveZip" title="Проект + все свои сэмплы одним архивом">Скачать .zip с сэмплами</button>
+            <button class="btn" id="btnOpenZip" title="Открыть архив, сделанный здесь">Открыть .zip</button>
+            <input type="file" id="fileZip" accept=".zip,application/zip,application/x-zip-compressed" hidden />
           </div>
-          <p class="muted" style="margin-top:6px">Свои WAV-сэмплы и загруженные MP3 в JSON не попадают
-             (это аудио, а не ноты) — после загрузки проекта их надо подставить заново.</p>
+          <p class="muted" style="margin-top:6px">JSON хранит только ноты, банки, сцены и микшер.
+             <b>Свои сэмплы</b> (WAV в каналах, сэмпл Kaossilator, файл в плеере miniKP2)
+             едут вместе с проектом в <b>.zip</b>: внутри лежат <code>project.json</code> и папка
+             <code>samples/</code> с WAV 16 бит. Такой архив открывается любым архиватором,
+             а при загрузке в студии сэмплы ставятся на свои места сами.</p>
           <div id="projList" class="proj-list"></div>
           <div class="row">
             <span class="pill" id="autosaveState">автосохранение включено</span>
@@ -222,6 +228,7 @@
 <script src="js/midi-file.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/export-mp3.js"></script>
+<script src="js/project-io.js"></script>
 <script src="js/kaoss.js"></script>
 <script src="js/kaoss-ui.js"></script>
 <script src="js/kaoss-deck.js"></script>

@@ -8,6 +8,7 @@
   const el = UI.el;
 
   const LS_KEY = 'mini-studio-project-v1';
+  const PIO = window.ProjectIO;
 
   const PAD_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
   const KEYMAP = {
@@ -977,6 +978,7 @@
     if (!t) return;
     const box = el('div', {});
     box.appendChild(el('p', { class: 'muted', text: 'Загрузите свои WAV в каналы. Формат: несжатый PCM 8–32 бита, любая частота дискретизации (декодирует браузер). Декодирование поддерживает WAV/OGG/MP3 — всё, что умеет ваш браузер.' }));
+    box.appendChild(el('p', { class: 'hint', text: 'Эти сэмплы сохраняются вместе с проектом в ZIP-архив (вкладка «Экспорт» → «Скачать .zip с сэмплами»).' }));
 
     const slots = t.engine === 'beatbox'
       ? ENG.beatbox.pads.map((n, i) => ({ name: n, key: i }))
@@ -1499,6 +1501,172 @@
     if (fx && ks.fxProgram != null) fx.setProgram(ks.fxProgram);
   }
 
+  /* ---------- ZIP: проект вместе со своими сэмплами ---------- */
+  const SAMPLES_DIR = 'samples/';
+
+  /* имя файла в архиве: без расширения, безопасное для файловой системы */
+  function sampleFile(prefix, name) {
+    const bare = String(name || 'sample').replace(/\.[a-z0-9]{1,5}$/i, '');
+    return SAMPLES_DIR + prefix + '_' + PIO.asciiName(bare, 'sample') + '.wav';
+  }
+
+  /* Собираем список всех сэмплов проекта: каналы, Kaossilator, плеер miniKP2 */
+  function collectSamples() {
+    const items = [];
+    song.tracks.forEach((t) => {
+      Object.keys(t.samples || {}).forEach((key) => {
+        const smp = t.samples[key];
+        if (!smp || !smp.channels) return;
+        items.push({
+          kind: 'channel', trackId: t.id, trackName: t.name, key, smp,
+          file: SAMPLES_DIR + PIO.sanitizeName('track_' + t.id + '_' + key) + '_'
+            + PIO.asciiName(String((t.samples[key].name || key)).replace(/\.[a-z0-9]{1,5}$/i, ''), String(key)) + '.wav',
+        });
+      });
+    });
+    const inst = state.kaossInst;
+    if (inst && inst.sampler && inst.sampler.buffer) {
+      items.push({
+        kind: 'kaoss', smp: {
+          channels: (() => {
+            const b = inst.sampler.buffer;
+            const chans = [];
+            for (let c = 0; c < b.numberOfChannels; c++) chans.push(b.getChannelData(c));
+            return chans;
+          })(),
+          sampleRate: inst.sampler.buffer.sampleRate,
+          name: inst.sampler.name,
+        },
+        file: sampleFile('kaoss', inst.sampler.name),
+      });
+    }
+    const fx = state.kaossFX;
+    if (fx && fx.player && fx.player.buffer) {
+      items.push({
+        kind: 'player', smp: {
+          channels: (() => {
+            const b = fx.player.buffer;
+            const chans = [];
+            for (let c = 0; c < b.numberOfChannels; c++) chans.push(b.getChannelData(c));
+            return chans;
+          })(),
+          sampleRate: fx.player.buffer.sampleRate,
+          name: fx.player.name,
+        },
+        file: sampleFile('player', fx.player.name),
+      });
+    }
+    return items;
+  }
+
+  function sampleManifest(items) {
+    return items.map((it) => {
+      if (it.kind === 'channel') {
+        return { kind: 'channel', trackId: it.trackId, key: it.key, file: it.file, name: it.smp.name || '' };
+      }
+      return { kind: it.kind, file: it.file, name: it.smp.name || '' };
+    });
+  }
+
+  function saveProjectZip() {
+    if (!window.ProjectIO) { UI.toast('Модуль архива не загружен (js/project-io.js)', 'error'); return; }
+    const items = collectSamples();
+    const data = serialize();
+    data.sampleManifest = sampleManifest(items);
+    const files = [{
+      name: 'project.json',
+      bytes: new TextEncoder().encode(JSON.stringify(data, null, 2)),
+      compress: true,
+    }];
+    items.forEach((it) => {
+      files.push({ name: it.file, bytes: PIO.audioToWav(it.smp) });
+    });
+    files.push({
+      name: 'README.txt',
+      compress: true,
+      bytes: new TextEncoder().encode(
+        'Mini Studio — проект вместе со своими сэмплами.\n\n'
+        + 'project.json — ноты, банки A–D, сцены, микшер, BPM, состояние Kaoss-деки.\n'
+        + 'samples/ — свои сэмплы в WAV 16 бит (каналы, Kaossilator, плеер miniKP2).\n\n'
+        + 'Открыть: в студии вкладка «Экспорт» → «Открыть .zip».\n'
+        + 'Файл сделан локально в браузере, ничего никуда не отправлялось.\n'),
+    });
+    return PIO.packFiles(files).then((blob) => {
+      const nameInput = document.getElementById('projName');
+      const base = PIO.sanitizeName((nameInput && nameInput.value.trim()) || 'mini-studio-project');
+      UI.download(blob, base + '.zip');
+      const mb = (blob.size / 1048576).toFixed(2);
+      UI.toast('Архив готов: ' + items.length + ' сэмпл(ов), ' + mb + ' МБ', 'ok');
+      const info = document.getElementById('renderInfo');
+      if (info) info.textContent = 'ZIP: project.json + ' + items.length + ' сэмпл(ов) · ' + mb + ' МБ';
+      return { blob, items: items.length };
+    });
+  }
+
+  /* Открыть .zip: project.json + samples/ → проект и сэмплы на своих местах */
+  function openProjectZip(file) {
+    if (!window.ProjectIO) { UI.toast('Модуль архива не загружен', 'error'); return; }
+    const status = document.getElementById('renderInfo');
+    const setStatus = (t) => { if (status) status.textContent = t; };
+    setStatus('читаю архив ' + file.name + '…');
+    file.arrayBuffer().then((ab) => PIO.readZip(ab)).then((entries) => {
+      const decoder = new TextDecoder('utf-8');
+      const jsonEntry = entries.find((e) => /(^|\/)project\.json$/i.test(e.name));
+      if (!jsonEntry) throw new Error('В архиве нет project.json');
+      const obj = JSON.parse(decoder.decode(jsonEntry.bytes));
+      const manifest = obj.sampleManifest || [];
+      delete obj.sampleManifest;
+      loadProject(obj);
+      if (!manifest.length) {
+        setStatus('проект загружен, сэмплов в архиве нет');
+        UI.toast('Проект загружен из архива (без сэмплов)', 'ok');
+        return { restored: 0, total: 0 };
+      }
+      setStatus('ставлю сэмплы: 0/' + manifest.length + '…');
+      const ctx = ensureAudio();
+      let restored = 0;
+      let done = 0;
+      const queue = () => manifest.reduce((chain, item) => chain.then(() => {
+        const entry = entries.find((e) => e.name === item.file);
+        done++;
+        if (!entry) { setStatus('сэмплы: ' + done + '/' + manifest.length); return null; }
+        return PIO.bytesToAudioBuffer(ctx, entry.bytes).then((buf) => {
+          if (item.kind === 'channel') {
+            const tr = song.tracks.find((t) => t.id === item.trackId);
+            if (tr) {
+              const channels = [];
+              for (let c = 0; c < buf.numberOfChannels; c++) channels.push(new Float32Array(buf.getChannelData(c)));
+              tr.samples[item.key] = { channels, sampleRate: buf.sampleRate, name: item.name || 'sample.wav' };
+              restored++;
+            }
+          } else if (item.kind === 'kaoss' && state.kaossInst) {
+            state.kaossInst.loadSample(buf, item.name || 'sample.wav');
+            restored++;
+          } else if (item.kind === 'player' && state.kaossFX) {
+            state.kaossFX.loadAudio(buf, item.name || 'sample.wav');
+            restored++;
+          }
+          setStatus('сэмплы: ' + done + '/' + manifest.length);
+          return null;
+        }).catch((err) => {
+          console.warn('сэмпл из архива не прочитан:', item.file, err);
+        });
+      }), Promise.resolve());
+      return queue().then(() => {
+        renderMachine();
+        renderKaoss();
+        renderProjectList();
+        setStatus('архив открыт: ' + restored + ' из ' + manifest.length + ' сэмпл(ов)');
+        UI.toast('Проект и сэмплы загружены: ' + restored + '/' + manifest.length, 'ok');
+        return { restored, total: manifest.length };
+      });
+    }).catch((err) => {
+      console.error(err);
+      setStatus('');
+      UI.toast('Не удалось открыть архив: ' + err.message, 'error');
+    });
+  }
+
   function serialize() {
     return JSON.parse(JSON.stringify({
       kaoss: kaossSnapshot(),
@@ -1552,7 +1720,8 @@
     };
   }
 
-  function saveToSlot(name) {
+  function saveToSlot(name, opts) {
+    opts = opts || {};
     const data = serialize();
     const list = readSlots();
     const title = (name || '').trim() || ('Проект ' + new Date().toLocaleString('ru-RU'));
@@ -1564,7 +1733,7 @@
     });
     if (writeSlots(list)) {
       renderProjectList();
-      UI.toast('Сохранено в браузер: ' + title, 'ok');
+      if (!opts.quiet) UI.toast('Сохранено в браузер: ' + title, 'ok');
     }
   }
 
@@ -1887,7 +2056,7 @@
     document.getElementById('btnExportMidi').addEventListener('click', exportMidi);
     const quickSave = document.getElementById('btnQuickSave');
     if (quickSave) quickSave.addEventListener('click', () => {
-      saveToSlot('');
+      saveToSlot('', { quiet: true });
       UI.toast('Быстрое сохранение добавлено в список (вкладка «Экспорт»)', 'ok');
     });
     const saveSlotBtn = document.getElementById('btnSaveSlot');
@@ -1896,6 +2065,18 @@
       saveToSlot(inp ? inp.value : '');
       if (inp) inp.value = '';
     });
+    const zipBtn = document.getElementById('btnSaveZip');
+    if (zipBtn) zipBtn.addEventListener('click', saveProjectZip);
+    const zipOpenBtn = document.getElementById('btnOpenZip');
+    const zipInput = document.getElementById('fileZip');
+    if (zipOpenBtn && zipInput) {
+      zipOpenBtn.addEventListener('click', () => zipInput.click());
+      zipInput.addEventListener('change', (e) => {
+        const f = e.target.files[0];
+        e.target.value = '';
+        if (f) openProjectZip(f);
+      });
+    }
     const saveFileBtn = document.getElementById('btnSaveFile');
     if (saveFileBtn) saveFileBtn.addEventListener('click', saveProject);
     const autoRestore = document.getElementById('btnAutoRestore');
@@ -1964,7 +2145,7 @@
       const k = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && (k === 's' || k === 'ы')) {
         e.preventDefault();
-        saveToSlot('');
+        saveToSlot('', { quiet: true });
         UI.toast('Проект сохранён в браузер (Ctrl+S)', 'ok');
         return;
       }
@@ -2113,6 +2294,9 @@
     renderProject,
     saveToSlot,
     readSlots,
+    saveProjectZip,
+    openProjectZip,
+    collectSamples,
     kaossSnapshot,
     renderProjectList,
     patternSteps: () => patternSteps(),
