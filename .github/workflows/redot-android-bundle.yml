@@ -42,16 +42,21 @@ jobs:
             workflow_path=redot-android-editor.yml
             if [ "$workflow" = 'Assemble Android editor and latest bridge' ]; then workflow_path=redot-android-bundle.yml; fi
             if ! gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$workflow_path?ref=$sha" --jq .content | base64 -d | grep -q "ref: $expected"; then continue; fi
-            available=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts" --jq '[.artifacts[] | select(.name == "redot-26.3-rc2-android-arm64-and-usb-mcp" and .expired == false)] | length')
-            if [ "$available" -ne 1 ]; then continue; fi
-            mkdir -p "source-$id"
-            if ! gh run download "$id" --repo "$GITHUB_REPOSITORY" --name redot-26.3-rc2-android-arm64-and-usb-mcp --dir "source-$id"; then continue; fi
-            mapfile -t apks < <(find "source-$id" -maxdepth 1 -type f -name 'android_editor-android-*.apk' -size +0c)
-            [ "${#apks[@]}" -gt 0 ] || continue
-            cp "${apks[@]}" artifact/
-            printf 'Engine revision: %s\nAPK build run: %s\nAPK build commit: %s\nBridge commit: %s\n' "$expected" "$id" "$sha" "$GITHUB_SHA" > artifact/BUILD-PROVENANCE.txt
-            found=true
-            break
+            # A successful bundle also contains the APKs. Reuse it when a
+            # build-only artifact has expired or fallen outside the run list.
+            for name in redot-26.3-rc2-android-arm64-and-usb-mcp redot-26.3-rc2-android-latest-bridge; do
+              available=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts" --jq "[.artifacts[] | select(.name == \"$name\" and .expired == false)] | length")
+              if [ "$available" -ne 1 ]; then continue; fi
+              rm -rf "source-$id"; mkdir -p "source-$id"
+              if ! gh run download "$id" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "source-$id"; then continue; fi
+              mapfile -t apks < <(find "source-$id" -maxdepth 1 -type f -name 'android_editor-android-*.apk' -size +0c)
+              [ "${#apks[@]}" -gt 0 ] || continue
+              cp "${apks[@]}" artifact/
+              printf 'Engine revision: %s\nAPK source run: %s\nAPK source artifact: %s\nAPK source commit: %s\nBridge commit: %s\n' "$expected" "$id" "$name" "$sha" "$GITHUB_SHA" > artifact/BUILD-PROVENANCE.txt
+              found=true
+              break
+            done
+            if [ "$found" = true ]; then break; fi
           done < <(jq -r '.[] | select(.status == "completed" and .conclusion == "success" and (.workflowName == "Build Redot RC2 Android Editor" or .workflowName == "Assemble Android editor and latest bridge")) | [.databaseId, .headSha, .workflowName] | @tsv' runs.json)
           echo "found=$found" >> "$GITHUB_OUTPUT"
           if [ "$found" = false ]; then echo 'No compatible unexpired Android build: a fresh build will be made.'; fi
