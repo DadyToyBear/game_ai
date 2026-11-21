@@ -12,6 +12,8 @@ import time
 from pathlib import Path
 from PIL import Image
 
+EDITOR_PID = None
+
 
 def adb(*args, check=True, timeout=90):
     return subprocess.run(['adb', *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check, timeout=timeout)
@@ -22,6 +24,7 @@ def notice(title, value):
 
 
 def main():
+    global EDITOR_PID
     apks = list(Path(sys.argv[1]).rglob('android_editor-android-debug.apk'))
     if len(apks) != 1:
         raise RuntimeError(f'Expected one debug editor APK, found {len(apks)}')
@@ -35,11 +38,14 @@ def main():
     adb('shell', 'wm', 'size', '1280x800')
     adb('shell', 'wm', 'density', '160')
     adb('shell', 'appops', 'set', pkg, 'MANAGE_EXTERNAL_STORAGE', 'allow', check=False)
+    adb('logcat', '-G', '16M', check=False)
     adb('logcat', '-c')
     adb('shell', 'monkey', '-p', pkg, '-c', 'android.intent.category.LAUNCHER', '1')
     deadline = time.monotonic() + 90
     while time.monotonic() < deadline:
-        if adb('shell', 'pidof', pkg, check=False).stdout.strip():
+        pid = adb('shell', 'pidof', pkg, check=False).stdout.decode().strip()
+        if pid:
+            EDITOR_PID = pid.split()[0]
             break
         time.sleep(1)
     else:
@@ -87,9 +93,12 @@ if __name__ == '__main__':
                 print(f'::warning title=ANDROID_FAILURE_{i//3500:02d}::{data[i:i+3500]}', flush=True)
         except Exception:
             pass
-        logs = adb('logcat', '-d', '-t', '5000', check=False).stdout.decode(errors='replace')
-        relevant = [line for line in logs.splitlines() if re.search(r'godot|redot|fatal|crash|linker|libc|ndk_translation', line, re.I)]
-        for i, line in enumerate(relevant[-20:]):
-            notice(f'Android diagnostic {i:02d}', line[:1000].replace('%', '%25'))
+        if EDITOR_PID:
+            logs = adb('logcat', '-d', '--pid', EDITOR_PID, check=False).stdout.decode(errors='replace')
+            relevant = [line for line in logs.splitlines() if re.search(r'godot|redot|vulkan|opengl|egl|error|fatal|crash|render|denied', line, re.I)]
+            notice('Android editor logs', ' | '.join(relevant[-25:])[-3800:].replace('%', '%25'))
+        logs = adb('logcat', '-b', 'crash', '-d', check=False).stdout.decode(errors='replace')
+        if logs.strip():
+            notice('Android crash logs', logs[-3600:].replace('%', '%25'))
         print(f'::error title=Android runtime probe::{str(exc).replace("%", "%25")}', file=sys.stderr, flush=True)
         raise
