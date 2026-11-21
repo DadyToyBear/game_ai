@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+"""Opt-in, local-only frame mailbox and MCP stdio adapter (experimental)."""
+import argparse
+import base64
+import hmac
+import json
+import mimetypes
+import os
+from pathlib import Path
+import sys
+import threading
+import time
+import urllib.error
+import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+MAX_FRAME = 8 * 1024 * 1024
+WEB = Path(__file__).resolve().parent / 'web'
+
+
+class FrameStore:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.frame = None
+
+    def put(self, data, mime):
+        with self.lock:
+            self.frame = (data, mime, time.time())
+
+    def get(self):
+        with self.lock:
+            return self.frame
+
+    def clear(self):
+        with self.lock:
+            existed = self.frame is not None
+            self.frame = None
+            return existed
+
+
+def handler_for(store, token, editor_dir=None):
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, fmt, *args):
+            # Do not log paths, authorization headers or payloads.
+            pass
+
+        def send_bytes(self, code, body=b'', content_type='text/plain; charset=utf-8'):
+            self.send_response(code)
+            self.send_header('Content-Type', content_type)
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+            self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+            self.end_headers()
+            if self.command != 'HEAD':
+                self.wfile.write(body)
+
+        def authorized(self):
+            actual = self.headers.get('Authorization', '')
+            return hmac.compare_digest(actual.encode('utf-8'), ('Bearer ' + token).encode('utf-8'))
+
+        def check_auth(self):
+            if not self.authorized():
+                self.send_bytes(401, b'Unauthorized')
+                return False
+            return True
+
+        def do_GET(self):
+            if self.path in ('/', '/demo.html', '/capture.js', '/redot-overlay.js'):
+                name = 'demo.html' if self.path in ('/', '/demo.html') else self.path[1:]
+                kind = 'text/html; charset=utf-8' if name.endswith('.html') else 'text/javascript; charset=utf-8'
+                self.send_bytes(200, (WEB / name).read_bytes(), kind)
+                return
+            if self.path.startswith('/editor/') and editor_dir is not None:
+                # Only files under the configured editor directory are served; no listings or traversal.
+                root = Path(editor_dir).resolve()
+                target = (root / self.path[len('/editor/'):]).resolve()
+                if not target.is_relative_to(root) or not target.is_file():
+                    self.send_bytes(404, b'Not found')
+                    return
+                data = target.read_bytes()
+                if target == root / 'godot.editor.html':
+                    marker = b'</body>'
+                    if marker not in data:
+                        self.send_bytes(500, b'Editor HTML missing body closing tag')
+                        return
+                    data = data.replace(marker, b'<script src="/capture.js"></script><script src="/redot-overlay.js"></script></body>', 1)
+                kind = mimetypes.guess_type(str(target))[0] or 'application/octet-stream'
+                if target.suffix == '.wasm':
+                    kind = 'application/wasm'
+                self.send_bytes(200, data, kind)
+                return
+            if self.path != '/api/frame':
+                self.send_bytes(404, b'Not found')
+                return
+            if not self.check_auth():
+                return
+            frame = store.get()
+            if frame is None:
+                self.send_bytes(404, b'No frame available')
+                return
+            self.send_bytes(200, frame[0], frame[1])
+
+        def do_POST(self):
+            if self.path != '/api/frame':
+                self.send_bytes(404, b'Not found')
+                return
+            if not self.check_auth():
+                self.close_connection = True
+                return
+            try:
+                length = int(self.headers.get('Content-Length', ''))
+            except ValueError:
+                self.close_connection = True
+                self.send_bytes(411, b'Content-Length required')
+                return
+            mime = self.headers.get('Content-Type', '').split(';', 1)[0].strip().lower()
+            if length <= 0 or length > MAX_FRAME:
+                self.close_connection = True
+                self.send_bytes(413, b'Invalid frame size')
+                return
+            if mime not in ('image/png', 'image/jpeg'):
+                self.close_connection = True
+                self.send_bytes(415, b'PNG or JPEG required')
+                return
+            data = self.rfile.read(length)
+            signature = b'\x89PNG\r\n\x1a\n' if mime == 'image/png' else b'\xff\xd8\xff'
+            if len(data) != length or not data.startswith(signature):
+                self.send_bytes(400, b'Invalid image')
+                return
+            store.put(data, mime)
+            self.send_bytes(204)
+
+        def do_DELETE(self):
+            if self.path != '/api/frame':
+                self.send_bytes(404, b'Not found')
+                return
+            if not self.check_auth():
+                return
+            store.clear()
+            self.send_bytes(204)
+
+    return Handler
+
+
+def tools():
+    return [
+        {'name': 'game_screenshot', 'description': 'Read the latest frame explicitly shared by the game. No frame is captured on demand.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'delete_game_screenshot', 'description': 'Delete the latest shared game frame from bridge memory.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+    ]
+
+
+def call_frame(url, token, method):
+    request = urllib.request.Request(url.rstrip('/') + '/api/frame', method=method, headers={'Authorization': 'Bearer ' + token})
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            body = response.read(MAX_FRAME + 1)
+            if len(body) > MAX_FRAME:
+                raise ValueError('Frame exceeds size limit')
+            mime = response.headers.get_content_type()
+            if method == 'GET' and mime not in ('image/png', 'image/jpeg'):
+                raise ValueError('Unexpected frame MIME type')
+            return body, mime
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise ValueError('No game frame has been shared yet') from exc
+        raise ValueError(f'Bridge HTTP error: {exc.code}') from exc
+    except urllib.error.URLError as exc:
+        raise ValueError('Bridge unavailable; start the local server first') from exc
+
+
+def mcp_response(message, url, token):
+    if not isinstance(message, dict) or message.get('jsonrpc') != '2.0':
+        return {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32600, 'message': 'Invalid Request'}}
+    method = message.get('method')
+    if 'id' not in message:  # Notifications do not receive a response.
+        return None
+    request_id = message['id']
+    result = None
+    if method == 'initialize':
+        result = {'protocolVersion': '2025-03-26', 'capabilities': {'tools': {}}, 'serverInfo': {'name': 'redot-frame-bridge', 'version': '0.1.0'}}
+    elif method == 'ping':
+        result = {}
+    elif method == 'tools/list':
+        result = {'tools': tools()}
+    elif method == 'tools/call':
+        params = message.get('params') or {}
+        if not isinstance(params, dict):
+            return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Invalid params'}}
+        name = params.get('name')
+        if name not in ('game_screenshot', 'delete_game_screenshot'):
+            return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Unknown tool'}}
+        if params.get('arguments', {}) != {}:
+            return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'No arguments expected'}}
+        try:
+            if name == 'game_screenshot':
+                body, mime = call_frame(url, token, 'GET')
+                result = {'content': [{'type': 'image', 'data': base64.b64encode(body).decode('ascii'), 'mimeType': mime}]}
+            else:
+                call_frame(url, token, 'DELETE')
+                result = {'content': [{'type': 'text', 'text': 'Frame deleted from bridge memory.'}]}
+        except (ValueError, OSError) as exc:
+            result = {'content': [{'type': 'text', 'text': str(exc)}], 'isError': True}
+    else:
+        return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32601, 'message': 'Method not found'}}
+    return {'jsonrpc': '2.0', 'id': request_id, 'result': result}
+
+
+def mcp_stdio(url, token):
+    for line in sys.stdin:
+        try:
+            response = mcp_response(json.loads(line), url, token)
+        except json.JSONDecodeError:
+            response = {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32700, 'message': 'Parse error'}}
+        if response is not None:
+            print(json.dumps(response, separators=(',', ':')), flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('mode', choices=('serve', 'mcp'))
+    parser.add_argument('--port', type=int, default=8765)
+    parser.add_argument('--editor-dir', type=Path, help='Unpacked web editor directory (serve mode only)')
+    args = parser.parse_args()
+    token = os.environ.get('REDOT_BRIDGE_TOKEN', '')
+    if len(token) < 32 or not token.isascii() or any(c.isspace() or ord(c) < 33 or ord(c) > 126 for c in token):
+        parser.error('Set REDOT_BRIDGE_TOKEN to a random ASCII secret of at least 32 characters')
+    if not 1 <= args.port <= 65535:
+        parser.error('Invalid port')
+    if args.mode == 'serve':
+        if args.editor_dir is not None and not (args.editor_dir / 'godot.editor.html').is_file():
+            parser.error('Editor directory must contain godot.editor.html')
+        server = ThreadingHTTPServer(('127.0.0.1', args.port), handler_for(FrameStore(), token, args.editor_dir))
+        print(f'Local demo: http://127.0.0.1:{args.port}/', file=sys.stderr, flush=True)
+        if args.editor_dir is not None:
+            print(f'Local editor: http://127.0.0.1:{args.port}/editor/godot.editor.html', file=sys.stderr, flush=True)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            server.server_close()
+    else:
+        mcp_stdio(f'http://127.0.0.1:{args.port}', token)
+
+
+if __name__ == '__main__':
+    main()
