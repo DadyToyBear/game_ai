@@ -18,6 +18,8 @@ jobs:
   native-integration:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /tmp/redot-playwright-browsers
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
