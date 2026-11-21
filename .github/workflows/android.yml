@@ -37,6 +37,54 @@ permissions:
   contents: write
 
 jobs:
+  # Устанавливаемый APK на каждый пуш: всегда свежий файл в релизе apk-latest
+  debug-apk:
+    if: github.ref == 'refs/heads/arena/a11b2c5a-game-ai'
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Android SDK
+        run: |
+          sudo mkdir -p $ANDROID_HOME/cmdline-tools
+          cd /tmp
+          curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q cmdline.zip -d /tmp/cmdline
+          sudo mv /tmp/cmdline/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
+      - name: Собрать www/ и debug APK
+        run: |
+          bash scripts/build-www.sh
+          npm install --no-audit --no-fund
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Опубликовать APK (apk-latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: Mini Studio — свежий APK (debug)
+          prerelease: true
+          body: |
+            Автоматическая сборка из ветки `arena/a11b2c5a-game-ai`.
+            Устанавливается сразу: скачайте APK ниже → «Установка из неизвестных источников» → открыть.
+            Подписанные release-APK и AAB для Google Play — в релизе `release-latest`.
+          files: android/app/build/outputs/apk/debug/*.apk
+
   release:
     runs-on: ubuntu-latest
     env:
