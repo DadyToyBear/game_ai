@@ -30,6 +30,8 @@ PROJECT = '''config_version=5
 [application]
 config/name="Android MCP Audit"
 run/main_scene="res://main.tscn"
+[autoload]
+GameCapture="*res://addons/redot_android_mcp/game_capture.gd"
 [editor_plugins]
 enabled=PackedStringArray("res://addons/redot_android_mcp/plugin.cfg", "res://addons/audit/plugin.cfg")
 [rendering]
@@ -57,6 +59,23 @@ func _process(delta: float) -> void:
                 set_process(false)
                 return
         queue.append_array(item.get_children())
+''' % TOKEN
+GAME_SCRIPT = '''extends ColorRect
+func _ready() -> void:
+    print("ANDROID_MCP_GAME_STARTED")
+func _process(_delta: float) -> void:
+    var capture := get_node_or_null("/root/GameCapture")
+    if capture == null:
+        return
+    var dialog: ConfirmationDialog = capture.get("_dialog")
+    var secret_field: LineEdit = capture.get("_token_input")
+    if dialog == null or secret_field == null:
+        return
+    secret_field.text = "%s"
+    dialog.hide()
+    capture.call("_start_capture")
+    print("ANDROID_MCP_CAPTURE_TEST_REQUESTED")
+    set_process(false)
 ''' % TOKEN
 
 
@@ -112,7 +131,7 @@ def main(store):
         project.mkdir()
         (project / 'project.godot').write_text(PROJECT)
         (project / 'main.tscn').write_text('[gd_scene load_steps=2 format=3]\n[ext_resource type="Script" path="res://game.gd" id="1"]\n[node name="Game" type="ColorRect"]\noffset_right = 320.0\noffset_bottom = 240.0\ncolor = Color(0.95, 0.05, 0.08, 1)\nscript = ExtResource("1")\n')
-        (project / 'game.gd').write_text('extends ColorRect\nfunc _ready() -> void:\n\tprint("ANDROID_MCP_GAME_STARTED")\n')
+        (project / 'game.gd').write_text(GAME_SCRIPT)
         shutil.copytree(PACKAGE / 'addons/redot_android_mcp', project / 'addons/redot_android_mcp')
         (project / 'addons/audit').mkdir()
         (project / 'addons/audit/plugin.cfg').write_text('[plugin]\nname="Android MCP Audit"\ndescription="CI only"\nauthor="test"\nversion="1"\nscript="plugin.gd"\n')
@@ -130,9 +149,28 @@ def main(store):
     wait('Android test game process', lambda: 'ANDROID_MCP_GAME_STARTED' in logs(), 180)
     notice('Android MCP Play', 'The test game reported its own ready marker after MCP Play.')
     wait('editor Play state', lambda: store.status()['playing'] is True, 90)
+    wait('test game requesting capture', lambda: 'ANDROID_MCP_CAPTURE_TEST_REQUESTED' in logs(), 90)
+    def valid_frame():
+        if not store.status()['frame_available']:
+            return False
+        result = mcp('game_screenshot')
+        if result['content'][0].get('mimeType') != 'image/jpeg' or 'native-game' not in result['content'][1]['text']:
+            raise RuntimeError('Unexpected screenshot type or source')
+        data = base64.b64decode(result['content'][0]['data'], validate=True)
+        image = Image.open(io.BytesIO(data)).convert('RGB')
+        return sum(1 for r, g, b in image.getdata() if r > 140 and g < 100 and b < 100) > 1000
+    wait('Android game screenshot with red test pixels', valid_frame, 150)
+    notice('Android MCP game capture', 'Game autoload sent a JPEG containing the red test scene to MCP; test helper invoked Share, not the actual dialog UI.')
     mcp('game_stop')
     wait('editor Stop state', lambda: store.status()['playing'] is False, 90)
-    notice('Android MCP Stop', 'Editor reported that the test game stopped after MCP Stop.')
+    time.sleep(3)
+    mcp('delete_game_screenshot')
+    if store.get() is not None:
+        raise RuntimeError('Game screenshot was not deleted')
+    time.sleep(2)
+    if store.get() is not None:
+        raise RuntimeError('A new screenshot arrived after Stop and deletion')
+    notice('Android MCP Stop and delete', 'Editor reported the game stopped, and the last game screenshot was deleted.')
 
 
 def failure_diagnostics(exc):
