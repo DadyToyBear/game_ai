@@ -2795,6 +2795,18 @@
       if (document.hidden) releasePreviews();
     });
 
+    /* Высота топбара: липкие панели (ролл, сетка) должны вставать ПОД него,
+       иначе их верх уезжает под топбар и кнопки не нажать. */
+    function measureTopbar() {
+      const bar = document.querySelector('.topbar');
+      if (!bar) return;
+      const h = Math.round(bar.getBoundingClientRect().height);
+      if (h > 0) document.documentElement.style.setProperty('--topbar-h', h + 'px');
+    }
+    measureTopbar();
+    window.addEventListener('resize', measureTopbar);
+    window.addEventListener('orientationchange', () => setTimeout(measureTopbar, 250));
+
     // автосохранение: каждые 20 с, только если проект изменился
     let lastAuto = '';
     setInterval(() => {
