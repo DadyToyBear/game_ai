@@ -24,6 +24,16 @@ public class PaintViewTest {
             assertEquals(Color.RED,view.bitmap.getPixel(600,600));assertTrue(view.undo());assertEquals(Color.WHITE,view.bitmap.getPixel(600,600));assertFalse(view.undo());
         });
     }
+    @Test public void rotateAndMirrorCanBeUndone() {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+            Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();MainActivity.PaintView view=new MainActivity.PaintView(context);
+            android.graphics.Paint p=new android.graphics.Paint();p.setColor(Color.RED);new android.graphics.Canvas(view.bitmap).drawRect(100,100,200,200,p);
+            assertTrue(view.transform(false));assertEquals(Color.RED,view.bitmap.getPixel(1050,150));assertEquals(Color.WHITE,view.bitmap.getPixel(150,150));
+            assertTrue(view.undo());assertEquals(Color.RED,view.bitmap.getPixel(150,150));
+            assertTrue(view.transform(true));assertEquals(Color.RED,view.bitmap.getPixel(1050,150));assertEquals(Color.WHITE,view.bitmap.getPixel(150,150));
+            assertTrue(view.undo());assertEquals(Color.RED,view.bitmap.getPixel(150,150));
+        });
+    }
     @Test public void importFitsWithoutStretchingAndCanUndo() {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
             Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();MainActivity.PaintView view=new MainActivity.PaintView(context);

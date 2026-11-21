@@ -17,7 +17,7 @@ final class VideoTrimmer {
     private static final long MAX_SOURCE=512L*1024*1024;
     private static final int MAX_SAMPLE=16*1024*1024;
     static final class Result {final long actualStartUs;final int frames;Result(long start,int frames){actualStartUs=start;this.frames=frames;}}
-    static Result trim(ContentResolver resolver,Uri source,Uri target,File cache,long startMs,long endMs,CancellationSignal cancel) throws Exception {
+    static Result trim(ContentResolver resolver,Uri source,Uri target,File cache,long startMs,long endMs,boolean mute,CancellationSignal cancel) throws Exception {
         if(source.equals(target))throw new IOException("Выберите другой файл для сохранения");
         if(startMs<0||endMs<=startMs||endMs>Long.MAX_VALUE/1000)throw new IOException("Некорректный диапазон");
         long startUs=startMs*1000,endUs=endMs*1000;
@@ -31,12 +31,8 @@ final class VideoTrimmer {
             MediaExtractor probe=new MediaExtractor();long anchor;int videoTrack=-1,audioTrack=-1;MediaFormat videoFormat=null,audioFormat=null;
             try {
                 setSource(probe,afd);
-                for(int i=0;i<probe.getTrackCount();i++){
-                    MediaFormat fmt=probe.getTrackFormat(i);String mime=fmt.getString(MediaFormat.KEY_MIME);if(mime==null)continue;
-                    if(mime.startsWith("video/")){if(videoTrack!=-1)throw new IOException("Несколько видеодорожек не поддерживаются");if(!mime.equals("video/avc")&&!mime.equals("video/hevc"))throw new IOException("Поддерживаются только H.264 и H.265");videoTrack=i;videoFormat=fmt;}
-                    else if(mime.startsWith("audio/")){if(audioTrack!=-1)throw new IOException("Несколько аудиодорожек не поддерживаются");if(!mime.equals("audio/mp4a-latm"))throw new IOException("Поддерживается только звук AAC");audioTrack=i;audioFormat=fmt;}
-                }
-                if(videoTrack<0)throw new IOException("Видеодорожка не найдена");
+                java.util.List<MediaFormat> formats=new java.util.ArrayList<>();for(int i=0;i<probe.getTrackCount();i++)formats.add(probe.getTrackFormat(i));
+                Tracks tracks=selectTracks(formats,mute);videoTrack=tracks.video;audioTrack=tracks.audio;videoFormat=formats.get(videoTrack);if(audioTrack>=0)audioFormat=formats.get(audioTrack);
                 if(videoFormat.containsKey(MediaFormat.KEY_DURATION) && startUs>=videoFormat.getLong(MediaFormat.KEY_DURATION))throw new IOException("Начало находится за пределами видео");
                 probe.selectTrack(videoTrack);probe.seekTo(startUs,MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
                 anchor=probe.getSampleTime();
@@ -79,6 +75,16 @@ final class VideoTrimmer {
             }
             return new Result(anchor,frames);
         }finally{if(temporary!=null)temporary.delete();}
+    }
+    static final class Tracks {int video=-1,audio=-1;}
+    static Tracks selectTracks(java.util.List<MediaFormat> formats,boolean mute) throws IOException {
+        Tracks tracks=new Tracks();
+        for(int i=0;i<formats.size();i++){
+            String mime=formats.get(i).getString(MediaFormat.KEY_MIME);if(mime==null)continue;
+            if(mime.startsWith("video/")){if(tracks.video!=-1)throw new IOException("Несколько видеодорожек не поддерживаются");if(!mime.equals("video/avc")&&!mime.equals("video/hevc"))throw new IOException("Поддерживаются только H.264 и H.265");tracks.video=i;}
+            else if(!mute&&mime.startsWith("audio/")){if(tracks.audio!=-1)throw new IOException("Несколько аудиодорожек не поддерживаются");if(!mime.equals("audio/mp4a-latm"))throw new IOException("Поддерживается только звук AAC");tracks.audio=i;}
+        }
+        if(tracks.video<0)throw new IOException("Видеодорожка не найдена");return tracks;
     }
     private static void setSource(MediaExtractor extractor,AssetFileDescriptor afd) throws IOException {
         long length=afd.getLength();if(length>=0)extractor.setDataSource(afd.getFileDescriptor(),afd.getStartOffset(),length);

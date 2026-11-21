@@ -20,6 +20,7 @@ public class MainActivity extends Activity {
     private final Stack<Uri> parents = new Stack<>();
     private PaintView canvas;
     private boolean fileScreen, searchScreenVisible;
+    private FileSort.Mode fileSort=FileSort.Mode.NAME_ASC;
     private boolean mediaScreen;
     private VideoView mediaPlayer;
     private MediaController mediaController;
@@ -35,8 +36,8 @@ public class MainActivity extends Activity {
     private android.os.CancellationSignal searchCancellation;
     private android.os.CancellationSignal videoCancellation;
     private VideoUi videoUi; private PendingVideo pendingVideo;
-    private static final class VideoUi { Uri source;EditText start,end;TextView status;Button choose,save,cancel;boolean busy; }
-    private static final class PendingVideo { final VideoUi ui;final Uri source;final long start,end;PendingVideo(VideoUi ui,Uri source,long start,long end){this.ui=ui;this.source=source;this.start=start;this.end=end;} }
+    private static final class VideoUi { Uri source;EditText start,end;CheckBox mute;TextView status;Button choose,save,cancel;boolean busy; }
+    private static final class PendingVideo { final VideoUi ui;final Uri source;final long start,end;final boolean mute;PendingVideo(VideoUi ui,Uri source,long start,long end,boolean mute){this.ui=ui;this.source=source;this.start=start;this.end=end;this.mute=mute;} }
     private SmbUi smbUi; private PendingSmb pendingSmb;
     private static final class SmbUi {EditText host,port,share,domain,user,password;TextView status;LinearLayout entries;Button list,upload;boolean busy;SmbAccess.Credentials connection;String directory;}
     private static final class PendingSmb {final SmbUi ui;final SmbAccess.Credentials connection;final String remote;final int request;PendingSmb(SmbUi ui,SmbAccess.Credentials connection,String remote,int request){this.ui=ui;this.connection=connection;this.remote=remote;this.request=request;}}
@@ -144,6 +145,10 @@ public class MainActivity extends Activity {
     private void list() {
         layout("Файлы"); body.addView(button("← Назад", () -> { if(parents.empty()) home(); else {current=parents.pop(); list();} }));
         body.addView(button("Поиск в этой папке",this::searchScreen));
+        body.addView(button("Сортировка: "+sortLabel(fileSort),()->{
+            String[] labels={"Имя: А–Я", "Имя: Я–А", "Размер: сначала большие", "Размер: сначала маленькие"};
+            new AlertDialog.Builder(this).setTitle("Сортировка файлов").setSingleChoiceItems(labels,fileSort.ordinal(),(dialog,choice)->{fileSort=FileSort.Mode.values()[choice];dialog.dismiss();list();}).setNegativeButton("Отмена",null).show();
+        }));
         if(clipboard!=null) body.addView(button((cut?"Вставить (переместить): ":"Вставить (копировать): ")+clipboard.name, this::paste));
         body.addView(button("＋ Новая папка", () -> input("Имя папки", name -> { try { if(DocumentsContract.createDocument(getContentResolver(),current,DocumentsContract.Document.MIME_TYPE_DIR,name)==null) throw new IOException("Создание не поддерживается"); list(); } catch(Exception e){error(e);} })));
         try {
@@ -153,11 +158,12 @@ public class MainActivity extends Activity {
                 if(c==null) throw new IOException("Папка недоступна");
                 while(c.moveToNext()) entries.add(new Entry(DocumentsContract.buildDocumentUriUsingTree(tree,c.getString(0)),c.getString(1),c.getString(2),c.isNull(3)?-1:c.getLong(3)));
             }
-            Collections.sort(entries,(a,b)-> { int x=Boolean.compare(b.dir(),a.dir()); return x!=0?x:a.name.compareToIgnoreCase(b.name); });
+            Collections.sort(entries,FileSort.comparator(fileSort));
             if(entries.isEmpty()) note("Папка пуста");
             for(Entry e:entries) { TextView row=text((e.dir()?"📁  ":"📄  ")+e.name+(e.dir()||e.size<0?"":"  ·  "+android.text.format.Formatter.formatFileSize(this,e.size)),16); row.setPadding(dp(8),dp(16),dp(8),dp(16)); body.addView(row); row.setOnClickListener(v->{ if(e.dir()){parents.push(current);current=e.uri;list();} else open(e); }); row.setOnLongClickListener(v->{actions(e);return true;}); }
         } catch(Exception e) { error(e); }
     }
+    private String sortLabel(FileSort.Mode mode){switch(mode){case NAME_DESC:return "имя Я–А";case SIZE_DESC:return "сначала большие";case SIZE_ASC:return "сначала маленькие";default:return "имя А–Я";}}
     private void open(Entry e) {
         if(isText(e)){editText(e);return;}
         String mime=mediaMime(e);
@@ -882,12 +888,13 @@ public class MainActivity extends Activity {
     private void cancelVideo(){if(videoCancellation!=null){videoCancellation.cancel();videoCancellation=null;}}
     private void videoEditorScreen(){
         layout("Видео · обрезка MP4");
-        note("Обрезка без перекодирования: MP4 с одной видеодорожкой H.264/H.265 и не более одной аудиодорожки AAC. Неизвестный размер и файлы больше 512 МиБ не поддерживаются. Понадобится свободное место в кэше.");
+        note("Обрезка без перекодирования: MP4 с одной видеодорожкой H.264/H.265 и, если звук сохраняется, не более одной аудиодорожки AAC. Неизвестный размер и файлы больше 512 МиБ не поддерживаются. Понадобится свободное место в кэше.");
         note("Начало переносится к предыдущему ключевому кадру; конец ограничен временем кадра. Субтитры, дополнительные дорожки и метаданные могут не сохраниться. Выберите НОВЫЙ файл при сохранении — перезапись может повредить исходник. Поворот экрана отменяет операцию.");
         VideoUi ui=new VideoUi();videoUi=ui;
         ui.status=text("Выберите исходный MP4",15);ui.choose=button("Выбрать видео",()->{});body.addView(ui.choose);
         ui.start=field("Начало в миллисекундах",false);ui.start.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);ui.start.setText("0");
         ui.end=field("Конец в миллисекундах (например 10000 = 10 сек)",false);ui.end.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        ui.mute=new CheckBox(this);ui.mute.setText("Сохранить фрагмент без звука");body.addView(ui.mute);
         ui.save=button("Выбрать файл и обрезать",()->{});ui.save.setEnabled(false);ui.cancel=button("Отменить обработку",()->{});ui.cancel.setEnabled(false);
         body.addView(ui.save);body.addView(ui.cancel);body.addView(ui.status);body.addView(button("Назад",this::home));
         ui.choose.setOnClickListener(v->{
@@ -898,10 +905,10 @@ public class MainActivity extends Activity {
             if(ui.busy||ui.source==null)return;long start,end;
             try{start=Long.parseLong(ui.start.getText().toString().trim());end=Long.parseLong(ui.end.getText().toString().trim());if(start<0||end<=start||end>Long.MAX_VALUE/1000)throw new IllegalArgumentException();}
             catch(Exception ex){toast("Введите начало и конец в миллисекундах; конец должен быть больше начала");return;}
-            Uri source=ui.source;new AlertDialog.Builder(this).setTitle("Сохранить фрагмент")
+            Uri source=ui.source;boolean mute=ui.mute.isChecked();new AlertDialog.Builder(this).setTitle("Сохранить фрагмент")
                 .setMessage("Выберите новое имя и не выбирайте исходный файл. Если операция записи прервётся, файл назначения может быть неполным.")
                 .setNegativeButton("Отмена",null).setPositiveButton("Продолжить",(d,w)->{
-                    if(videoUi!=ui)return;pendingVideo=new PendingVideo(ui,source,start,end);Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("video/mp4");i.putExtra(Intent.EXTRA_TITLE,"trimmed.mp4");
+                    if(videoUi!=ui)return;pendingVideo=new PendingVideo(ui,source,start,end,mute);Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("video/mp4");i.putExtra(Intent.EXTRA_TITLE,"trimmed.mp4");
                     try{startActivityForResult(i,VIDEO_SAVE);}catch(Exception ex){pendingVideo=null;error(ex);}
                 }).show();
         });
@@ -913,7 +920,7 @@ public class MainActivity extends Activity {
         android.os.CancellationSignal signal=new android.os.CancellationSignal();videoCancellation=signal;ui.busy=true;ui.choose.setEnabled(false);ui.save.setEnabled(false);ui.cancel.setEnabled(true);ui.status.setText("Обработка…");
         new Thread(()->{
             VideoTrimmer.Result result=null;String failure=null;
-            try{result=VideoTrimmer.trim(getContentResolver(),pending.source,target,getCacheDir(),pending.start,pending.end,signal);}
+            try{result=VideoTrimmer.trim(getContentResolver(),pending.source,target,getCacheDir(),pending.start,pending.end,pending.mute,signal);}
             catch(android.os.OperationCanceledException ex){failure="Отменено. Файл назначения, если запись началась, может быть неполным.";}
             catch(Exception | OutOfMemoryError ex){failure="Ошибка: "+ex.getMessage()+". Файл назначения, если запись началась, может быть неполным.";}
             VideoTrimmer.Result answer=result;String message=failure;
@@ -942,6 +949,8 @@ public class MainActivity extends Activity {
         LinearLayout tools=new LinearLayout(this);body.addView(tools);
         tools.addView(button("Отменить",()->{if(!view.undo())toast("Нет действия для отмены");}));
         tools.addView(button("Очистить",()->new AlertDialog.Builder(this).setMessage("Очистить холст?").setNegativeButton("Отмена",null).setPositiveButton("Очистить",(d,w)->view.clear()).show()));
+        body.addView(button("Повернуть холст на 90° вправо",()->{if(!view.transform(false))toast("Недостаточно памяти для поворота");}));
+        body.addView(button("Отразить холст по горизонтали",()->{if(!view.transform(true))toast("Недостаточно памяти для отражения");}));
         body.addView(button("Открыть картинку",()->{
             Runnable choose=()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("image/*");try{startActivityForResult(i,PAINT_OPEN_IMAGE);}catch(Exception ex){error(ex);}};
             if(view.revision==0)choose.run();
@@ -995,6 +1004,13 @@ public class MainActivity extends Activity {
         }
         void clear(){checkpoint();drawing.drawColor(Color.WHITE);revision++;invalidate();}
         boolean undo(){if(previous==null)return false;Bitmap old=bitmap;bitmap=previous;previous=null;drawing=new Canvas(bitmap);old.recycle();revision++;invalidate();return true;}
+        boolean transform(boolean flip){
+            Bitmap next=null;
+            try{next=Bitmap.createBitmap(SIDE,SIDE,Bitmap.Config.ARGB_8888);Canvas output=new Canvas(next);
+                output.translate(SIDE/2f,SIDE/2f);if(flip)output.scale(-1,1);else output.rotate(90);output.translate(-SIDE/2f,-SIDE/2f);output.drawBitmap(bitmap,0,0,null);
+            }catch(OutOfMemoryError e){if(next!=null)next.recycle();return false;}
+            if(previous!=null)previous.recycle();previous=bitmap;bitmap=next;drawing=new Canvas(bitmap);revision++;invalidate();return true;
+        }
         void importImage(Bitmap image){
             checkpoint();drawing.drawColor(Color.WHITE);
             float scale=Math.min((float)SIDE/image.getWidth(),(float)SIDE/image.getHeight());float w=image.getWidth()*scale,h=image.getHeight()*scale;
