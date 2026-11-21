@@ -8,6 +8,7 @@ import io
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from PIL import Image
@@ -72,6 +73,19 @@ def main():
     if not any(pkg in line for line in lines):
         raise RuntimeError('Editor activity was not foreground when image was captured')
     notice('Android editor foreground', ' | '.join(lines)[:900])
+    # A disposable local project on the emulator; do not alter user files.
+    with tempfile.TemporaryDirectory() as folder:
+        project = Path(folder) / 'RedotImport'; project.mkdir()
+        (project / 'project.godot').write_text('config_version=5\n[application]\nconfig/name="Android Import Audit"\nrun/main_scene="res://scenes/main.tscn"\n[editor_plugins]\nenabled=PackedStringArray("res://addons/audit/plugin.cfg")\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n')
+        (project / 'scenes').mkdir(); (project / 'scenes/main.tscn').write_text('[gd_scene format=3]\n[node name="Main" type="Node2D"]\n')
+        (project / 'addons/audit').mkdir(parents=True)
+        (project / 'addons/audit/plugin.cfg').write_text('[plugin]\nname="Android Import Audit"\ndescription="test only"\nauthor="test"\nversion="1"\nscript="plugin.gd"\n')
+        (project / 'addons/audit/plugin.gd').write_text('@tool\nextends EditorPlugin\nfunc _enter_tree() -> void:\n\tprint("ANDROID_IMPORT_EDITOR_READY")\n')
+        adb('push', str(project), '/sdcard/', timeout=90)
+    # Open Import in the project manager to investigate the local-folder flow.
+    adb('shell', 'input', 'tap', '130', '68')
+    time.sleep(5)
+    image = Image.open(io.BytesIO(adb('exec-out', 'screencap', '-p').stdout)).convert('RGB')
     image.thumbnail((960, 600))
     buf = io.BytesIO(); image.save(buf, format='JPEG', quality=18)
     data = base64.b64encode(buf.getvalue()).decode('ascii')
