@@ -12,13 +12,17 @@ def inspect(apk, aapt, apksigner):
     badging = subprocess.check_output([aapt, 'dump', 'badging', str(apk)], text=True)
     signatures = subprocess.run([apksigner, 'verify', '--print-certs', str(apk)], text=True, capture_output=True)
     with zipfile.ZipFile(apk) as archive:
-        native = sorted({x.split('/')[1] for x in archive.namelist() if x.startswith('lib/') and x.endswith('.so') and len(x.split('/')) >= 3})
+        libraries = sorted(x for x in archive.namelist() if x.startswith('lib/') and x.endswith('.so') and len(x.split('/')) >= 3)
+        native = sorted({x.split('/')[1] for x in libraries})
+    manifest = subprocess.check_output([aapt, 'dump', 'xmltree', str(apk), 'AndroidManifest.xml'], text=True)
+    attributes = [line.strip() for line in manifest.splitlines() if any(key in line for key in ('android:smallScreens', 'android:usesCleartextTraffic', 'android:networkSecurityConfig', 'android:debuggable'))]
     package = re.search(r"^package: name='([^']+)'", badging, re.M)
     minimum = re.search(r"^sdkVersion:'([^']+)'", badging, re.M)
     target = re.search(r"^targetSdkVersion:'([^']+)'", badging, re.M)
     return {'file': apk.name, 'package': package.group(1) if package else None,
             'min_sdk': minimum.group(1) if minimum else None, 'target_sdk': target.group(1) if target else None,
-            'native_abis': native, 'internet_permission': "name='android.permission.INTERNET'" in badging,
+            'native_abis': native, 'libraries': libraries, 'manifest_attributes': attributes,
+            'internet_permission': "name='android.permission.INTERNET'" in badging,
             'launchable_activity': 'launchable-activity:' in badging,
             'signature_verified': signatures.returncode == 0}
 
