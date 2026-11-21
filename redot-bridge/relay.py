@@ -59,7 +59,10 @@ def create_app(origin, device_token, controller_token):
         # dashboard. No other origin may frame the viewer or workspace.
         ancestors = "'self'" if request.path == '/native.html' else "'none'"
         frames = "'self' https:" if request.path == '/workspace.html' else "'none'"
-        response.headers['Content-Security-Policy'] = f"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; frame-src {frames}; base-uri 'none'; frame-ancestors {ancestors}; form-action 'none'"
+        # The viewer can explicitly send an image directly to a chosen HTTPS
+        # WebFTP. The bridge token is never sent to that destination.
+        connects = "'self' https:" if request.path in ('/', '/native.html') else "'self'"
+        response.headers['Content-Security-Policy'] = f"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src {connects}; img-src 'self' blob:; frame-src {frames}; base-uri 'none'; frame-ancestors {ancestors}; form-action 'none'"
         return response
 
     app = web.Application(middlewares=[security], client_max_size=MAX_FRAME)

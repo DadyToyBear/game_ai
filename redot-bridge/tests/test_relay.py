@@ -87,7 +87,9 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("frame-ancestors 'none'", r.headers['Content-Security-Policy'])
         r = await self.client.get('/native.html', headers=self.host)
         self.assertIn("frame-ancestors 'self'", r.headers['Content-Security-Policy'])
+        self.assertIn("connect-src 'self' https:", r.headers['Content-Security-Policy'])
         r = await self.client.get('/workspace.js', headers=self.host)
+        self.assertIn("connect-src 'self';", r.headers['Content-Security-Policy'])
         self.assertEqual(r.status, 200)
         self.assertIn('safeDashboard', await r.text())
 

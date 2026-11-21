@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
-  const ids = ['screen', 'token', 'connect', 'status', 'play', 'stop', 'snapshot', 'delete', 'record', 'load-logs', 'delete-logs', 'logs'];
+  const ids = ['screen', 'token', 'connect', 'status', 'play', 'stop', 'snapshot', 'delete', 'record', 'load-logs', 'delete-logs', 'logs', 'share-url', 'share-consent', 'share-frame', 'share-status'];
   const els = Object.fromEntries(ids.map(id => [id, {id, disabled: false, value: '', textContent: ''}]));
   let drawings = 0, clears = 0, frameAvailable = true, tick, frameDeferred = null, refreshTimeout;
   let stateSource = 'native-game', responseSource = 'native-game', frameAge = '0.0', commandDeferred = null;
@@ -18,17 +18,23 @@ const path = require('node:path');
   els.screen.captureStream = () => { const track = {stopped:false, stop() { this.stopped = true; }}; tracks.push(track); return {getTracks: () => [track]}; };
   els.screen.width = 960; els.screen.height = 540;
   els.screen.getContext = () => ({drawImage: () => drawings++, clearRect: () => clears++});
-  const requests = [];
+  const requests = []; let failNotice = false;
   const context = {
     document: {getElementById: id => els[id]},
     window: {addEventListener: () => {}},
-    Headers, Blob, URL, AbortController, MediaRecorder: FakeRecorder,
+    Headers, Blob, URL, Response, AbortController, TextDecoder, crypto: require('node:crypto').webcrypto, location: new URL('http://127.0.0.1:8765/native.html'), MediaRecorder: FakeRecorder,
     setTimeout: (callback, delay) => { if (delay === 10000) { refreshTimeout = callback; return 0; } return setTimeout(callback, delay); },
     clearTimeout,
     setInterval: callback => { tick = callback; return 1; }, clearInterval: () => {},
     createImageBitmap: async () => ({width: 4, height: 4, close() {}}),
     fetch: async (url, opts) => {
       requests.push([url, opts]);
+      if (url.startsWith('https://share.example/')) {
+        assert.equal(opts.headers.Authorization, undefined, 'bridge secret must not be sent to WebFTP');
+        assert.equal(opts.credentials, 'omit'); assert.equal(opts.redirect, 'error');
+        const ok = !(failNotice && decodeURIComponent(url).includes('name=chat-'));
+        return new Response(JSON.stringify({ok}), {status:200});
+      }
       assert.equal(opts.headers.get('Authorization'), 'Bearer correct');
       if (url === '/api/frame' && !opts.method && frameDeferred) await frameDeferred;
       if (url === '/api/command' && commandDeferred) await commandDeferred;
@@ -42,6 +48,28 @@ const path = require('node:path');
   assert.equal(drawings, 1);
   assert.match(els.status.textContent, /Игра запущена/);
   assert.match(els.status.textContent, /получен мостом 0\.0 с назад/);
+  els['share-url'].value = 'https://share.example/s/test';
+  await els['share-frame'].onclick();
+  assert.equal(requests.filter(([url]) => url.startsWith('https://share.example/')).length, 0, 'explicit consent required');
+  els['share-consent'].checked = true;
+  els['share-url'].value = 'http://share.example/s/test';
+  await els['share-frame'].onclick();
+  assert.match(els['share-status'].textContent, /HTTPS/);
+  els['share-url'].value = 'https://share.example/s/test';
+  await els['share-frame'].onclick();
+  const writes = requests.filter(([url]) => url.startsWith('https://share.example/'));
+  assert.equal(writes.length, 2);
+  assert.match(writes[0][0], /name=screenshot-live-[0-9a-f]{32}\.jpg$/);
+  assert.equal(writes[0][1].body.type, 'image/jpeg');
+  assert.match(writes[1][0], /name=chat-\d{14}-[0-9a-f]{12}\.json$/);
+  const notice = JSON.parse(await writes[1][1].body.text());
+  assert.match(notice.text, /@chat-zai/);
+  assert.ok(notice.text.includes(decodeURIComponent(writes[0][0].split('name=')[1])));
+  assert.ok(!notice.text.includes('share.example'), 'chat message must not expose the share capability URL');
+  assert.match(els['share-status'].textContent, /Отправлены/);
+  failNotice = true; await els['share-frame'].onclick();
+  assert.match(els['share-status'].textContent, /сообщение не подтверждено/);
+  failNotice = false;
   frameAge = '12.3'; await tick();
   assert.match(els.status.textContent, /12\.3 с назад \(возможно устарел\)/);
   frameAge = null; await tick();

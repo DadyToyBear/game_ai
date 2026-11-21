@@ -1,9 +1,9 @@
 (() => {
   const $ = id => document.getElementById(id);
   let token = '', active = false, refreshTask = null, timer = null, latest = null, generation = 0;
-  let recorder = null, recorded = [], stream = null, recordTimer = null, logsGeneration = 0;
+  let recorder = null, recorded = [], stream = null, recordTimer = null, logsGeneration = 0, shareJob = null;
   const canvas = $('screen'), ctx = canvas.getContext('2d');
-  const buttons = ['play', 'stop', 'snapshot', 'delete', 'record', 'load-logs', 'delete-logs'];
+  const buttons = ['play', 'stop', 'snapshot', 'delete', 'record', 'load-logs', 'delete-logs', 'share-frame'];
   function controls(enabled) { for (const name of buttons) $(name).disabled = !enabled; }
   function download(blob, filename) {
     const url = URL.createObjectURL(blob), link = document.createElement('a');
@@ -77,6 +77,8 @@
   $('connect').onclick = () => {
     if (active) {
       active = false; generation++; logsGeneration++; clearInterval(timer); cancelRefresh(); if (recorder && recorder.state !== 'inactive') recorder.stop();
+      if (shareJob) { shareJob.abort(); shareJob = null; $('share-status').textContent = 'Отправка прервана; файл мог уже сохраниться на шаре.'; }
+      $('share-url').value = ''; $('share-consent').checked = false;
       token = ''; clearFrame(); $('logs').textContent = ''; $('token').value = ''; $('token').disabled = false;
       $('connect').textContent = 'Подключить'; $('status').textContent = 'Отключено'; controls(false); return;
     }
@@ -95,6 +97,65 @@
   $('play').onclick = () => command('play');
   $('stop').onclick = () => command('stop');
   $('snapshot').onclick = () => { if (latest) download(latest, latest.type === 'image/jpeg' ? 'redot-game.jpg' : 'redot-game.png'); else $('status').textContent = 'Кадров пока нет.'; };
+  function shareAddress(value) {
+    let url;
+    try { url = new URL(value); } catch (_) { throw new Error('Неверный адрес шары.'); }
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && local && location.protocol === 'http:')) ||
+        url.username || url.password || url.search || url.hash || url.pathname === '/') throw new Error('Нужен HTTPS-адрес шары без логина, запроса и фрагмента.');
+    return url.href.replace(/\/$/, '');
+  }
+  async function sharePut(base, name, blob, signal) {
+    const response = await fetch(`${base}/?name=${encodeURIComponent(name)}`, {
+      method: 'PUT', headers: {'Content-Type': blob.type}, body: blob, signal,
+      mode: 'cors', credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer', cache: 'no-store',
+    });
+    if (!response.ok) throw new Error('WebFTP отклонил загрузку.');
+    // WebFTP responds with {"ok":true}; refuse huge or ambiguous responses.
+    if (!response.body) throw new Error('Нет подтверждения WebFTP.');
+    const reader = response.body.getReader(), chunks = []; let size = 0;
+    try {
+      while (true) {
+        const part = await reader.read(); if (part.done) break;
+        size += part.value.length; if (size > 4096) throw new Error('Слишком большой ответ WebFTP.');
+        chunks.push(part.value);
+      }
+    } finally { reader.releaseLock(); }
+    const bytes = new Uint8Array(size); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+    let reply; try { reply = JSON.parse(new TextDecoder().decode(bytes)); } catch (_) { throw new Error('Нет подтверждения WebFTP.'); }
+    if (!reply || reply.ok !== true) throw new Error('Нет подтверждения WebFTP.');
+  }
+  $('share-frame').onclick = async () => {
+    if (!active || shareJob) return;
+    if (!latest) { $('share-status').textContent = 'Кадров пока нет.'; return; }
+    if (!$('share-consent').checked) { $('share-status').textContent = 'Подтвердите разрешение на передачу кадра и сообщения.'; return; }
+    let base;
+    try { base = shareAddress($('share-url').value.trim()); }
+    catch (err) { $('share-status').textContent = err.message; return; }
+    const frame = latest, current = generation;
+    if (!['image/jpeg', 'image/png'].includes(frame.type)) { $('share-status').textContent = 'Неподдерживаемый формат кадра.'; return; }
+    const id = crypto.randomUUID().replace(/-/g, ''), stamp = new Date().toISOString();
+    const filename = `screenshot-live-${id}.${frame.type === 'image/jpeg' ? 'jpg' : 'png'}`;
+    const job = new AbortController(); shareJob = job; $('share-frame').disabled = true;
+    let uploaded = false;
+    const timeout = setTimeout(() => job.abort(), 30000);
+    $('share-status').textContent = 'Передача кадра…';
+    try {
+      await sharePut(base, filename, frame, job.signal); uploaded = true;
+      if (!active || current !== generation) return;
+      if (job.signal.aborted) throw new Error('Timed out');
+      const notice = new Blob([JSON.stringify({from: 'redot-viewer', text: `@chat-zai Новый игровой кадр: ${filename}`, ts: stamp})], {type: 'application/json'});
+      const chatStamp = stamp.replace(/[-:.TZ]/g, '').slice(0, 14);
+      await sharePut(base, `chat-${chatStamp}-${id.slice(0, 12)}.json`, notice, job.signal);
+      if (active && current === generation && !job.signal.aborted) $('share-status').textContent = `Отправлены ${filename} и сообщение. Проверьте чат; старый индекс может не показать его сразу.`;
+    } catch (_) {
+      if (active && current === generation) $('share-status').textContent = uploaded ? `Кадр ${filename} мог сохраниться; сообщение не подтверждено.` : 'Отправка не подтверждена; файл мог сохраниться. Проверьте HTTPS, CORS и доступ к шаре.';
+    } finally {
+      clearTimeout(timeout);
+      if (shareJob === job) { shareJob = null; if (active) $('share-frame').disabled = false; }
+    }
+  };
   $('delete').onclick = async () => {
     const current = generation;
     try {
