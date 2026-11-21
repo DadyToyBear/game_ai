@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the shipped Android EditorPlugin and MCP over adb reverse.
+"""Exercise the current Android EditorPlugin and bridge over adb reverse.
 
 The helper plugin fills the real add-on's in-memory dialog and invokes its
 connect handler only in this disposable test project; it does not test UI input.
@@ -21,7 +21,8 @@ from http.server import ThreadingHTTPServer
 from PIL import Image
 
 PACKAGE = Path(sys.argv[1]).resolve()
-sys.path.insert(0, str(PACKAGE))
+SOURCE = Path(__file__).resolve().parents[1] / 'redot-bridge'
+sys.path.insert(0, str(SOURCE))
 import bridge
 
 TOKEN = 'android-ci-only-0123456789abcdef0123456789abcdef0123456789'
@@ -114,7 +115,7 @@ def wait(label, predicate, seconds=150):
 def mcp(name):
     request = json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': name, 'arguments': {}}}) + '\n'
     env = dict(os.environ, REDOT_BRIDGE_TOKEN=TOKEN)
-    result = subprocess.run([sys.executable, str(PACKAGE / 'bridge.py'), 'mcp'], input=request, text=True, capture_output=True, timeout=15, env=env, check=True)
+    result = subprocess.run([sys.executable, str(SOURCE / 'bridge.py'), 'mcp'], input=request, text=True, capture_output=True, timeout=15, env=env, check=True)
     response = json.loads(result.stdout)['result']
     if response.get('isError'):
         raise RuntimeError('MCP call failed: ' + response['content'][0]['text'])
@@ -157,7 +158,7 @@ def main(store):
         (project / 'project.godot').write_text(PROJECT)
         (project / 'main.tscn').write_text('[gd_scene load_steps=2 format=3]\n[ext_resource type="Script" path="res://game.gd" id="1"]\n[node name="Game" type="ColorRect"]\noffset_right = 320.0\noffset_bottom = 240.0\ncolor = Color(0.95, 0.05, 0.08, 1)\nscript = ExtResource("1")\n')
         (project / 'game.gd').write_text(GAME_SCRIPT)
-        shutil.copytree(PACKAGE / 'addons/redot_android_mcp', project / 'addons/redot_android_mcp')
+        shutil.copytree(SOURCE / 'addons/redot_android_mcp', project / 'addons/redot_android_mcp')
         (project / 'addons/audit').mkdir()
         (project / 'addons/audit/plugin.cfg').write_text('[plugin]\nname="Android MCP Audit"\ndescription="CI only"\nauthor="test"\nversion="1"\nscript="plugin.gd"\n')
         (project / 'addons/audit/plugin.gd').write_text(AUDIT_PLUGIN)

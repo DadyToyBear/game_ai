@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/redot-android-mcp-integration.yml'
       - 'redot-audit/android-mcp-probe.py'
+      - 'redot-bridge/addons/redot_android_mcp/**'
+      - 'redot-bridge/bridge.py'
+      - 'redot-bridge/project_sync.py'
   workflow_dispatch:
 
 permissions:
