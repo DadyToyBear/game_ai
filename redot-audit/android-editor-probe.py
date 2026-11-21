@@ -100,7 +100,7 @@ def main():
     # A disposable local project on the emulator; do not alter user files.
     with tempfile.TemporaryDirectory() as folder:
         project = Path(folder) / 'RedotImport'; project.mkdir()
-        (project / 'project.godot').write_text('config_version=5\n[application]\nconfig/name="Android Import Audit"\nrun/main_scene="res://scenes/main.tscn"\n[editor_plugins]\nenabled=PackedStringArray("res://addons/audit/plugin.cfg")\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n')
+        (project / 'project.godot').write_text('config_version=5\n[application]\nconfig/name="Android Import Audit"\nrun/main_scene="res://scenes/main.tscn"\n[editor_plugins]\nenabled=PackedStringArray("res://addons/audit/plugin.cfg")\n[rendering]\nrenderer/rendering_method="gl_compatibility"\nrenderer/rendering_method.mobile="gl_compatibility"\n')
         (project / 'scenes').mkdir(); (project / 'scenes/main.tscn').write_text('[gd_scene format=3]\n[node name="Main" type="Node2D"]\n')
         (project / 'addons/audit').mkdir(parents=True)
         (project / 'addons/audit/plugin.cfg').write_text('[plugin]\nname="Android Import Audit"\ndescription="test only"\nauthor="test"\nversion="1"\nscript="plugin.gd"\n')
