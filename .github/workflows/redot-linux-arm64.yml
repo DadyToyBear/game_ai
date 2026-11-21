@@ -67,7 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p bundle/redot-bridge
-          cp redot-bridge/{bridge.py,project_sync.py,relay.py,requirements-relay.txt,make_bundle.py,README.md} bundle/redot-bridge/
+          cp redot-bridge/{bridge.py,project_sync.py,relay.py,requirements-relay.txt,make_bundle.py,desktop_launcher.py,README.md} bundle/redot-bridge/
           cp -a redot-bridge/{web,addons,relay-deploy} bundle/redot-bridge/
           cp redot-linux-arm64/{README.md,start.sh} bundle/
           printf 'Native editor: official Redot 26.3 RC2 Mono ARM64\nEngine revision: 80d31f765b0ead5551c277704e52bb51c515db1f\nBridge commit: %s\n' "$GITHUB_SHA" > bundle/BUILD-PROVENANCE.txt

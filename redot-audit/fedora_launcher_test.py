@@ -39,6 +39,15 @@ with tempfile.TemporaryFile(mode='w+', encoding='utf-8') as log:
         # Never print the launcher log: it contains the live secret.
         raise
     finally:
+        # The shipped launcher deliberately leaves the editor open; the test
+        # must close only the editor process it just started.
+        log.flush(); log.seek(0); output = log.read()
+        match = re.search(r'Editor process ID: (\d+)', output)
+        if match:
+            try:
+                os.kill(int(match.group(1)), signal.SIGTERM)
+            except ProcessLookupError:
+                pass
         try:
             os.killpg(process.pid, signal.SIGTERM)
         except ProcessLookupError:

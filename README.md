@@ -7,3 +7,5 @@
 Экспериментальная сборка Android-редактора и MCP через USB: [инструкция и ограничения](redot-android/README.md). На реальном устройстве пока не проверено.
 
 Комплект для Fedora Linux ARM64 с нативным Redot RC2 Mono, Web-редактором и мостом: [инструкция и ограничения](redot-linux-arm64/README.md).
+
+Комплект для Windows x64 с нативным Redot RC2 Mono, Web-редактором и мостом: [инструкция и ограничения](redot-windows-x64/README.md).

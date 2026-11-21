@@ -89,6 +89,14 @@ def red_pixel_count(image):
 
 
 def terminate_group(process):
+    if os.name == 'nt':
+        subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'], capture_output=True, timeout=15, check=False)
+        try:
+            process.wait(timeout=8)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=8)
+        return
     try:
         os.killpg(process.pid, signal.SIGTERM)
     except ProcessLookupError:
@@ -121,7 +129,7 @@ def main():
         worker.start()
         with (root / 'editor.log').open('w+', encoding='utf-8') as log:
             process = subprocess.Popen([executable, '--editor', '--path', str(project), '--rendering-method', 'gl_compatibility', '--audio-driver', 'Dummy'],
-                                       stdout=log, stderr=subprocess.STDOUT, env=env, start_new_session=True)
+                                       stdout=log, stderr=subprocess.STDOUT, env=env, start_new_session=(os.name != 'nt'))
             try:
                 wait_until(lambda: store.status()['editor_connected'], 120, process, 'editor heartbeat')
                 if store.status()['playing']:
@@ -154,7 +162,7 @@ def main():
                 if browser.returncode:
                     raise RuntimeError('Browser viewer test failed: ' + browser.stdout + browser.stderr)
                 print(browser.stdout.strip())
-                print(f'::notice title=Native Redot editor integration::MCP and browser Play/Stop worked; {pixels} red pixels reached MCP and the browser; deletion succeeded (Linux Xvfb, software GL).')
+                print(f'::notice title=Native Redot editor integration::MCP and browser Play/Stop worked; {pixels} red pixels reached MCP and the browser; deletion succeeded (CI environment).')
             except Exception:
                 log.flush()
                 log.seek(0)

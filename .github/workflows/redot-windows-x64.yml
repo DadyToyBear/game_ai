@@ -1,0 +1,130 @@
+name: Windows x64 Redot Mono and bridge
+
+on:
+  push:
+    branches: [arena/b84b9c4f-game-ai]
+    paths:
+      - '.github/workflows/redot-windows-x64.yml'
+      - 'redot-windows-x64/**'
+      - 'redot-audit/find_windows_editor.py'
+      - 'redot-audit/windows_launcher_test.py'
+      - 'redot-audit/native_play_test.py'
+      - 'redot-audit/native_viewer_test.cjs'
+      - 'redot-bridge/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  windows-x64:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: x64
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Download and verify official RC2 Mono x64 editor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force downloads, bundle/editor | Out-Null
+          gh release download redot-26.3-rc.2 --repo Redot-Engine/redot-engine --dir downloads --pattern 'Redot_v26.3-rc.2_windows_mono_win64.zip' --pattern 'SHA512-SUMS.txt'
+          if ($LASTEXITCODE -ne 0) { throw 'Redot release download failed' }
+          $entry = Get-Content downloads/SHA512-SUMS.txt | Where-Object { $_ -match '^([a-fA-F0-9]{128})\s+releases/Redot_v26\.3-rc\.2_windows_mono_win64\.zip$' }
+          if (@($entry).Count -ne 1) { throw 'Expected exactly one checksum for Windows Mono x64' }
+          $expected = ($entry -split '\s+')[0]
+          $actual = (Get-FileHash downloads/Redot_v26.3-rc.2_windows_mono_win64.zip -Algorithm SHA512).Hash
+          if ($actual -ne $expected) { throw 'Redot archive SHA512 mismatch' }
+          Expand-Archive downloads/Redot_v26.3-rc.2_windows_mono_win64.zip bundle/editor
+          python redot-audit/find_windows_editor.py
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot identify Windows x64 editor' }
+      - name: Download unexpired RC2 Web bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $runsJson = gh run list --repo "$env:GITHUB_REPOSITORY" --branch "$env:GITHUB_REF_NAME" --limit 100 --json databaseId,headSha,workflowName,status,conclusion
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot list Web bundle runs' }
+          $runs = $runsJson | ConvertFrom-Json
+          $found = $false
+          foreach ($run in $runs) {
+            if ($run.workflowName -ne 'Assemble Redot Web Editor with Local Bridge' -or $run.status -ne 'completed' -or $run.conclusion -ne 'success') { continue }
+            $json = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$($run.databaseId)/artifacts"
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot list Web bundle artifacts' }
+            $artifacts = ($json | ConvertFrom-Json).artifacts | Where-Object { $_.name -eq 'redot-web-editor-with-local-bridge' -and -not $_.expired }
+            if (@($artifacts).Count -ne 1) { continue }
+            gh run download $run.databaseId --repo "$env:GITHUB_REPOSITORY" --name redot-web-editor-with-local-bridge --dir bundle/web-editor
+            if ($LASTEXITCODE -ne 0) { continue }
+            if (!(Test-Path bundle/web-editor/godot.editor.wasm) -or !(Test-Path bundle/web-editor/godot.editor.html)) { throw 'Incomplete Web artifact' }
+            Remove-Item -Recurse -Force bundle/web-editor/redot-bridge
+            Remove-Item -Force bundle/web-editor/BRIDGE-START.md
+            "Web bundle run: $($run.databaseId)`nWeb bundle repository commit: $($run.headSha)" | Set-Content -Encoding utf8 web-provenance.txt
+            $found = $true; break
+          }
+          if (!$found) { throw 'No unexpired Web bundle; run Assemble Redot Web Editor with Local Bridge first.' }
+      - name: Assemble Windows bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force bundle/redot-bridge | Out-Null
+          Copy-Item redot-bridge/bridge.py,redot-bridge/project_sync.py,redot-bridge/relay.py,redot-bridge/requirements-relay.txt,redot-bridge/make_bundle.py,redot-bridge/desktop_launcher.py,redot-bridge/README.md bundle/redot-bridge/
+          Copy-Item -Recurse redot-bridge/web,redot-bridge/addons,redot-bridge/relay-deploy bundle/redot-bridge/
+          Copy-Item redot-windows-x64/README.md,redot-windows-x64/start.cmd bundle/
+          "Native editor: official Redot 26.3 RC2 Mono Windows x64`nEngine revision: 80d31f765b0ead5551c277704e52bb51c515db1f`nBridge commit: $env:GITHUB_SHA" | Set-Content -Encoding utf8 bundle/BUILD-PROVENANCE.txt
+          Get-Content web-provenance.txt | Add-Content -Encoding utf8 bundle/BUILD-PROVENANCE.txt
+          Move-Item bundle redot-win11-x64
+          7z a -tzip redot-win11-x64.zip redot-win11-x64 | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot package ZIP' }
+          $hash = (Get-FileHash redot-win11-x64.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  redot-win11-x64.zip" | Set-Content -Encoding ascii redot-win11-x64.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redot-win11-x64-mono-and-bridge
+          path: |
+            redot-win11-x64.zip
+            redot-win11-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Test extracted Windows bundle and native editor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Expand-Archive redot-win11-x64.zip test-bundle
+          $bundle = Join-Path $pwd 'test-bundle/redot-win11-x64'
+          Copy-Item -Recurse redot-audit "$bundle/redot-audit"
+          Push-Location $bundle
+          try {
+            python -m pip install 'pillow>=10,<13'
+            if ($LASTEXITCODE -ne 0) { throw 'Pillow installation failed' }
+            npm install --no-save playwright@1.56.1 pngjs@7.0.0
+            if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
+            npx playwright install chromium
+            if ($LASTEXITCODE -ne 0) { throw 'Chromium install failed' }
+            python redot-audit/windows_launcher_test.py > launcher.log 2>&1
+            if ($LASTEXITCODE -ne 0) { throw 'Windows launcher test failed (secret-containing log suppressed)' }
+            Get-Content launcher.log
+            $editor = Get-Content editor-path.txt -Raw
+            $editor = $editor.Trim()
+            python redot-audit/native_play_test.py $editor > native.log 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              $s = (Get-Content native.log -Raw)
+              if ($s.Length -gt 3500) { $s = $s.Substring($s.Length - 3500) }
+              $s = $s.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+              Write-Output "::error title=Windows native integration::$s"
+              throw 'Native editor integration failed'
+            }
+            Get-Content native.log
+          } finally { Pop-Location }
