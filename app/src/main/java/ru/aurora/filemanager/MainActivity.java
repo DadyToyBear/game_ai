@@ -19,7 +19,7 @@ public class MainActivity extends Activity {
     private Uri tree, current;
     private final Stack<Uri> parents = new Stack<>();
     private PaintView canvas;
-    private boolean fileScreen;
+    private boolean fileScreen, searchScreenVisible;
     private boolean mediaScreen;
     private VideoView mediaPlayer;
     private MediaController mediaController;
@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
     private Object accountsView;
     private Object trashView;
     private android.os.CancellationSignal scanCancellation;
+    private android.os.CancellationSignal searchCancellation;
     private android.os.CancellationSignal videoCancellation;
     private VideoUi videoUi; private PendingVideo pendingVideo;
     private static final class VideoUi { Uri source;EditText start,end;TextView status;Button choose,save,cancel;boolean busy; }
@@ -67,10 +68,10 @@ public class MainActivity extends Activity {
     private TextView text(String s, int size) { TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(Color.rgb(28,38,55)); return t; }
     private Button button(String label, Runnable action) { Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setOnClickListener(v -> action.run()); return b; }
     private void layout(String title) {
-        stopInteractiveSsh();shellUiReset=null;cancelScan();cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;
+        stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;
         stopMedia();mediaToken=null;mediaScreen=false;canvas=null;
         sftpUi=null; pendingSftp=null; ftpUi=null; pendingFtp=null; davUi=null; pendingDav=null; smbUi=null; pendingSmb=null; tunnelUi=null;
-        fileScreen="Файлы".equals(title);
+        fileScreen="Файлы".equals(title);searchScreenVisible=false;
         root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(18),dp(18),dp(10)); root.setBackgroundColor(Color.rgb(247,249,252)); setContentView(root);
         TextView heading=text(title,26); heading.setTypeface(null,1); root.addView(heading);
         ScrollView scroll=new ScrollView(this); root.addView(scroll, new LinearLayout.LayoutParams(-1,0,1));
@@ -135,6 +136,7 @@ public class MainActivity extends Activity {
     }
     private void list() {
         layout("Файлы"); body.addView(button("← Назад", () -> { if(parents.empty()) home(); else {current=parents.pop(); list();} }));
+        body.addView(button("Поиск в этой папке",this::searchScreen));
         if(clipboard!=null) body.addView(button((cut?"Вставить (переместить): ":"Вставить (копировать): ")+clipboard.name, this::paste));
         body.addView(button("＋ Новая папка", () -> input("Имя папки", name -> { try { if(DocumentsContract.createDocument(getContentResolver(),current,DocumentsContract.Document.MIME_TYPE_DIR,name)==null) throw new IOException("Создание не поддерживается"); list(); } catch(Exception e){error(e);} })));
         try {
@@ -285,6 +287,30 @@ public class MainActivity extends Activity {
     }
     private void cancelScan() {
         if(scanCancellation!=null){scanCancellation.cancel();scanCancellation=null;}
+    }
+    private void cancelSearch(){if(searchCancellation!=null){searchCancellation.cancel();searchCancellation=null;}}
+    private void searchScreen(){
+        if(tree==null||current==null){toast("Сначала выберите папку");return;}
+        Uri selectedTree=tree,start=current;List<Uri> baseParents=new ArrayList<>(parents);
+        layout("Поиск файлов");searchScreenVisible=true;note("Поиск по части имени без учёта регистра в текущей папке и её подпапках. Провайдер может ограничивать доступ или отвечать медленно.");
+        EditText query=field("Имя или часть имени",false);TextView status=text("",15);LinearLayout results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);
+        Button search=button("Найти",()->{}),cancel=button("Отменить поиск",()->{});cancel.setEnabled(false);body.addView(search);body.addView(cancel);body.addView(status);body.addView(results);body.addView(button("Назад к папке",this::list));
+        cancel.setOnClickListener(v->{cancelSearch();search.setEnabled(true);cancel.setEnabled(false);status.setText("Поиск отменён.");});
+        search.setOnClickListener(v->{
+            String term=query.getText().toString().trim();if(term.isEmpty()||term.length()>256){toast("Введите от 1 до 256 символов");return;}
+            cancelSearch();android.os.CancellationSignal signal=new android.os.CancellationSignal();searchCancellation=signal;results.removeAllViews();search.setEnabled(false);cancel.setEnabled(true);status.setText("Поиск…");
+            new Thread(()->{try{
+                FileSearch.Result found=new FileSearch(getContentResolver(),selectedTree,start,signal).search(term);
+                runOnUiThread(()->{
+                    if(searchCancellation!=signal||isFinishing()||isDestroyed())return;searchCancellation=null;search.setEnabled(true);cancel.setEnabled(false);
+                    status.setText("Найдено: "+found.matches.size()+" · просмотрено: "+found.examined+(found.inaccessible>0?"\nНедоступных папок или элементов: "+found.inaccessible:"")+(found.limited?"\nРезультат неполный: достигнут лимит поиска.":""));
+                    for(FileSearch.Match match:found.matches){Entry e=new Entry(match.uri,match.name,match.mime,match.size);
+                        TextView row=text((e.dir()?"📁  ":"📄  ")+match.path,16);row.setPadding(dp(8),dp(14),dp(8),dp(14));results.addView(row);
+                        row.setOnClickListener(view->{parents.clear();parents.addAll(baseParents);for(int j=0;j<match.ancestors.size()-1;j++)parents.push(match.ancestors.get(j));current=match.ancestors.get(match.ancestors.size()-1);if(e.dir()){parents.push(current);current=e.uri;list();}else open(e);});
+                    }
+                });
+            }catch(android.os.OperationCanceledException ignored){}catch(Exception ex){runOnUiThread(()->{if(searchCancellation==signal&&!isDestroyed()){searchCancellation=null;search.setEnabled(true);cancel.setEnabled(false);status.setText("Ошибка поиска: "+ex.getMessage());}});}},"file-search").start();
+        });
     }
     private void storageScreen() {
         layout("Анализ хранилища");
@@ -738,7 +764,7 @@ public class MainActivity extends Activity {
         if(mediaPlayer!=null){mediaPlayer.stopPlayback();mediaStopped=true;if(mediaController!=null)mediaController.hide();}
         super.onStop();
     }
-    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}super.onDestroy();}
+    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}super.onDestroy();}
     private void pingScreen(){ layout("Проверка сети"); note("ICMP ping: доступность зависит от сети и устройства."); EditText host=new EditText(this); host.setSingleLine(); host.setHint("Адрес или домен"); body.addView(host); TextView result=text("",15); body.addView(button("Проверить",()->{String h=host.getText().toString().trim(); if(!h.matches("[a-zA-Z0-9.:-]{1,253}") || h.startsWith("-")){result.setText("Некорректный адрес");return;} result.setText("Проверка…"); new Thread(()->{String output; try { Process p=new ProcessBuilder("ping","-c","1","-W","3",h).redirectErrorStream(true).start(); ByteArrayOutputStream b=new ByteArrayOutputStream(); try(InputStream in=p.getInputStream()){byte[] buf=new byte[1024];int n;while((n=in.read(buf))!=-1 && b.size()<8192)b.write(buf,0,n);} p.waitFor();output=b.toString("UTF-8"); }catch(Exception ex){output="Ошибка: "+ex.getMessage();} String finalOutput=output;runOnUiThread(()->result.setText(finalOutput));}).start();})); body.addView(result); body.addView(button("Назад",this::home)); }
     private void cancelVideo(){if(videoCancellation!=null){videoCancellation.cancel();videoCancellation=null;}}
     private void videoEditorScreen(){
@@ -843,7 +869,7 @@ public class MainActivity extends Activity {
         },"paint-save").start();
     }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();} private void error(Exception e){toast("Ошибка: "+e.getMessage());}
-    @Override public void onBackPressed(){if(mediaScreen && current!=null){list();return;}if(fileScreen && current!=null && !parents.empty()){current=parents.pop();list();}else{current=null;home();}}
+    @Override public void onBackPressed(){if(searchScreenVisible && current!=null){list();return;}if(mediaScreen && current!=null){list();return;}if(fileScreen && current!=null && !parents.empty()){current=parents.pop();list();}else{current=null;home();}}
     static class Entry { Uri uri; String name,mime; long size; Entry(Uri u,String n,String m,long s){uri=u;name=n==null?"Без имени":n;mime=m==null?"application/octet-stream":m;size=s;} boolean dir(){return DocumentsContract.Document.MIME_TYPE_DIR.equals(mime);} }
     static class PaintView extends View {
         private static final int SIDE=1200;
