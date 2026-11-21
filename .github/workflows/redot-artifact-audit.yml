@@ -39,6 +39,64 @@ jobs:
       - name: Run a real Web game and inspect the captured frame
         run: node redot-audit/web-game-smoke.cjs web-editor
 
+  mounted-drive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SMB server and client
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y samba cifs-utils
+      - name: Exercise an actual mounted read-only SMB project
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d /tmp/redot-cifs-XXXXXX)
+          chmod 755 "$tmp"
+          mkdir -p "$tmp/source" "$tmp/mount" "$tmp/state" "$tmp/cache" "$tmp/private"
+          chmod 755 "$tmp/source"
+          printf 'config_version=5\n' > "$tmp/source/project.godot"
+          printf 'extends Node\n' > "$tmp/source/scene.gd"
+          cat > "$tmp/smb.conf" <<EOF
+          [global]
+          server role = standalone server
+          security = user
+          map to guest = Bad User
+          guest account = nobody
+          interfaces = 127.0.0.1
+          bind interfaces only = yes
+          disable netbios = yes
+          smb ports = 445
+          pid directory = $tmp
+          lock directory = $tmp/state
+          state directory = $tmp/state
+          cache directory = $tmp/cache
+          private dir = $tmp/private
+          [redot]
+          path = $tmp/source
+          guest ok = yes
+          read only = yes
+          EOF
+          cleanup() {
+            sudo umount "$tmp/mount" 2>/dev/null || true
+            if [ -f "$tmp/smbd.pid" ]; then sudo kill "$(cat "$tmp/smbd.pid")" 2>/dev/null || true; fi
+            sudo rm -rf "$tmp"
+          }
+          trap cleanup EXIT
+          sudo testparm -s "$tmp/smb.conf" > /dev/null
+          sudo smbd -D -s "$tmp/smb.conf"
+          if ! sudo mount -t cifs //127.0.0.1/redot "$tmp/mount" -o "guest,vers=3.0,ro,nosuid,nodev,noexec,uid=$(id -u),gid=$(id -g)" 2>"$tmp/mount.err"; then
+            echo "::error title=SMB mount failed::$(tr '\n' ' ' < "$tmp/mount.err")"
+            exit 1
+          fi
+          if ! python redot-audit/mounted-drive-test.py "$tmp/mount" > "$tmp/test.log" 2>&1; then
+            cat "$tmp/test.log"
+            echo "::error title=SMB project test failed::$(tr '\n' ' ' < "$tmp/test.log")"
+            exit 1
+          fi
+          cat "$tmp/test.log"
+
   android-apk:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
