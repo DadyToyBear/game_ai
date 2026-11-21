@@ -5,6 +5,7 @@ A running process alone is not a project-import, Play or device test.
 """
 import base64
 import io
+import re
 import subprocess
 import sys
 import time
@@ -62,6 +63,9 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as exc:
-        logs = adb('logcat', '-d', '-t', '200', check=False).stdout.decode(errors='replace')[-1800:]
-        print(f'::error title=Android runtime probe::{str(exc)} | logcat tail: {logs.replace(chr(10), " ").replace("%", "%25")}', file=sys.stderr, flush=True)
+        logs = adb('logcat', '-d', '-t', '5000', check=False).stdout.decode(errors='replace')
+        relevant = [line for line in logs.splitlines() if re.search(r'godot|redot|fatal|crash|linker|libc|ndk_translation', line, re.I)]
+        for i, line in enumerate(relevant[-20:]):
+            notice(f'Android diagnostic {i:02d}', line[:1000].replace('%', '%25'))
+        print(f'::error title=Android runtime probe::{str(exc).replace("%", "%25")}', file=sys.stderr, flush=True)
         raise
