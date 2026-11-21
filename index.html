@@ -114,6 +114,19 @@
             <button class="btn" id="btnMidi2">Подключить MIDI</button>
             <span id="midiStatus" class="pill">не подключено</span>
           </div>
+          <div class="row">
+            <label class="hint" for="midiOut">Выход (в DAW с Nexus)</label>
+            <select id="midiOut" class="preset-select" style="max-width:100%">
+              <option value="">выкл</option>
+            </select>
+            <label class="hint" for="midiOutCh">Канал</label>
+            <select id="midiOutCh" class="preset-select">
+              <option value="0">1</option><option value="1">2</option><option value="2">3</option>
+              <option value="3">4</option><option value="4">5</option><option value="5">6</option>
+            </select>
+          </div>
+          <p class="muted" style="margin-top:6px">Партии проекта уходят в выбранный порт (ноты, velocity, длина) —
+             если в DAW на этом входе стоит Nexus, он играет их звуками. Ударные идут на 10-м канале.</p>
           <pre class="log" id="midiLog"></pre>
         </div>
 
@@ -128,16 +141,21 @@
 
         <div class="card">
           <h3>Nexus (reFX) и сторонние VST</h3>
-          <p class="muted">Библиотеку Nexus (.nks / .ncw) нельзя загрузить в браузерную студию:
-             это закрытый формат reFX и нативный плагин, а браузер не запускает VST.
-             Рабочая связка:</p>
+          <p class="muted">Да, FL Studio и другие DAW умеют грузить Nexus как плагин — потому что
+             это настольные программы с доступом к VST. Браузерная страница такого доступа не имеет:
+             она не может ни загрузить .vst3, ни открыть .nks/.ncw. Поэтому связать проект с Nexus
+             можно двумя способами, оба работают без переписывания студии:</p>
           <ol class="clean">
-            <li>Здесь сделайте партии и нажмите «Экспорт MIDI».</li>
-            <li>Откройте .mid в DAW (FL Studio, Ableton, Reaper, Cubase…).</li>
-            <li>На каждую дорожку поставьте Nexus и выберите пресет/библиотеку.</li>
-            <li>Играйте и рендерьте уже звуками Nexus.</li>
+            <li><b>Экспорт MIDI</b> — сделать партии здесь, нажать «Экспорт MIDI», открыть файл в DAW,
+                поставить на дорожки Nexus и выбрать пресеты. Переносятся ноты, длительности, velocity.</li>
+            <li><b>MIDI-выход в реальном времени</b> — включить MIDI, выбрать порт вывода выше
+                (loopMIDI, IAC, виртуальный порт DAW) и назначить его входом Nexus в DAW.
+                Тогда транспорт студии играет прямо в Nexus: ноты, velocity, длина, аккомпанемент,
+                часы синхронизации. Ударные идут на 10-м канале.</li>
           </ol>
-          <p class="muted">В сам проект из Nexus переносится только MIDI, аудио — нет.</p>
+          <p class="muted">Как это выглядит на практике (FL Studio): Options → MIDI Settings → включить
+             входной порт для Nexus → в Channel Rack открыть Nexus → он принимает ноты с этого порта.
+             В Ableton/Reaper/Cubase аналогично: MIDI-in плагина = виртуальный порт.</p>
         </div>
 
         <div class="card">

@@ -31,6 +31,8 @@
     lastNote: {},
     midiAccess: null,
     midiInputs: [],
+    midiOutId: '',
+    midiOutChannel: 0,
     cellRefs: [],
     lastPlayed: -1,
   };
@@ -149,6 +151,8 @@
     state.currentStep = 0;
     state.nextTime = state.ctx.currentTime + 0.06;
     state.timer = setInterval(scheduler, 25);
+    sendClockStart();
+    startMidiClock();
     const bp = document.getElementById('btnPlay');
     bp.classList.add('on');
     bp.querySelector('.lbl').textContent = 'Стоп';
@@ -164,13 +168,15 @@
     bp.classList.remove('on');
     bp.querySelector('.lbl').textContent = 'Играть';
     bp.querySelector('.ico').textContent = '▶';
+    sendClockStop();
+    stopMidiClock();
     panicVoices();
     clearPlayhead();
     document.getElementById('pos').textContent = '001 : 01';
   }
 
   function scheduler() {
-    if (!state.playing) return;
+    if (!state.playing || !state.ctx) return;
     const ahead = 0.12;
     while (state.nextTime < state.ctx.currentTime + ahead) {
       playArrangeStep(state.currentStep, state.nextTime);
@@ -197,17 +203,21 @@
       const idx = 'ABCD'.indexOf(letter);
       const pat = Pattern.pattern(t, idx < 0 ? 0 : idx);
 
+      const outOn = !!midiOut();
+      const when = state.ctx ? Math.max(0, (time - state.ctx.currentTime) * 1000) : 0;
       if (t.engine === 'beatbox') {
         (pat.pads || []).forEach((e) => {
-          if (e.at === patStep) AE.playDrum(state.ctx, ch.input, t.params, e.p, time, 0.95, t.samples[e.p] || null);
+          if (e.at !== patStep) return;
+          AE.playDrum(state.ctx, ch.input, t.params, e.p, time, 0.95, t.samples[e.p] || null);
+          if (outOn) scheduleMidiOut(when, () => sendTrackNote(t, 0, 0.95, 80, e.p));
         });
       } else {
         const smp = ENG[t.engine].sampler ? (t.samples.main || null) : null;
         (pat.notes || []).forEach((n) => {
-          if (n.at === patStep) {
-            const dur = currentStepDuration() * Math.max(1, Pattern.notelen(n)) * 0.95;
-            AE.playNote(state.ctx, ch.input, t.engine, t.params, n.m, n.v != null ? n.v : 0.85, time, dur, smp);
-          }
+          if (n.at !== patStep) return;
+          const dur = currentStepDuration() * Math.max(1, Pattern.notelen(n)) * 0.95;
+          AE.playNote(state.ctx, ch.input, t.engine, t.params, n.m, n.v != null ? n.v : 0.85, time, dur, smp);
+          if (outOn) scheduleMidiOut(when, () => sendTrackNote(t, n.m, n.v != null ? n.v : 0.85, dur * 1000));
         });
       }
     });
@@ -243,6 +253,29 @@
     return patBar * spb + (state.currentStep % spb);
   }
 
+  /* Отправка MIDI-события в момент, близкий к аудио-таймлайну.
+     Небольшие задержки (< 60 мс) шлём сразу: точность ±30 мс для внешнего
+     синтезатора незаметна, а setTimeout при throttling вкладки врёт сильнее. */
+  function scheduleMidiOut(delayMs, fn) {
+    if (delayMs <= 60) { fn(); return; }
+    setTimeout(fn, Math.min(400, delayMs));
+  }
+
+  /* Часы MIDI (F8) — 24 ppq, чтобы DAW/плагин не «спотыкался» о темп */
+  function startMidiClock() {
+    stopMidiClock();
+    if (!midiOut()) return;
+    const tickMs = 60000 / song.bpm / 24;
+    state.clockTimer = setInterval(() => {
+      if (!state.playing) return;
+      sendMidi([0xf8]);
+    }, tickMs);
+  }
+
+  function stopMidiClock() {
+    if (state.clockTimer) { clearInterval(state.clockTimer); state.clockTimer = null; }
+  }
+
   function panicVoices() {
     Object.keys(state.liveVoices).forEach((k) => {
       (state.liveVoices[k] || []).forEach((v) => v.kill());
@@ -252,7 +285,7 @@
     document.querySelectorAll('.pad.on').forEach((p) => p.classList.remove('on'));
   }
 
-  function liveNoteOn(midi, vel) {
+  function liveNoteOn(midi, vel, fromMidiInput) {
     const t = song.tracks[state.activeTrack];
     if (!t || t.mute) return;
     ensureAudio();
@@ -260,6 +293,7 @@
     const list = state.liveVoices[state.activeTrack] || (state.liveVoices[state.activeTrack] = []);
     if (!ENG[t.engine].poly) list.forEach((v) => v.kill());
     const smp = ENG[t.engine].sampler ? (t.samples.main || null) : null;
+    if (!fromMidiInput) sendTrackNote(t, midi, vel != null ? vel : 0.9, 400);
     const v = new AE.Voice(state.ctx, ch.input, t.engine, t.params, midi, vel != null ? vel : 0.9, state.ctx.currentTime, smp);
     list.push(v);
     if (list.length > 12) list.shift();
@@ -276,6 +310,7 @@
     ensureAudio();
     const ch = state.channels[state.activeTrack];
     AE.playDrum(state.ctx, ch.input, t.params, pad, state.ctx.currentTime + 0.005, 1, t.samples[pad] || null);
+    sendTrackNote(t, 0, 1, 80, pad);
   }
 
   function paintPlayhead() {
@@ -1030,11 +1065,78 @@
   function onMidiSuccess(access) {
     state.midiAccess = access;
     setMidiStatus();
-    access.onstatechange = setMidiStatus;
+    access.onstatechange = () => {
+      setMidiStatus();
+      bindMidiHandlers();
+      refreshMidiOutSelect();
+    };
+    bindMidiHandlers();
+    refreshMidiOutSelect();
+    UI.toast('MIDI подключён. Для игры в Nexus выберите порт вывода ниже.', 'ok');
+  }
+
+  function bindMidiHandlers() {
+    const access = state.midiAccess;
+    if (!access) return;
     Array.from(access.inputs.values()).forEach((input) => {
-      input.onmidimessage = onMidiMessage;
+      input.onmidimessage = (e) => onMidiMessage(e, true);
     });
-    UI.toast('MIDI подключён', 'ok');
+  }
+
+  /* --- MIDI-выход: шлём партии проекта в DAW, где открыт Nexus --- */
+  function midiOut() {
+    const access = state.midiAccess;
+    if (!access || !access.outputs) return null;
+    const id = state.midiOutId;
+    if (id) return access.outputs.get(id) || null;
+    return null;
+  }
+
+  function refreshMidiOutSelect() {
+    const sel = document.getElementById('midiOut');
+    if (!sel) return;
+    const access = state.midiAccess;
+    const names = access && access.outputs ? Array.from(access.outputs.values()) : [];
+    sel.innerHTML = '';
+    const off = el('option', { value: '', text: names.length ? 'выкл' : 'портов вывода нет' });
+    sel.appendChild(off);
+    names.forEach((o) => {
+      sel.appendChild(el('option', { value: o.id, text: o.name + (o.manufacturer ? ' · ' + o.manufacturer : '') }));
+    });
+    const keep = state.midiOutId && names.some((n) => n.id === state.midiOutId);
+    sel.value = keep ? state.midiOutId : '';
+  }
+
+  function sendMidi(msg) {
+    const out = midiOut();
+    if (!out) return false;
+    try { out.send(msg); return true; } catch (e) { return false; }
+  }
+
+  /* Отправка ноты/удара с канала машины */
+  function sendTrackNote(t, midi, velocity, durationMs, pad) {
+    if (!midiOut()) return;
+    const ch = state.midiOutChannel;
+    let note = midi;
+    let chan = ch;
+    if (pad != null) {
+      const GM = [36, 38, 42, 46, 39, 45, 47, 37];
+      note = GM[pad] != null ? GM[pad] : 36;
+      chan = 9;
+    }
+    const vel = Math.max(1, Math.min(127, Math.round((velocity != null ? velocity : 0.85) * 127)));
+    sendMidi([0x90 | chan, note & 127, vel]);
+    setTimeout(() => { sendMidi([0x80 | chan, note & 127, 0]); }, Math.max(25, durationMs || 150));
+  }
+
+  function sendClockStart() {
+    if (!midiOut()) return;
+    sendMidi([0xfa]); // Start
+  }
+
+  function sendClockStop() {
+    if (!midiOut()) return;
+    sendMidi([0xfc]);
   }
 
   function setMidiStatus() {
@@ -1072,16 +1174,16 @@
     const cmd = status & 0xf0;
     const ch = (status & 0x0f) + 1;
     if (cmd === 0x90 && d2 > 0) {
-      liveNoteOn(d1);
+      liveNoteOn(d1, d2 / 127, true);
       markKey(d1, true);
-      midiLog('NoteOn  ch' + ch + ' ' + noteName(d1) + ' vel ' + d2);
+      midiLog('NoteOn  ch' + ch + ' ' + Pattern.noteName(d1) + ' vel ' + d2);
       if (state.recording && state.playing) {
         recordNote(song.tracks[state.activeTrack], d1, d2 / 127);
       }
     } else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) {
       liveNoteOff(d1);
       markKey(d1, false);
-      midiLog('NoteOff ch' + ch + ' ' + noteName(d1));
+      midiLog('NoteOff ch' + ch + ' ' + Pattern.noteName(d1));
     } else if (cmd === 0xb0) {
       midiLog('CC ' + d1 + ' = ' + d2);
       if (d1 === 1) {
@@ -1416,6 +1518,20 @@
 
     document.getElementById('btnMidi').addEventListener('click', initMidi);
     document.getElementById('btnMidi2').addEventListener('click', initMidi);
+    const outSel = document.getElementById('midiOut');
+    if (outSel) {
+      outSel.addEventListener('change', (e) => {
+        state.midiOutId = e.target.value;
+        if (state.midiAccess) {
+          Array.from(state.midiAccess.outputs.values()).forEach((o) => { o.clear && o.clear(); });
+        }
+        if (state.midiOutId) UI.toast('MIDI-выход: партии идут в выбранный порт (Nexus принимает с него, если открыт в DAW)', 'ok');
+      });
+    }
+    const chSel = document.getElementById('midiOutCh');
+    if (chSel) {
+      chSel.addEventListener('change', (e) => { state.midiOutChannel = Number(e.target.value); });
+    }
 
     document.getElementById('btnExportWav').addEventListener('click', exportWav);
     document.getElementById('btnExportMidi').addEventListener('click', exportMidi);
@@ -1558,7 +1674,11 @@
     UI.modal('Как пользоваться', body, [{ label: 'Понятно', primary: true }]);
   }
 
+  let booted = false;
+
   function boot() {
+    if (booted) return;
+    booted = true;
     song = emptySong();
     try {
       const saved = localStorage.getItem(LS_KEY);
