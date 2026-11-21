@@ -1,0 +1,79 @@
+name: Build Redot RC2 Android Editor
+
+on:
+  push:
+    branches:
+      - arena/b84b9c4f-game-ai
+    paths:
+      - '.github/workflows/redot-android-editor.yml'
+      - 'redot-android/**'
+      - 'redot-bridge/addons/redot_android_mcp/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-editor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout bridge and addon
+        uses: actions/checkout@v4
+
+      - name: Checkout Redot RC2
+        uses: actions/checkout@v4
+        with:
+          repository: Redot-Engine/redot-engine
+          ref: 80d31f765b0ead5551c277704e52bb51c515db1f
+          path: engine
+          persist-credentials: false
+
+      - name: Verify engine revision
+        run: test "$(git -C engine rev-parse HEAD)" = 80d31f765b0ead5551c277704e52bb51c515db1f
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Python and SCons
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'scons==4.10.1'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Redot Android dependencies
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.1.0' 'ndk;29.0.14206865' 'platform-tools'
+
+      - name: Build ARM64 editor library
+        working-directory: engine
+        run: python -m SCons platform=android arch=arm64 target=editor production=yes debug_symbols=no -j2
+
+      - name: Build editor APK
+        working-directory: engine/platform/android/java
+        run: ./gradlew generateGodotEditor --no-daemon
+
+      - name: Package APK and separate experimental bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifact/addons
+          mapfile -t apks < <(find engine/bin/android_editor_builds -maxdepth 1 -type f -name 'android_editor-android-*.apk')
+          if [ "${#apks[@]}" -eq 0 ]; then echo 'No Android editor APK was produced' >&2; exit 1; fi
+          cp "${apks[@]}" artifact/
+          cp -a redot-bridge/addons/redot_android_mcp artifact/addons/
+          cp redot-bridge/bridge.py redot-bridge/project_sync.py artifact/
+          cp -a redot-bridge/web artifact/web
+          cp redot-android/README.md artifact/README.md
+
+      - name: Upload Android editor and experimental addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: redot-26.3-rc2-android-arm64-and-usb-mcp
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 14
