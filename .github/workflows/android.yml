@@ -67,12 +67,14 @@ jobs:
           echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
       - name: Собрать www/ и debug APK
         run: |
+          set -euo pipefail
           bash scripts/build-www.sh
           npm install --no-audit --no-fund
           npx cap sync android
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon 2>&1 | tail -60
+          ls -lh app/build/outputs/apk/debug/
       - name: Опубликовать APK (apk-latest)
         uses: softprops/action-gh-release@v2
         with:
