@@ -105,6 +105,7 @@ jobs:
           Expand-Archive redot-win11-x64.zip test-bundle
           $bundle = Join-Path $pwd 'test-bundle/redot-win11-x64'
           Copy-Item -Recurse redot-audit "$bundle/redot-audit"
+          Copy-Item -Recurse redot-bridge/tests "$bundle/redot-bridge/tests"
           Push-Location $bundle
           try {
             python -m pip install 'pillow>=10,<13'
@@ -113,6 +114,15 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
             npx playwright install chromium
             if ($LASTEXITCODE -ne 0) { throw 'Chromium install failed' }
+            python -m unittest discover -s redot-bridge/tests -p test_project_sync.py -v > snapshots.log 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              $s = (Get-Content snapshots.log -Raw)
+              if ($s.Length -gt 3500) { $s = $s.Substring($s.Length - 3500) }
+              $s = $s.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+              Write-Output "::error title=Windows project snapshots::$s"
+              throw 'Windows project snapshot tests failed'
+            }
+            Get-Content snapshots.log
             python redot-audit/windows_launcher_test.py > launcher.log 2>&1
             if ($LASTEXITCODE -ne 0) { throw 'Windows launcher test failed (secret-containing log suppressed)' }
             Get-Content launcher.log
