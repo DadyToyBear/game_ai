@@ -1,0 +1,85 @@
+name: Verify signing pipeline
+
+# Проверяет всю цепочку подписи на ВРЕМЕННОМ ключе: генерация ключа скриптом
+# → подпись release APK и AAB → apksigner/jarsigner verify.
+# Нужен, чтобы убедиться, что релизный конвейер рабочий, пока нет настоящего ключа.
+# Запускается вручную.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Android SDK
+        run: |
+          sudo mkdir -p $ANDROID_HOME/cmdline-tools
+          cd /tmp
+          curl -sSLo cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q cmdline.zip -d /tmp/cmdline
+          sudo mv /tmp/cmdline/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "$ANDROID_HOME/build-tools/34.0.0" >> $GITHUB_PATH
+
+      - name: Временный ключ подписи
+        run: |
+          python3 scripts/make-signing-key.py --out "$RUNNER_TEMP/keys" \
+            --password 'ci-proof-password' --alias ministudio \
+            --dname 'CN=Mini Studio CI Proof, O=Mini Studio, C=CZ'
+          cat > android/keystore.properties <<PROPS
+          storeFile=$RUNNER_TEMP/keys/release.p12
+          storePassword=ci-proof-password
+          keyAlias=ministudio
+          keyPassword=ci-proof-password
+          PROPS
+          echo "--- что видит keytool ---"
+          keytool -list -v -keystore "$RUNNER_TEMP/keys/release.p12" \
+            -storepass ci-proof-password -alias ministudio | grep -E "Alias|Valid|SHA256|Signature algorithm" | head -6
+
+      - name: Сборка и подпись
+        run: |
+          bash scripts/build-www.sh
+          npm install --no-audit --no-fund
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease --no-daemon \
+            -PmsVersionName=1.0.1 -PmsVersionCode=99 2>&1 | tail -25
+
+      - name: Проверить подпись APK и AAB
+        run: |
+          set -euo pipefail
+          APK=$(find android/app/build/outputs -name "*.apk" | head -1)
+          AAB=$(find android/app/build/outputs -name "*.aab" | head -1)
+          test -n "$APK" && test -n "$AAB"
+          echo "APK: $APK"; echo "AAB: $AAB"
+          echo "=== apksigner ==="
+          apksigner verify --verbose --print-certs "$APK" | head -12
+          echo "=== jarsigner (AAB) ==="
+          jarsigner -verify -verbose:summary "$AAB" | tail -4
+          echo "=== badging ==="
+          aapt dump badging "$APK" | head -3
+
+      - name: Сохранить проверенные файлы
+        uses: actions/upload-artifact@v4
+        with:
+          name: signing-proof
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
