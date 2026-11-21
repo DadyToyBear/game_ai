@@ -321,6 +321,29 @@
     state.clockBpm = null;
   }
 
+  /* Страховка от «залипших» превью: палец отпустили/увели окно —
+     гасим все превью-ноты, даже если pointerup потерялся. */
+  function releasePreviews() {
+    Object.keys(previewTimers).forEach((k) => {
+      clearTimeout(previewTimers[k]);
+      delete previewTimers[k];
+    });
+    // 1) все превью-голоса гасим безусловно — их никто не держит
+    (state.previewVoices || []).forEach((v) => {
+      if (v && !v.stopped) { try { v.release(state.ctx ? state.ctx.currentTime : 0); } catch (e) { /* уже мёртв */ } }
+    });
+    state.previewVoices = [];
+    // 2) остальные — только те, что не держит палец/клавиша
+    const held = state.heldNotes || {};
+    Object.keys(state.liveVoices).forEach((ti) => {
+      (state.liveVoices[ti] || []).forEach((v) => {
+        if (!v || v.stopped) return;
+        if (held[ti + ':' + v.midi]) return;
+        try { v.release(state.ctx ? state.ctx.currentTime : 0); } catch (e) { /* уже мёртв */ }
+      });
+    });
+  }
+
   function panicVoices() {
     Object.keys(state.liveVoices).forEach((k) => {
       (state.liveVoices[k] || []).forEach((v) => v.kill());
@@ -341,12 +364,44 @@
     if (!fromMidiInput) sendTrackNote(t, midi, vel != null ? vel : 0.9, 400);
     const v = new AE.Voice(state.ctx, ch.input, t.engine, t.params, midi, vel != null ? vel : 0.9, state.ctx.currentTime, smp);
     list.push(v);
-    if (list.length > 12) list.shift();
+    // учёт «палец держит эту ноту» — чтобы страховка не гасила её раньше времени
+    state.heldNotes = state.heldNotes || {};
+    state.heldNotes[state.activeTrack + ':' + midi] = v;
+    // раньше старый голос просто выкидывался из списка (shift) и продолжал
+    // звучать, потому что его больше никто не отпускал — «зацикленный» звук
+    while (list.length > 12) {
+      const old = list.shift();
+      if (old && !old.stopped) { try { old.release(state.ctx.currentTime); } catch (e) { old.kill && old.kill(); } }
+    }
+  }
+
+  /* Короткое превью ноты: при создании ноты в ролле/сетке нужен звук,
+     но не «залипшая» нота. Раньше onPreview звал liveNoteOn без note-off —
+     голос не отпускался и звук тянулся, пока не нажмёшь «Стоп».
+     Теперь превью само гаснет через PREVIEW_MS. */
+  const PREVIEW_MS = 280;
+  const previewTimers = {};
+
+  function previewNote(midi, vel) {
+    const ti = state.activeTrack;
+    liveNoteOn(midi, vel);
+    // превью — не «удерживаемая» нота: палец на ней не лежит, поэтому
+    // страховка (blur/pointerup) имеет право погасить её в любой момент
+    if (state.heldNotes) delete state.heldNotes[ti + ':' + midi];
+    const v = (state.liveVoices[ti] || []).slice(-1)[0];
+    if (v) { state.previewVoices = state.previewVoices || []; state.previewVoices.push(v); }
+    const key = ti + ':' + midi;
+    clearTimeout(previewTimers[key]);
+    previewTimers[key] = setTimeout(() => {
+      delete previewTimers[key];
+      liveNoteOff(midi);
+    }, PREVIEW_MS);
   }
 
   function liveNoteOff(midi) {
     const list = state.liveVoices[state.activeTrack] || [];
     list.forEach((v) => { if (v.midi === midi) v.release(state.ctx.currentTime); });
+    if (state.heldNotes) delete state.heldNotes[state.activeTrack + ':' + midi];
   }
 
   function liveDrum(pad) {
@@ -528,7 +583,7 @@
         machine.appendChild(rollHost);
         Pattern.mount(rollHost, t, {
           onChange: () => refreshSeqMiniState(),
-          onPreview: (midi, v) => liveNoteOn(midi, v),
+          onPreview: (midi, v) => previewNote(midi, v),
         });
       }
     }
@@ -1005,7 +1060,7 @@
           } else {
             const tr = song.tracks[row.ti];
             const hit = Pattern.pattern(tr).notes.find((n) => n.at === s);
-            if (hit) { state.lastNote[row.ti] = hit.m; liveNoteOn(hit.m); }
+            if (hit) { state.lastNote[row.ti] = hit.m; previewNote(hit.m); }
           }
           if (!switched) renderRollPanelOnly();
           else renderSeq();
@@ -1054,7 +1109,7 @@
     panel.appendChild(rollHost);
     Pattern.mount(rollHost, t, {
       onChange: () => refreshSeqMiniState(),
-      onPreview: (midi, v) => liveNoteOn(midi, v),
+      onPreview: (midi, v) => previewNote(midi, v),
     });
   }
 
@@ -2557,6 +2612,16 @@
       }
     });
 
+    /* Страховка от «залипшего» звука: палец отпустили вне элемента,
+       окно потеряло фокус или вкладку свернули — гасим неотпущенные превью.
+       Раньше превью-нота из пиано-ролла звучала до нажатия «Стоп». */
+    ['pointerup', 'pointercancel', 'touchend', 'blur'].forEach((ev) => {
+      window.addEventListener(ev, releasePreviews, true);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) releasePreviews();
+    });
+
     // автосохранение: каждые 20 с, только если проект изменился
     let lastAuto = '';
     setInterval(() => {
@@ -2689,6 +2754,10 @@
     arrangeSteps: () => arrangeSteps(),
     delayTimeFor,
     applyDelayTime,
+    previewNote,
+    releasePreviews,
+    liveNoteOff,
+    liveVoices: () => state.liveVoices,
   };
 
   document.addEventListener('DOMContentLoaded', boot);
