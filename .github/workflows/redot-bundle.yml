@@ -38,6 +38,7 @@ jobs:
           set -euo pipefail
           expected=80d31f765b0ead5551c277704e52bb51c515db1f
           patch_hash=$(sha256sum build-patches/fix_tinyexr.py | cut -d' ' -f1)
+          stop_hash=$(sha256sum build-patches/fix_web_editor_stop.py | cut -d' ' -f1)
           gh run list --repo "$GITHUB_REPOSITORY" --branch "$BRANCH" --limit 100 --json databaseId,headSha,status,conclusion,workflowName > runs.json
           found=false
           while IFS=$'\t' read -r id sha workflow; do
@@ -48,6 +49,9 @@ jobs:
             if ! grep -Fq "ref: $expected" old-workflow.yml || ! grep -Fq 'version: 4.0.11' old-workflow.yml || ! grep -Fq 'scons platform=web target=editor threads=yes' old-workflow.yml; then continue; fi
             if ! gh api "repos/$GITHUB_REPOSITORY/contents/build-patches/fix_tinyexr.py?ref=$sha" --jq .content | base64 -d > old-patch.py; then continue; fi
             [ "$(sha256sum old-patch.py | cut -d' ' -f1)" = "$patch_hash" ] || continue
+            grep -Fq 'python build-patches/fix_web_editor_stop.py engine' old-workflow.yml || continue
+            if ! gh api "repos/$GITHUB_REPOSITORY/contents/build-patches/fix_web_editor_stop.py?ref=$sha" --jq .content | base64 -d > old-stop-patch.py; then continue; fi
+            [ "$(sha256sum old-stop-patch.py | cut -d' ' -f1)" = "$stop_hash" ] || continue
             # A completed bundle also contains the editor. Reuse it if the
             # original build-only artifact is outside the run list or expired.
             for name in redot-26.3-rc2-web-editor redot-web-editor-with-local-bridge; do
@@ -98,6 +102,7 @@ jobs:
           test "$(git -C engine rev-parse HEAD)" = 80d31f765b0ead5551c277704e52bb51c515db1f
           python -m pip install 'scons==4.10.1'
           python build-patches/fix_tinyexr.py engine
+          python build-patches/fix_web_editor_stop.py engine
           (cd engine && scons platform=web target=editor threads=yes debug_symbols=no -j2)
           mkdir -p bundle
           cp -a engine/bin/.web_zip/. bundle/
