@@ -16,7 +16,7 @@ const server = spawn('python3', ['redot-bridge/bridge.py','serve','--editor-dir'
 async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:8765/project-open.html')).ok)return;}catch(_){} await new Promise(r=>setTimeout(r,100));} throw Error('Bridge did not start');}
 async function capture(page, label) {
   const data = (await page.screenshot({type:'jpeg',quality:45})).toString('base64');
-  for (let i=0;i<data.length;i+=20000) console.log(`::notice title=${label}_${String(i/20000).padStart(2,'0')}::${data.slice(i,i+20000)}`);
+  for (let i=0;i<data.length;i+=3500) console.log(`::notice title=${label}_${String(i/3500).padStart(2,'0')}::${data.slice(i,i+3500)}`);
 }
 (async () => { let browser, page; const issues=[];
   try {
