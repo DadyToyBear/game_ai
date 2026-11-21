@@ -15,6 +15,103 @@
   const lerp = (a, b, t) => a + (b - a) * clamp(t, 0, 1);
   const expMap = (min, max, t) => min * Math.pow(max / min, clamp(t, 0, 1));
 
+  // ---------- Банк звуков Kaossilator (категории как на железе) ----------
+  /* prog: {name, cat, engine, params, scale?, octave?, drum?}
+     params — базовые значения; Y подмешивает яркость поверх. */
+  const PROGRAMS = [
+    // --- БАСЫ ---
+    { name: 'Sub Bass', cat: 'bass', engine: 'bassline', octave: 2,
+      params: { wave: 'square', cutoff: 160, res: 4, env: 600, decay: 0.45, accent: 0.3, slide: 0.1, drive: 0.12, level: 0.75 } },
+    { name: 'Acid 303', cat: 'bass', engine: 'bassline', octave: 2,
+      params: { wave: 'sawtooth', cutoff: 300, res: 20, env: 3200, decay: 0.18, accent: 0.75, slide: 0.2, drive: 0.3, level: 0.6 } },
+    { name: 'Reese Bass', cat: 'bass', engine: 'subsynth', octave: 2,
+      params: { wave: 'sawtooth', detune: 22, sub: 0.5, cutoff: 420, res: 6, env: 900, a: 0.005, d: 0.5, s: 0.7, r: 0.2, level: 0.6 } },
+    { name: 'FM Bass', cat: 'bass', engine: 'fmsynth', octave: 2,
+      params: { ratio: 1, index: 4, ratio2: 2, index2: 0.4, decay: 0.2, wave: 'sine', a: 0.003, d: 0.22, s: 0.3, r: 0.12, level: 0.6 } },
+
+    // --- ЛИДЫ / МЕЛОДИИ ---
+    { name: 'Saw Lead', cat: 'lead', engine: 'subsynth', octave: 4,
+      params: { wave: 'sawtooth', detune: 12, sub: 0.15, cutoff: 2600, res: 5, env: 3200, a: 0.008, d: 0.3, s: 0.7, r: 0.25, level: 0.5 } },
+    { name: 'Square Lead', cat: 'lead', engine: 'subsynth', octave: 4,
+      params: { wave: 'square', detune: 4, sub: 0.1, cutoff: 3200, res: 3, env: 1800, a: 0.005, d: 0.25, s: 0.6, r: 0.2, level: 0.45 } },
+    { name: 'Chip Lead', cat: 'lead', engine: 'eightbit', octave: 4,
+      params: { duty: 0.25, vibrato: 0.3, pitchEnv: 0, bits: 8, a: 0.002, d: 0.2, s: 0.6, r: 0.1, level: 0.4 } },
+    { name: 'FM Bell Lead', cat: 'lead', engine: 'fmsynth', octave: 4,
+      params: { ratio: 3.5, index: 4.5, ratio2: 7, index2: 1.2, decay: 1.1, wave: 'sine', a: 0.002, d: 1.2, s: 0.2, r: 0.7, level: 0.45 } },
+
+    // --- СИНТЫ / ПЛАКИ ---
+    { name: 'Pluck', cat: 'pluck', engine: 'subsynth', octave: 4,
+      params: { wave: 'sawtooth', detune: 14, sub: 0.2, cutoff: 900, res: 12, env: 4200, a: 0.002, d: 0.14, s: 0.05, r: 0.12, level: 0.5 } },
+    { name: 'Glass Pluck', cat: 'pluck', engine: 'fmsynth', octave: 5,
+      params: { ratio: 2, index: 2.4, ratio2: 5, index2: 0.8, decay: 0.5, wave: 'sine', a: 0.002, d: 0.5, s: 0.1, r: 0.4, level: 0.4 } },
+    { name: 'Marimba', cat: 'pluck', engine: 'fmsynth', octave: 5,
+      params: { ratio: 4, index: 1.6, ratio2: 9, index2: 0.3, decay: 0.16, wave: 'sine', a: 0.001, d: 0.18, s: 0, r: 0.14, level: 0.5 } },
+
+    // --- ПЭДЫ / СТРУННЫЕ ---
+    { name: 'Warm Pad', cat: 'pad', engine: 'padsynth', octave: 4,
+      params: { voices: 4, spread: 18, cutoff: 1600, res: 1.5, a: 0.9, d: 1.5, s: 0.85, r: 2, level: 0.32 } },
+    { name: 'Glass Pad', cat: 'pad', engine: 'padsynth', octave: 4,
+      params: { voices: 5, spread: 40, cutoff: 6000, res: 4, a: 0.4, d: 1, s: 0.7, r: 3, level: 0.25 } },
+    { name: 'Strings', cat: 'pad', engine: 'padsynth', octave: 4,
+      params: { voices: 6, spread: 26, cutoff: 3200, res: 1, a: 0.25, d: 0.8, s: 0.9, r: 1.2, level: 0.3 } },
+
+    // --- ЧИПТЮН ---
+    { name: '8Bit Bass', cat: 'chip', engine: 'eightbit', octave: 2,
+      params: { duty: 0.5, vibrato: 0, bits: 4, a: 0.002, d: 0.15, s: 0.4, r: 0.08, level: 0.5 } },
+    { name: '8Bit Arp', cat: 'chip', engine: 'eightbit', octave: 5,
+      params: { duty: 0.125, vibrato: 0.1, pitchEnv: 0, bits: 6, a: 0.001, d: 0.1, s: 0.2, r: 0.06, level: 0.4 } },
+
+    // --- УДАРНЫЕ (X = тип удара, Y = яркость) ---
+    { name: 'Drum Kit', cat: 'drum', drum: true, octave: 0 },
+    { name: 'Toms', cat: 'drum', drum: true, pads: [5, 5, 6, 6, 0, 7] },
+    { name: 'Hats & Claps', cat: 'drum', drum: true, pads: [2, 3, 3, 2, 4, 4] },
+
+    // --- БАСОВЫЕ ЛУПЫ (паттерны в одном тембре) ---
+    { name: 'Bass Loop A', cat: 'loopbass', engine: 'bassline', octave: 2,
+      loop: { steps: 16, pattern: [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0] },
+      params: { wave: 'sawtooth', cutoff: 280, res: 16, env: 2600, decay: 0.2, accent: 0.6, slide: 0.15, drive: 0.25, level: 0.6 } },
+    { name: 'Bass Loop B', cat: 'loopbass', engine: 'subsynth', octave: 2,
+      loop: { steps: 16, pattern: [1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1] },
+      params: { wave: 'square', detune: 8, sub: 0.5, cutoff: 380, res: 8, env: 1200, a: 0.004, d: 0.3, s: 0.5, r: 0.15, level: 0.55 } },
+
+    // --- МЕЛОДИЧЕСКИЕ ЛУПЫ / АРПЕДЖИО ---
+    { name: 'Arp Loop', cat: 'loopmel', engine: 'subsynth', octave: 4,
+      loop: { steps: 16, pattern: [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0] },
+      params: { wave: 'sawtooth', detune: 8, sub: 0.15, cutoff: 2200, res: 8, env: 2600, a: 0.002, d: 0.12, s: 0.2, r: 0.08, level: 0.45 } },
+    { name: 'Chip Arp', cat: 'loopmel', engine: 'eightbit', octave: 5,
+      loop: { steps: 16, pattern: [1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1] },
+      params: { duty: 0.25, vibrato: 0.05, bits: 6, a: 0.001, d: 0.1, s: 0.15, r: 0.06, level: 0.35 } },
+
+    // --- ДРАМ-ЛУП (встроенный паттерн BeatBox) ---
+    { name: 'Drum Loop (4/4)', cat: 'loopdrum', drum: true, octave: 0,
+      loop: {
+        steps: 16,
+        drum: {
+          0: [0, 8],      // kick
+          1: [4, 12],     // snare
+          2: [0, 2, 4, 6, 8, 10, 12, 14], // closed hat
+          3: [6, 14],     // open hat
+        },
+      } },
+    { name: 'Drum Loop Break', cat: 'loopdrum', drum: true, octave: 0,
+      loop: {
+        steps: 16,
+        drum: {
+          0: [0, 3, 8, 10],
+          1: [4, 12],
+          2: [0, 2, 6, 8, 10, 14],
+          4: [7, 15],
+          7: [5, 13],
+        },
+      } },
+  ];
+
+  const CAT_NAMES = {
+    bass: 'Басы', lead: 'Лиды', pluck: 'Синты/плаки', pad: 'Пэды',
+    chip: 'Чиптюн', drum: 'Ударные', loopbass: 'Басовые лупы',
+    loopmel: 'Мелодические лупы', loopdrum: 'Драм-лупы',
+  };
+
   // ---------- Kaossilator: X-Y синтезатор ----------
   const SCALES = {
     major: [0, 2, 4, 5, 7, 9, 11],
@@ -62,6 +159,7 @@
       playingLoops: [false, false],
       loopTimers: [null, null],
       voice: null,
+      prog: 0,             // индекс программы из банка
       sampler: null,       // сэмплер слайсов (создаётся при загрузке)
       mode: 'synth',       // 'synth' | 'sampler'
       lastMidi: null,
@@ -69,42 +167,61 @@
       y: 0.5,
     };
 
+    /* Параметры текущей программы: базовый тембр + Y как «яркость» */
     function paramsFor(inst2, y) {
-      const bright = clamp(y, 0, 1);
-      return {
-        wave: inst2.wave,
-        detune: 6,
-        sub: 0.25 + (1 - bright) * 0.35,
-        cutoff: expMap(220, 11000, bright),
-        res: 2 + (1 - bright) * 8,
-        env: expMap(0, 4200, bright),
-        a: 0.004,
-        d: 0.18 + (1 - bright) * 0.2,
-        s: 0.55,
-        r: 0.18,
-        level: 0.5,
+      const bright = clamp(y != null ? y : 0.5, 0, 1);
+      const prog = PROGRAMS[inst2.prog] || PROGRAMS[0];
+      const base = prog.params ? Object.assign({}, prog.params) : {
+        wave: 'sawtooth', detune: 6, sub: 0.4, cutoff: 1800, res: 7, env: 2400,
+        a: 0.004, d: 0.18, s: 0.55, r: 0.18, level: 0.5,
       };
+      // Y подмешивает яркость: срез и env едут к «открытому» звуку
+      if (base.cutoff != null) {
+        const baseCut = base.cutoff;
+        base.cutoff = baseCut * Math.pow(3.2, bright * 1.4 - 0.6);
+        base.cutoff = clamp(base.cutoff, 60, 16000);
+      }
+      if (base.env != null) base.env = base.env * (0.35 + bright * 1.5);
+      if (base.res != null) base.res = clamp(base.res * (1.35 - bright * 0.5), 0.1, 26);
+      return base;
     }
 
     /* X (0..1) → нота по гамме, Y (0..1) → яркость/срез */
     inst.quantize = function (x) {
+      const prog = PROGRAMS[inst.prog] || PROGRAMS[0];
+      const octave = prog.octave != null ? prog.octave : inst.octave;
       const sc = SCALES[inst.scale] || SCALES.chromatic;
       const total = sc.length;
       const idx = Math.round(x * (total * 2 - 1));
       const oct = Math.floor(idx / total);
       const deg = ((idx % total) + total) % total;
-      return 12 * (inst.octave + oct) + sc[deg];
+      return 12 * (octave + oct) + sc[deg];
     };
 
     inst.noteOn = function (x, y, velocity) {
       inst.x = x;
       inst.y = y;
+      const prog = PROGRAMS[inst.prog] || PROGRAMS[0];
+
+      // режим слайсов из своих сэмплов
       if (inst.mode === 'sampler' && inst.sampler) {
         inst.sampler.play(x, y, velocity, null);
         inst.midi = inst.quantize(x);
         recordSegment(inst, x, y, velocity, inst.midi);
         return inst.midi;
       }
+
+      // ударные программы: X выбирает тип удара
+      if (prog.drum) {
+        const pads = prog.pads || [0, 1, 2, 3, 4, 5, 6, 7];
+        const idx = Math.min(pads.length - 1, Math.max(0, Math.floor(x * pads.length)));
+        const pad = pads[idx];
+        AE().playDrum(ctx, out, { tune: 0, decay: 0.9 + y * 0.8, snap: 0.5, level: 0.9 }, pad, ctx.currentTime, velocity != null ? velocity : 0.95, null);
+        inst.midi = pad;
+        recordSegment(inst, x, y, velocity, pad);
+        return pad;
+      }
+
       const midi = inst.quantize(x);
       inst.midi = midi;
       if (inst.voice && inst.lastMidi === midi) {
@@ -113,7 +230,7 @@
       }
       if (inst.voice) inst.voice.kill(ctx.currentTime);
       const p = paramsFor(inst, y);
-      inst.voice = newVoice(ctx, out, 'subsynth', p, midi, velocity != null ? velocity : 0.9, ctx.currentTime);
+      inst.voice = newVoice(ctx, out, prog.engine || 'subsynth', p, midi, velocity != null ? velocity : 0.9, ctx.currentTime);
       inst.lastMidi = midi;
       recordSegment(inst, x, y, velocity, midi);
       return midi;
@@ -192,13 +309,21 @@
         segs.forEach((s) => {
           const start = t0 + (s.t0 % len);
           const dur = Math.max(0.05, Math.min(s.t1 - s.t0, len));
+          const pr = PROGRAMS[inst.prog] || PROGRAMS[0];
           if (s.mode === 'sampler' && inst.sampler && inst.sampler.buffer) {
             // для сэмплерных фраз пересчитываем по X
             const when = Math.max(0, (start - ctx.currentTime) * 1000);
             const limit = (s.t1 - s.t0) > 0.02 ? dur : null;
             setTimeout(() => { if (inst.playingLoops[slot]) inst.sampler.play(s.x, s.y, s.v, limit); }, when);
+          } else if (pr.drum) {
+            const whenPad = Math.max(0, (start - ctx.currentTime) * 1000);
+            setTimeout(() => {
+              if (inst.playingLoops[slot]) {
+                AE().playDrum(ctx, out, { tune: 0, decay: 0.9 + (s.y || 0.5) * 0.8, snap: 0.5, level: 0.9 }, s.midi, ctx.currentTime, s.v, null);
+              }
+            }, whenPad);
           } else {
-            window.AudioEngine.playNote(ctx, out, 'subsynth', paramsFor(inst, s.y), s.midi, s.v, start, dur);
+            window.AudioEngine.playNote(ctx, out, pr.engine || 'subsynth', paramsFor(inst, s.y), s.midi, s.v, start, dur);
           }
         });
         inst.loopTimers[slot] = setTimeout(tick, len * 1000);
@@ -221,6 +346,15 @@
       inst.ensureSampler().load(buffer, name);
       inst.mode = 'sampler';
       return inst.sampler;
+    };
+
+    inst.setProgram = function (i) {
+      inst.prog = Math.max(0, Math.min(PROGRAMS.length - 1, i));
+      const pr = PROGRAMS[inst.prog];
+      if (pr.octave != null) inst.octave = pr.octave;
+      inst.lastMidi = null;
+      if (inst.voice) { inst.voice.release(ctx.currentTime); inst.voice = null; }
+      return pr;
     };
 
     inst.setMode = function (mode) {
@@ -248,6 +382,46 @@
       inst.hold = false;
       inst.holdMidi = null;
       inst.noteOff();
+    };
+
+    /* Наличие встроенного лупа у программы */
+    inst.programLoop = function () {
+      const pr = PROGRAMS[inst.prog];
+      return pr && pr.loop ? pr.loop : null;
+    };
+
+    /* Проиграть встроенный луп программы (не путать с лупами записи) */
+    inst.startProgramLoop = function (slot) {
+      const pr = PROGRAMS[inst.prog];
+      if (!pr || !pr.loop) return false;
+      inst.stopLoop(slot);
+      inst.playingLoops[slot] = true;
+      const loop = pr.loop;
+      const stepMs = (60 / inst.bpm / 4) * 1000;
+      let i = 0;
+      const tick = () => {
+        if (!inst.playingLoops[slot]) return;
+        const step = loop.steps || 16;
+        const x = (i % step) / step;
+        if (loop.drum) {
+          Object.keys(loop.drum).forEach((pad) => {
+            if (loop.drum[pad].indexOf(i % step) >= 0) {
+              AE().playDrum(ctx, out, { tune: 0, decay: 1, snap: 0.5, level: 0.9 }, Number(pad), ctx.currentTime, 0.95, null);
+            }
+          });
+        } else if (loop.pattern) {
+          if (loop.pattern[i % step]) {
+            const midi = inst.quantize(x);
+            window.AudioEngine.playNote(ctx, out, pr.engine || 'subsynth', paramsFor(inst, 0.6), midi, 0.9, ctx.currentTime, stepMs / 1000 * 0.9);
+          }
+        } else if (pr.drum) {
+          AE().playDrum(ctx, out, { tune: 0, decay: 1, snap: 0.5, level: 0.9 }, 0, ctx.currentTime, 0.95, null);
+        }
+        i++;
+        inst.loopTimers[slot] = setTimeout(tick, stepMs);
+      };
+      tick();
+      return true;
     };
 
     inst.stopAll = function () {
@@ -786,6 +960,8 @@
     return out;
   };
 
+  K.PROGRAMS = PROGRAMS;
+  K.CAT_NAMES = CAT_NAMES;
   K.SCALES = SCALES;
   K.WAVES = WAVES;
   window.Kaoss = K;

@@ -474,3 +474,37 @@ main { flex: 1; padding: 0 16px 28px; }
 .btn.mini.hold.on { background: linear-gradient(180deg, #ffd166, #f0a93a); color: #241503; border-color: transparent; box-shadow: 0 0 12px rgba(255,209,102,.45); }
 .xy-pad.holdon { border-color: #ffd166; box-shadow: 0 0 0 2px rgba(255,209,102,.20), inset 0 0 40px rgba(255,209,102,.08); }
 .xy-pad.holdon .xy-dot { background: radial-gradient(circle at 35% 30%, #fff, #ffd166 55%, rgba(255,209,102,.25) 75%); box-shadow: 0 0 22px rgba(255,209,102,.6); }
+
+/* ---------- банк звуков Kaossilator ---------- */
+.prog-bar {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 14px 12px; border-bottom: 1px solid var(--line); background: #0f151d;
+}
+.prog-group { display: flex; align-items: center; gap: 10px; }
+.prog-cat {
+  width: 118px; flex: none; font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em;
+  color: #5c6a80; text-align: right; padding-right: 4px;
+}
+.prog-row { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; }
+.prog-btn {
+  background: #131a24; border: 1px solid var(--line); color: #b8c6d9;
+  border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: .12s; white-space: nowrap;
+}
+.prog-btn:hover { border-color: #3b4a63; color: #fff; transform: translateY(-1px); }
+.prog-btn.active {
+  background: linear-gradient(180deg, var(--accent), #2bbfa3); color: #06231e;
+  border-color: transparent; box-shadow: 0 2px 10px rgba(78,225,193,.28);
+}
+.prog-btn.drum.active { background: linear-gradient(180deg, #ff8a5c, #d9603a); color: #1a0d07; }
+.prog-btn.loop::after { content: ' ⟲'; font-size: 10px; color: var(--accent2); }
+.prog-btn.loop.active::after { color: #2a1206; }
+.prog-current {
+  font-size: 12px; font-weight: 800; color: var(--accent);
+  background: #0b1820; border: 1px solid #1d3a3a; border-radius: 7px; padding: 4px 9px;
+}
+.btn.ghost.mini.preset.on { border-color: var(--accent2); color: var(--accent2); }
+@media (max-width: 760px) {
+  .prog-group { flex-direction: column; align-items: stretch; gap: 3px; }
+  .prog-cat { width: auto; text-align: left; }
+}

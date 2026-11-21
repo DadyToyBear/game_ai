@@ -120,6 +120,41 @@
       el('div', { class: 'spacer' }),
     ]);
 
+    /* --- Банк звуков: категории как на Kaossilator --- */
+    const progBar = el('div', { class: 'prog-bar' });
+    const renderProgs = () => {
+      progBar.innerHTML = '';
+      const cats = [];
+      Kaoss.PROGRAMS.forEach((p, i) => { if (cats.indexOf(p.cat) < 0) cats.push(p.cat); });
+      cats.forEach((cat) => {
+        const group = el('div', { class: 'prog-group' }, [
+          el('div', { class: 'prog-cat', text: Kaoss.CAT_NAMES[cat] || cat }),
+        ]);
+        const row = el('div', { class: 'prog-row' });
+        Kaoss.PROGRAMS.forEach((p, i) => {
+          if (p.cat !== cat) return;
+          row.appendChild(el('button', {
+            class: 'prog-btn' + (inst.prog === i ? ' active' : '') + (p.drum ? ' drum' : '') + (p.loop ? ' loop' : ''),
+            'data-i': i,
+            title: (p.engine || (p.drum ? 'beatbox' : '')) + (p.loop ? ' · со встроенным лупом' : ''),
+            onclick: () => {
+              inst.setProgram(i);
+              renderProgs();
+              progName.textContent = p.name;
+              octSel.value = String(inst.octave);
+              // встроенный луп — сразу предложить запуск
+              loopHint.textContent = p.loop ? 'у звука есть встроенный луп — ▶ в лупе' : '';
+              loopHint.style.display = p.loop ? '' : 'none';
+            },
+          }, [el('span', { text: p.name })]));
+        });
+        group.appendChild(row);
+        progBar.appendChild(group);
+      });
+    };
+    const progName = el('div', { class: 'prog-current', text: Kaoss.PROGRAMS[inst.prog].name });
+    const loopHint = el('span', { class: 'hint', style: { display: 'none' } });
+
     // контролы
     const scaleSel = el('select', { class: 'preset-select', onchange: (e) => { inst.scale = e.target.value; } },
       Object.keys(Kaoss.SCALES).map((k) => el('option', { value: k, text: SCALE_NAMES[k] || k })));
@@ -133,6 +168,10 @@
     const octSel = el('select', { class: 'preset-select', onchange: (e) => { inst.octave = Number(e.target.value); } },
       [3, 4, 5, 6].map((o) => el('option', { value: o, text: 'OCT ' + o })));
     octSel.value = inst.octave;
+
+    head.appendChild(el('label', { class: 'hint', text: 'Звук' }));
+    head.appendChild(progName);
+    head.appendChild(loopHint);
 
     head.appendChild(el('label', { class: 'hint', text: 'Гамма' }));
     head.appendChild(scaleSel);
@@ -216,9 +255,22 @@
         },
       });
 
+      const presetPlay = el('button', {
+        class: 'btn ghost mini preset',
+        text: '▶ луп',
+        title: 'Играть встроенный луп выбранного звука (если он есть)',
+        onclick: () => {
+          if (!inst.programLoop()) { window.UI.toast('У этого звука нет встроенного лупа — запишите свой через ●', 'error'); return; }
+          if (inst.playingLoops[slot] && inst.loopFromProgram === slot) inst.stopLoop(slot);
+          else { inst.loopFromProgram = slot; inst.startProgramLoop(slot); }
+          presetPlay.classList.toggle('on', !!(inst.playingLoops[slot] && inst.loopFromProgram === slot));
+          refresh();
+        },
+      });
+
       loopBox.appendChild(el('div', { class: 'loop-row' }, [
         el('span', { class: 'loop-num', text: 'LOOP ' + (slot + 1) }),
-        rec, play, clr, state, toPat,
+        rec, presetPlay, play, clr, state, toPat,
       ]));
     });
 
@@ -233,6 +285,7 @@
     ]);
 
     /* --- своя библиотека сэмплов: WAV/MP3 → слайсы --- */
+    renderProgs();
     inst.ensureSampler();
     const sampleCard = el('div', { class: 'sample-card' });
     rebuildSampleCard = () => {
@@ -308,6 +361,7 @@
     rebuildSampleCard();
 
     wrap.appendChild(head);
+    wrap.appendChild(progBar);
     wrap.appendChild(el('div', { class: 'kaoss-body' }, [side, sampleCard]));
     return wrap;
   };
