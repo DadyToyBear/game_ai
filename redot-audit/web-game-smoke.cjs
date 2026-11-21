@@ -78,7 +78,14 @@ async function waitServer() {
     const result = JSON.parse(mcp.stdout).result;
     assert.ok(!result.isError, JSON.stringify(result));
     assert.ok(redPixels(Buffer.from(result.content[0].data, 'base64')) > 1000, 'MCP image is not the game scene');
-    console.log('::notice title=Web game capture smoke::Minimal RC2 Web game rendered and its red scene reached MCP through game-canvas. Editor Play and Android are not tested.');
+    await page.getByRole('button', {name: 'Остановить кадры'}).click();
+    await page.waitForTimeout(500);
+    const deletion = JSON.stringify({jsonrpc: '2.0', id: 2, method: 'tools/call', params: {name: 'delete_game_screenshot'}}) + '\n';
+    const deleted = spawnSync('python3', ['redot-bridge/bridge.py', 'mcp'], {input: deletion, encoding: 'utf8', env: {...process.env, REDOT_BRIDGE_TOKEN: secret}, timeout: 10000});
+    assert.equal(deleted.status, 0, deleted.stderr);
+    assert.ok(!JSON.parse(deleted.stdout).result.isError, deleted.stdout);
+    assert.equal((await fetch('http://127.0.0.1:8765/api/frame', {headers: {Authorization: `Bearer ${secret}`}})).status, 404, 'deleted frame is still present');
+    console.log('::notice title=Web game capture smoke::Minimal RC2 Web game rendered; its scene reached MCP and was deleted after capture stopped. Editor Play and Android are not tested.');
   } catch (err) {
     const text = `${err.stack || err}\nBrowser errors: ${issues.slice(-8).join(' | ')}`.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
     console.error(`::error title=Web game capture smoke::${text}`); process.exitCode = 1;
