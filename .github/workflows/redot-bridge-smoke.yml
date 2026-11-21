@@ -61,3 +61,9 @@ jobs:
             exit 1
           fi
           cat smoke.log
+          if ! python3 redot-bridge/tests/godot/run_upload_smoke.py "${editors[0]}" > upload.log 2>&1; then
+            cat upload.log
+            python3 -c 'from pathlib import Path; s=Path("upload.log").read_text(errors="replace")[-6000:]; print("::error title=Redot logger upload::" + s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))'
+            exit 1
+          fi
+          cat upload.log
