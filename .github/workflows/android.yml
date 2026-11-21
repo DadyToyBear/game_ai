@@ -224,6 +224,24 @@ jobs:
           path: android/app/build/outputs/proof-signed.apk
           if-no-files-found: error
 
+      # То же файлом в релизе: удобно скачать с телефона без gh
+      - name: Опубликовать проверенный APK (proof)
+        if: steps.key.outputs.signed != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-proof-signed
+          name: Mini Studio — подписанный APK (проверочный ключ)
+          prerelease: true
+          body: |
+            Этот APK подписан **временным проверочным ключом**, чтобы подтвердить, что конвейер
+            подписи работает (`apksigner verify` в логах сборки).
+
+            Ставить можно, но обновить другим ключом не получится.
+            Для постоянного использования добавьте свои секреты
+            `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+            `ANDROID_KEY_PASSWORD` — тогда подписанные APK и AAB появятся в релизе `release-latest`.
+          files: android/app/build/outputs/proof-signed.apk
+
       - name: Инструкция, если ключа подписи нет
         if: steps.key.outputs.signed != 'true'
         run: |
