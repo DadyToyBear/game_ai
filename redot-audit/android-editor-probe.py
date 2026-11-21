@@ -44,13 +44,26 @@ def main():
         time.sleep(1)
     else:
         raise RuntimeError('Editor process did not start')
-    time.sleep(30)  # Let the initial renderer/project manager initialize.
-    if not adb('shell', 'pidof', pkg, check=False).stdout.strip():
-        raise RuntimeError('Editor process exited during initialization')
+    # Process presence is not enough: wait for visible rendering, not the solid
+    # startup surface. This still cannot identify a particular UI without OCR.
+    deadline = time.monotonic() + 180
+    image = None; colors = 0
+    while time.monotonic() < deadline:
+        time.sleep(5)
+        if not adb('shell', 'pidof', pkg, check=False).stdout.strip():
+            raise RuntimeError('Editor process exited during initialization')
+        image = Image.open(io.BytesIO(adb('exec-out', 'screencap', '-p').stdout)).convert('RGB')
+        sample = image.crop((0, 0, image.width, int(image.height * 0.93))).resize((160, 100))
+        colors = len({(r >> 4, g >> 4, b >> 4) for r, g, b in sample.getdata()})
+        if colors >= 24:
+            break
+    if colors < 24:
+        raise RuntimeError(f'Editor remained blank after initialization ({colors} color buckets)')
     focus = adb('shell', 'dumpsys', 'activity', 'activities').stdout.decode(errors='replace')
     lines = [line.strip() for line in focus.splitlines() if 'mResumedActivity' in line or 'topResumedActivity' in line]
+    if not any(pkg in line for line in lines):
+        raise RuntimeError('Editor activity was not foreground when image was captured')
     notice('Android editor foreground', ' | '.join(lines)[:900])
-    image = Image.open(io.BytesIO(adb('exec-out', 'screencap', '-p').stdout)).convert('RGB')
     image.thumbnail((960, 600))
     buf = io.BytesIO(); image.save(buf, format='JPEG', quality=18)
     data = base64.b64encode(buf.getvalue()).decode('ascii')
@@ -63,6 +76,15 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as exc:
+        try:
+            image = Image.open(io.BytesIO(adb('exec-out', 'screencap', '-p').stdout)).convert('RGB')
+            image.thumbnail((960, 600))
+            buf = io.BytesIO(); image.save(buf, format='JPEG', quality=15)
+            data = base64.b64encode(buf.getvalue()).decode('ascii')
+            for i in range(0, min(len(data), 35000), 3500):
+                print(f'::warning title=ANDROID_FAILURE_{i//3500:02d}::{data[i:i+3500]}', flush=True)
+        except Exception:
+            pass
         logs = adb('logcat', '-d', '-t', '5000', check=False).stdout.decode(errors='replace')
         relevant = [line for line in logs.splitlines() if re.search(r'godot|redot|fatal|crash|linker|libc|ndk_translation', line, re.I)]
         for i, line in enumerate(relevant[-20:]):
