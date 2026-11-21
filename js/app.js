@@ -1191,6 +1191,15 @@
     }));
   }
 
+  function exportMidi() {
+    const bars = song.arrangeBars || 4;
+    const events = MidiFile.eventsFromSong(song, Pattern, bars);
+    if (!events.length) { UI.toast('Секвенсор пуст — нечего экспортировать', 'error'); return; }
+    const bytes = MidiFile.build(song, events, { ppq: 480 });
+    UI.download(new Blob([bytes], { type: 'audio/midi' }), 'mini-studio-' + Date.now() + '.mid');
+    UI.toast('MIDI готов: ' + song.tracks.length + ' дорожек, ' + events.length + ' нот, ' + bars + ' такт(ов). Откройте в DAW и назначьте инструмент Nexus.', 'ok');
+  }
+
   function saveProject() {
     const clean = serialize();
     try { localStorage.setItem(LS_KEY, JSON.stringify(clean)); } catch (e) {}
@@ -1409,6 +1418,7 @@
     document.getElementById('btnMidi2').addEventListener('click', initMidi);
 
     document.getElementById('btnExportWav').addEventListener('click', exportWav);
+    document.getElementById('btnExportMidi').addEventListener('click', exportMidi);
     document.getElementById('btnExportJson').addEventListener('click', saveProject);
     document.getElementById('btnImportJson').addEventListener('click', () => document.getElementById('fileJson').click());
     document.getElementById('fileJson').addEventListener('change', (e) => {
@@ -1540,6 +1550,8 @@
       el('p', { class: 'muted', text: 'Квадратная сетка — это шаговый редактор паттерна: клик включает/выключает ноту или удар в шаге, правый клик удаляет. Для драм-машины сетка сразу разложена по 8 каналам.' }),
       el('h4', { style: { margin: '10px 0 4px' }, text: 'MIDI и запись' }),
       el('p', { class: 'muted', text: 'Кнопка MIDI включает Web MIDI: ноты играют на выбранной машине, CC1 крутит срез фильтра, при включённой записи (●) ноты/удары пишутся в активный паттерн в реальном времени.' }),
+      el('h4', { style: { margin: '10px 0 4px' }, text: 'Nexus и сторонние библиотеки' }),
+      el('p', { class: 'muted', text: 'Загрузить библиотеку Nexus (.nks/.ncw/.xp) в браузерную студию нельзя: это закрытый формат reFX, а браузер не умеет запускать VST-плагины. Рабочий путь — «Экспорт MIDI»: MIDI-файл открывается в DAW, где на дорожки ставится Nexus, и партии играют его звуками. Один трек в файле = одна машина.' }),
       el('h4', { style: { margin: '10px 0 4px' }, text: 'Ограничения прототипа' }),
       el('p', { class: 'muted', text: 'VST-плагины браузер не поддерживает — это принципиальное ограничение веб-платформы. Вместо них встроенные машины, сэмплер PCMSynth и свои WAV-сэмплы. Экспорт — офлайн-рендер в WAV (то, что включено в аранжировке).' }),
     ]);

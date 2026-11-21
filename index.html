@@ -94,9 +94,12 @@
       <div class="io-grid">
         <div class="card">
           <h3>Экспорт</h3>
-          <p class="muted">Офлайн-рендер выбранного числа тактов в WAV 16 бит / 44.1 кГц.</p>
+          <p class="muted">WAV — офлайн-рендер аранжировки (16 бит / 44.1 кГц) встроенными машинами.
+             MIDI — партии проекта для любого DAW: один трек = одна машина, ударные на 10-м канале,
+             сцены A–D уже разложены по тактам.</p>
           <div class="row">
             <button class="btn primary" id="btnExportWav">Экспорт WAV</button>
+            <button class="btn" id="btnExportMidi">Экспорт MIDI</button>
             <button class="btn" id="btnExportJson">Сохранить проект</button>
             <button class="btn" id="btnImportJson">Загрузить проект</button>
             <input type="file" id="fileJson" accept=".json" hidden />
@@ -124,6 +127,20 @@
         </div>
 
         <div class="card">
+          <h3>Nexus (reFX) и сторонние VST</h3>
+          <p class="muted">Библиотеку Nexus (.nks / .ncw) нельзя загрузить в браузерную студию:
+             это закрытый формат reFX и нативный плагин, а браузер не запускает VST.
+             Рабочая связка:</p>
+          <ol class="clean">
+            <li>Здесь сделайте партии и нажмите «Экспорт MIDI».</li>
+            <li>Откройте .mid в DAW (FL Studio, Ableton, Reaper, Cubase…).</li>
+            <li>На каждую дорожку поставьте Nexus и выберите пресет/библиотеку.</li>
+            <li>Играйте и рендерьте уже звуками Nexus.</li>
+          </ol>
+          <p class="muted">В сам проект из Nexus переносится только MIDI, аудио — нет.</p>
+        </div>
+
+        <div class="card">
           <h3>Что внутри</h3>
           <ul class="clean">
             <li>BeatBox — драм-машина с 8 каналами и своими WAV-сэмплами</li>
@@ -131,7 +148,7 @@
             <li>Степ-секвенсор и пиано-ролл</li>
             <li>3 эффект-шины на канал: delay / reverb + мастер-секция</li>
             <li>MIDI-вход через Web MIDI API</li>
-            <li>Экспорт WAV (офлайн-рендер) и JSON-проекта</li>
+            <li>Экспорт WAV (офлайн-рендер), MIDI (SMF type 1) и JSON-проекта</li>
           </ul>
         </div>
       </div>
@@ -142,6 +159,7 @@
 <script src="js/engines.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/pattern.js"></script>
+<script src="js/midi-file.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/app.js"></script>
 </body>
