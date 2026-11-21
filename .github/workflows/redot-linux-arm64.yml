@@ -1,0 +1,99 @@
+name: Fedora ARM64 Redot Mono and bridge
+
+on:
+  push:
+    branches: [arena/b84b9c4f-game-ai]
+    paths:
+      - '.github/workflows/redot-linux-arm64.yml'
+      - 'redot-linux-arm64/**'
+      - 'redot-audit/native_play_test.py'
+      - 'redot-audit/native_viewer_test.cjs'
+      - 'redot-bridge/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  fedora-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify official RC2 Mono ARM64 editor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p downloads bundle/editor
+          gh release download redot-26.3-rc.2 --repo Redot-Engine/redot-engine --dir downloads --pattern 'Redot_v26.3-rc.2_linux_mono_arm64.zip' --pattern 'SHA512-SUMS.txt'
+          (cd downloads && grep '  releases/Redot_v26.3-rc.2_linux_mono_arm64.zip$' SHA512-SUMS.txt | sed 's|  releases/|  |' | sha512sum -c -)
+          unzip -q downloads/Redot_v26.3-rc.2_linux_mono_arm64.zip -d bundle/editor
+          python3 - <<'PY'
+          from pathlib import Path
+          candidates=[]
+          for p in Path('bundle/editor').rglob('*'):
+              if p.is_file() and 'redot' in p.name.lower():
+                  with p.open('rb') as f: header=f.read(20)
+                  if header[:6] == b'\x7fELF\x02\x01' and int.from_bytes(header[18:20], 'little') == 183:
+                      candidates.append(p)
+          if len(candidates) != 1: raise SystemExit(f'Expected one ARM64 editor executable, found: {candidates}')
+          p=candidates[0]; p.chmod(p.stat().st_mode | 0o755)
+          Path('bundle/editor-path.txt').write_text(str(p.relative_to('bundle'))+'\n')
+          PY
+      - name: Get an unexpired verified RC2 Web bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run list --repo "$GITHUB_REPOSITORY" --branch "$GITHUB_REF_NAME" --limit 100 --json databaseId,headSha,workflowName,status,conclusion > runs.json
+          found=false
+          while IFS=$'\t' read -r id sha; do
+            available=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts" --jq '[.artifacts[] | select(.name == "redot-web-editor-with-local-bridge" and .expired == false)] | length')
+            if [ "$available" = 1 ] && gh run download "$id" --repo "$GITHUB_REPOSITORY" --name redot-web-editor-with-local-bridge --dir bundle/web-editor; then
+              test -s bundle/web-editor/godot.editor.wasm && test -s bundle/web-editor/godot.editor.html
+              rm -rf bundle/web-editor/redot-bridge bundle/web-editor/BRIDGE-START.md
+              printf 'Web bundle run: %s\nWeb bundle repository commit: %s\n' "$id" "$sha" > web-provenance.txt
+              found=true; break
+            fi
+          done < <(jq -r '.[] | select(.workflowName == "Assemble Redot Web Editor with Local Bridge" and .status == "completed" and .conclusion == "success") | [.databaseId,.headSha] | @tsv' runs.json)
+          if [ "$found" = false ]; then echo '::error::No unexpired Web bundle. Run Assemble Redot Web Editor with Local Bridge first.'; exit 1; fi
+      - name: Assemble portable bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bundle/redot-bridge
+          cp redot-bridge/{bridge.py,project_sync.py,relay.py,requirements-relay.txt,make_bundle.py,README.md} bundle/redot-bridge/
+          cp -a redot-bridge/{web,addons,relay-deploy} bundle/redot-bridge/
+          cp redot-linux-arm64/{README.md,start.sh} bundle/
+          printf 'Native editor: official Redot 26.3 RC2 Mono ARM64\nEngine revision: 80d31f765b0ead5551c277704e52bb51c515db1f\nBridge commit: %s\n' "$GITHUB_SHA" > bundle/BUILD-PROVENANCE.txt
+          cat web-provenance.txt >> bundle/BUILD-PROVENANCE.txt
+          mv bundle redot-fedora-arm64
+          tar -czf redot-fedora-arm64.tar.gz redot-fedora-arm64
+          sha256sum redot-fedora-arm64.tar.gz > redot-fedora-arm64.tar.gz.sha256
+      - name: Test extracted bundle in Fedora ARM64 container
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir test-bundle && tar -xzf redot-fedora-arm64.tar.gz -C test-bundle
+          cp -a redot-audit test-bundle/redot-fedora-arm64/redot-audit
+          docker run --rm --shm-size=2g -v "$PWD/test-bundle/redot-fedora-arm64:/work" -w /work fedora:42 bash -euxo pipefail -c '
+            test "$(uname -m)" = aarch64
+            dnf install -y python3 python3-pillow xorg-x11-server-Xvfb xorg-x11-xauth mesa-dri-drivers libXcursor libXinerama libXi libXrandr libXrender libX11 libXext libxkbcommon fontconfig dbus-libs alsa-lib nodejs npm chromium
+            npm install --no-save playwright@1.56.1 pngjs@7.0.0
+            bash -n start.sh
+            export CHROMIUM_EXECUTABLE=/usr/bin/chromium
+            xvfb-run -a -s "-screen 0 1280x800x24" python3 redot-audit/native_play_test.py "$(cat editor-path.txt)"
+          ' > fedora-test.log 2>&1 || { tail -100 fedora-test.log; python3 -c 'from pathlib import Path; s=Path("fedora-test.log").read_text(errors="replace")[-3500:]; print("::error title=Fedora ARM64 test::"+s.replace("%","%25").replace("\n","%0A"))'; exit 1; }
+          tail -40 fedora-test.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redot-fedora-arm64-mono-and-bridge
+          path: |
+            redot-fedora-arm64.tar.gz
+            redot-fedora-arm64.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14

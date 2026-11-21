@@ -11,7 +11,7 @@ function redPixels(image) {
 }
 
 (async () => {
-  const browser = await chromium.launch({headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage']});
+  const browser = await chromium.launch({headless: true, ...(process.env.CHROMIUM_EXECUTABLE ? {executablePath: process.env.CHROMIUM_EXECUTABLE} : {}), args: ['--no-sandbox', '--disable-dev-shm-usage']});
   try {
     const page = await browser.newPage({viewport: {width: 1200, height: 900}});
     await page.goto('http://127.0.0.1:8765/native.html', {waitUntil: 'load'});
