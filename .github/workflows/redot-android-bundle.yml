@@ -9,6 +9,7 @@ on:
       - 'redot-audit/combined_bundle_test.py'
       - 'multiagent-upstream/multiagent-mcp.py'
       - 'redot-bridge/multiagent_mcp.py'
+      - 'redot-bridge/task_transport.py'
       - 'redot-bridge/opencode.multiagent.example.json'
       - 'redot-bridge/make_bundle.py'
       - 'redot-bridge/addons/redot_android_mcp/**'
