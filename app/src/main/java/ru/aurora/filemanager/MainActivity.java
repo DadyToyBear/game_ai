@@ -663,6 +663,7 @@ public class MainActivity extends Activity {
                 accounts.addView(button(name+(writable?" · чтение и запись":" · только чтение"),()->new AlertDialog.Builder(this).setTitle("Права: "+name)
                     .setMessage(writable?"Запретить запись этому пользователю? Уже начатые операции могут завершиться.":"Разрешить пользователю изменять и удалять файлы, когда запись включена на сервере?")
                     .setNegativeButton("Отмена",null).setPositiveButton(writable?"Запретить запись":"Разрешить запись",(d,w)->{try{new LocalAccounts(this).setCanWrite(name,!writable);accountsScreen();}catch(Exception ex){error(ex);}}).show()));
+                accounts.addView(button("Сменить пароль: "+name,()->changeAccountPassword(name,token,status)));
                 accounts.addView(button("Удалить пользователя: "+name,()->new AlertDialog.Builder(this).setTitle("Удалить учётную запись?")
                 .setMessage("Новые запросы пользователя «"+name+"» будут отклоняться; уже начатые операции могут завершиться.")
                 .setNegativeButton("Отмена",null).setPositiveButton("Удалить",(d,w)->{try{new LocalAccounts(this).remove(name);accountsScreen();}catch(Exception ex){error(ex);}}).show()));}
@@ -676,6 +677,27 @@ public class MainActivity extends Activity {
                 String failure=problem;runOnUiThread(()->{if(accountsView!=token||isFinishing()||isDestroyed())return;if(failure!=null){status.setText("Ошибка: "+failure);add.setEnabled(true);}else{toast("Учётная запись создана");accountsScreen();}});
             },"account-create").start();
         });
+    }
+    private void changeAccountPassword(String name,Object token,TextView status){
+        LinearLayout fields=new LinearLayout(this);fields.setOrientation(LinearLayout.VERTICAL);fields.setPadding(dp(20),0,dp(20),0);
+        EditText password=new EditText(this),confirmation=new EditText(this);
+        password.setSingleLine();confirmation.setSingleLine();password.setHint("Новый пароль (8–256 символов)");confirmation.setHint("Повторите пароль");
+        int inputType=android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
+        password.setInputType(inputType);confirmation.setInputType(inputType);fields.addView(password);fields.addView(confirmation);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Новый пароль: "+name)
+            .setMessage("Старый пароль перестанет действовать для новых запросов; уже начатые операции могут завершиться.")
+            .setView(fields).setNegativeButton("Отмена",null).setPositiveButton("Сохранить",null).create();
+        dialog.setOnDismissListener(d->{password.setText("");confirmation.setText("");});
+        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            char[] secret=new char[password.length()],repeat=new char[confirmation.length()];
+            password.getText().getChars(0,password.length(),secret,0);confirmation.getText().getChars(0,confirmation.length(),repeat,0);
+            try{LocalAccounts.validatePassword(secret);if(!java.util.Arrays.equals(secret,repeat))throw new IOException("Пароли не совпадают");}
+            catch(Exception ex){java.util.Arrays.fill(secret,'\0');java.util.Arrays.fill(repeat,'\0');toast(ex.getMessage());return;}
+            java.util.Arrays.fill(repeat,'\0');dialog.dismiss();status.setText("Смена пароля…");
+            new Thread(()->{String problem=null;try{new LocalAccounts(getApplicationContext()).changePassword(name,secret);}catch(Exception ex){problem=ex.getMessage();}finally{java.util.Arrays.fill(secret,'\0');}
+                String failure=problem;runOnUiThread(()->{if(accountsView!=token||isFinishing()||isDestroyed())return;if(failure!=null)status.setText("Ошибка смены пароля: "+failure);else{status.setText("Пароль изменён: "+name);toast("Пароль изменён");}});
+            },"account-password").start();
+        }));dialog.show();
     }
     private void webScreen() {
         layout("Web-доступ");

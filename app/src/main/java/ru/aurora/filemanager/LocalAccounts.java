@@ -36,6 +36,18 @@ final class LocalAccounts {
         }}finally{Arrays.fill(derived,(byte)0);}
     }
 
+    /** Keep permissions, and refuse to update an account replaced while the hash was computed. */
+    void changePassword(String username,char[] password) throws Exception {
+        if(!validUsername(username))throw new IOException("Недопустимое имя пользователя");validatePassword(password);
+        String previousSalt,previousHash;int previousIterations;
+        synchronized(LOCK){JSONObject entry=read().optJSONObject(username);if(entry==null)throw new IOException("Учётная запись не найдена");
+            previousSalt=entry.getString("salt");previousHash=entry.getString("hash");previousIterations=entry.getInt("iterations");}
+        byte[] salt=new byte[16];new SecureRandom().nextBytes(salt);byte[] derived=hash(password,salt,ITERATIONS);
+        try{synchronized(LOCK){JSONObject all=read(),entry=all.optJSONObject(username);
+            if(entry==null || !previousSalt.equals(entry.optString("salt")) || !previousHash.equals(entry.optString("hash")) || previousIterations!=entry.optInt("iterations"))throw new IOException("Учётная запись изменилась; повторите операцию");
+            entry.put("salt",Base64.encodeToString(salt,Base64.NO_WRAP)).put("hash",Base64.encodeToString(derived,Base64.NO_WRAP)).put("iterations",ITERATIONS);save(all);
+        }}finally{Arrays.fill(derived,(byte)0);}
+    }
     void remove(String username) throws Exception {synchronized(LOCK){JSONObject object=read();if(!object.has(username))throw new IOException("Учётная запись не найдена");object.remove(username);save(object);}}
     boolean canWrite(String username) throws Exception {synchronized(LOCK){JSONObject entry=read().optJSONObject(username);if(entry==null)throw new IOException("Учётная запись не найдена");return entry.optBoolean("write",true);}}
     void setCanWrite(String username,boolean canWrite) throws Exception {synchronized(LOCK){JSONObject all=read(),entry=all.optJSONObject(username);if(entry==null)throw new IOException("Учётная запись не найдена");entry.put("write",canWrite);save(all);}}
