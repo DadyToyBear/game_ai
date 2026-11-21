@@ -80,7 +80,7 @@ class BridgeTest(unittest.TestCase):
         replies = [json.loads(line) for line in run.stdout.splitlines()]
         self.assertEqual([r['id'] for r in replies], [1, 2, 3, 4, 5])
         self.assertEqual(replies[0]['result']['protocolVersion'], '2025-03-26')
-        self.assertEqual(len(replies[1]['result']['tools']), 8)
+        self.assertEqual(len(replies[1]['result']['tools']), 10)
         image = replies[2]['result']['content'][0]
         self.assertEqual(image['mimeType'], 'image/png')
         self.assertEqual(base64.b64decode(image['data']), PNG)
@@ -147,6 +147,40 @@ class BridgeTest(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as err:
             self.request('/editor/../bridge.py')
         self.assertEqual(err.exception.code, 404)
+
+    def test_logs_permissions_limits_and_mcp(self):
+        batch = {'source': 'game', 'entries': [{'level': 'info', 'message': 'Hello <script>'}]}
+        def post(obj, token=TOKEN):
+            return self.request('/api/logs', 'POST', json.dumps(obj).encode(), token, 'application/json')
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            post(batch, 'wrong')
+        self.assertEqual(err.exception.code, 401)
+        with post(batch) as response:
+            self.assertEqual(response.status, 204)
+        for bad in ({'source': 'game', 'entries': []}, {'source': 'bad', 'entries': batch['entries']},
+                    {'source': 'game', 'entries': [{'level': 'info', 'message': 'x' * 513}]},
+                    {'source': 'game', 'entries': [{'level': 'info', 'message': '\ud800'}]},
+                    {'source': 'game', 'entries': batch['entries'] * 6}, {'source': 'game', 'entries': batch['entries'], 'extra': True}):
+            with self.subTest(bad=repr(bad)), self.assertRaises(urllib.error.HTTPError):
+                post(bad)
+        reply = bridge.mcp_response({'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': 'read_logs'}}, self.url, TOKEN)
+        entries = json.loads(reply['result']['content'][0]['text'])['entries']
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]['message'], 'Hello <script>')
+        self.assertEqual(entries[0]['source'], 'game')
+        for _ in range(41):
+            post({'source': 'editor', 'entries': batch['entries'] * 5}).close()
+        with self.request('/api/logs') as response:
+            entries = json.load(response)['entries']
+        self.assertEqual(len(entries), 200)
+        self.assertEqual(entries[-1]['seq'], 206)
+        reply = bridge.mcp_response({'jsonrpc': '2.0', 'id': 2, 'method': 'tools/call', 'params': {'name': 'delete_logs'}}, self.url, TOKEN)
+        self.assertFalse(reply['result'].get('isError', False))
+        with self.request('/api/logs') as response:
+            self.assertEqual(json.load(response)['entries'], [])
+        post(batch).close()
+        with self.request('/api/logs') as response:
+            self.assertEqual(json.load(response)['entries'][0]['seq'], 207)
 
     def test_remote_origin_and_redirects(self):
         self.assertEqual(bridge.remote_origin('https://relay.example.org/'), 'https://relay.example.org')

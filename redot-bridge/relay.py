@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from aiohttp import web
-from bridge import FrameStore, MAX_FRAME
+from bridge import FrameStore, MAX_FRAME, MAX_LOG_REQUEST
 
 WEB = Path(__file__).resolve().parent / 'web'
 
@@ -95,6 +95,23 @@ def create_app(origin, device_token, controller_token):
             return web.Response(status=400, text='Invalid editor status')
         return web.json_response({'command': store.editor_poll(payload['playing'])})
 
+    async def logs(request):
+        if request.method == 'POST':
+            if not authorize(request, device_token):
+                return unauthorized()
+            payload = await read_json(request, MAX_LOG_REQUEST)
+            try:
+                store.add_logs(payload)
+            except ValueError:
+                return web.Response(status=400, text='Invalid log batch')
+            return web.Response(status=204)
+        if not authorize(request, controller_token):
+            return unauthorized()
+        if request.method == 'DELETE':
+            store.clear_logs()
+            return web.Response(status=204)
+        return web.Response(text=json.dumps(store.get_logs(), ensure_ascii=False), content_type='application/json', charset='utf-8')
+
     async def frame(request):
         if request.method == 'POST':
             if not authorize(request, device_token):
@@ -122,14 +139,17 @@ def create_app(origin, device_token, controller_token):
     app.router.add_get('/api/status', status, allow_head=False)
     app.router.add_post('/api/command', command)
     app.router.add_post('/api/editor/poll', poll)
+    app.router.add_get('/api/logs', logs, allow_head=False)
+    app.router.add_post('/api/logs', logs)
+    app.router.add_delete('/api/logs', logs)
     app.router.add_get('/api/frame', frame, allow_head=False)
     app.router.add_post('/api/frame', frame)
     app.router.add_delete('/api/frame', frame)
     return app
 
 
-async def read_json(request):
-    if request.content_type != 'application/json' or request.content_length is None or request.content_length > 1024:
+async def read_json(request, limit=1024):
+    if request.content_type != 'application/json' or request.content_length is None or not 2 <= request.content_length <= limit:
         return None
     try:
         data = await request.read()

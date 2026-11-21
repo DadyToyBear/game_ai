@@ -7,4 +7,5 @@
 <div><button id="play" disabled>▶ Запустить основную сцену</button><button id="stop" disabled>■ Остановить</button><button id="snapshot" disabled>Скачать кадр</button><button id="delete" disabled>Удалить кадр из моста</button><button id="record" disabled>Начать запись WebM</button></div>
 <canvas id="screen" width="960" height="540"></canvas>
 <p>Это обновляемые кадры (примерно до 2 в секунду), не полноценное потоковое видео. Запись создаётся в браузере без звука и длится не более 60 секунд. Оставляйте окно игры открытым; возможны пропуски или задержка.</p>
+<section aria-labelledby="logs-heading"><h2 id="logs-heading">Журнал</h2><p>Только явно разрешённые в редакторе или игре сообщения. Они могут содержать приватные данные. Очистка не останавливает передачу новых сообщений.</p><button id="load-logs" disabled>Показать журнал</button><button id="delete-logs" disabled>Очистить журнал моста</button><pre id="logs" style="white-space:pre-wrap;overflow:auto;max-height:20rem" aria-live="polite"></pre></section>
 <script src="/native.js"></script></body></html>

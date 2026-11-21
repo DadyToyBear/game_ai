@@ -3,10 +3,13 @@ extends EditorPlugin
 
 # An explicit local USB endpoint or a trusted HTTPS relay. Secrets stay in memory.
 const ConnectionConfig = preload("res://addons/redot_android_mcp/connection_config.gd")
+const LogUploader = preload("res://addons/redot_android_mcp/log_uploader.gd")
 const MENU_TITLE := "MCP Bridge"
 var _dialog: ConfirmationDialog
 var _token_input: LineEdit
 var _url_input: LineEdit
+var _share_logs: CheckBox
+var _log_uploader: Node
 var _base_url := ""
 var _status: Label
 var _request: HTTPRequest
@@ -47,6 +50,10 @@ func _create_dialog() -> void:
 	_token_input.placeholder_text = "Bridge secret (32+ characters)"
 	_token_input.secret = true
 	content.add_child(_token_input)
+	_share_logs = CheckBox.new()
+	_share_logs.text = "Share editor logs (may contain secrets)"
+	_share_logs.button_pressed = false
+	content.add_child(_share_logs)
 	_status = Label.new()
 	_status.text = "Disconnected"
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -75,9 +82,14 @@ func _connect_bridge() -> void:
 			_status.text = "Use a printable ASCII secret without spaces."
 			_dialog.popup_centered()
 			return
+	var share_logs := _share_logs.button_pressed
 	_disconnect_bridge()
 	_token = value
 	_base_url = base
+	if share_logs:
+		_log_uploader = LogUploader.new()
+		add_child(_log_uploader)
+		_log_uploader.call("start", _base_url, _token, "editor")
 	_status.text = "Connecting to the bridge."
 	_timer.start()
 	_poll()
@@ -87,6 +99,12 @@ func _on_custom_action(action: StringName) -> void:
 		_disconnect_bridge()
 
 func _disconnect_bridge() -> void:
+	if is_instance_valid(_log_uploader):
+		remove_child(_log_uploader)
+		_log_uploader.queue_free()
+		_log_uploader = null
+	if is_instance_valid(_share_logs):
+		_share_logs.button_pressed = false
 	if is_instance_valid(_timer):
 		_timer.stop()
 	if is_instance_valid(_request):

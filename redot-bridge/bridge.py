@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 import threading
 import time
+from collections import deque
 import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
@@ -20,6 +21,8 @@ import project_sync
 
 MAX_MCP_SNAPSHOT = 8 * 1024 * 1024
 MAX_FRAME = 8 * 1024 * 1024
+MAX_LOG_REQUEST = 16 * 1024
+MAX_LOG_RESPONSE = 512 * 1024
 WEB = Path(__file__).resolve().parent / 'web'
 
 
@@ -53,6 +56,36 @@ class FrameStore:
         self.editor_playing = False
         self.pending_command = None
         self.command_queued = None
+        self.logs = deque(maxlen=200)
+        self.next_log_seq = 1
+
+    def add_logs(self, payload):
+        if (not isinstance(payload, dict) or set(payload) != {'source', 'entries'} or
+                payload['source'] not in ('editor', 'game') or not isinstance(payload['entries'], list) or
+                not 1 <= len(payload['entries']) <= 5):
+            raise ValueError('Invalid log batch')
+        for item in payload['entries']:
+            if (not isinstance(item, dict) or set(item) != {'level', 'message'} or
+                    item['level'] not in ('info', 'error', 'warning') or
+                    not isinstance(item['message'], str) or len(item['message']) > 512):
+                raise ValueError('Invalid log entry')
+            try:
+                item['message'].encode('utf-8')
+            except UnicodeEncodeError as exc:
+                raise ValueError('Invalid log text') from exc
+        with self.lock:
+            for item in payload['entries']:
+                self.logs.append({'seq': self.next_log_seq, 'source': payload['source'],
+                                  'level': item['level'], 'message': item['message'], 'received_at': time.time()})
+                self.next_log_seq += 1
+
+    def get_logs(self):
+        with self.lock:
+            return {'entries': list(self.logs)}
+
+    def clear_logs(self):
+        with self.lock:
+            self.logs.clear()
 
     def editor_poll(self, playing):
         with self.lock:
@@ -139,6 +172,10 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
                 if self.check_auth():
                     self.send_bytes(200, json.dumps(store.status()).encode('utf-8'), 'application/json')
                 return
+            if self.path == '/api/logs':
+                if self.check_auth():
+                    self.send_bytes(200, json.dumps(store.get_logs(), ensure_ascii=False).encode('utf-8'), 'application/json')
+                return
             if self.path == '/api/project/status':
                 if self.check_auth():
                     info = {'configured': project_dir is not None, 'name': Path(project_dir).name if project_dir else None}
@@ -188,7 +225,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             self.send_bytes(200, frame[0], frame[1])
 
         def do_POST(self):
-            if self.path not in ('/api/frame', '/api/command', '/api/editor/poll', '/api/project/import'):
+            if self.path not in ('/api/frame', '/api/command', '/api/editor/poll', '/api/project/import', '/api/logs'):
                 self.send_bytes(404, b'Not found')
                 return
             if not self.check_auth():
@@ -201,6 +238,21 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
                 self.send_bytes(411, b'Content-Length required')
                 return
             mime = self.headers.get('Content-Type', '').split(';', 1)[0].strip().lower()
+            if self.path == '/api/logs':
+                if mime != 'application/json' or not 2 <= length <= MAX_LOG_REQUEST:
+                    self.close_connection = True
+                    self.send_bytes(400, b'Invalid log batch')
+                    return
+                try:
+                    data = self.rfile.read(length)
+                    if len(data) != length:
+                        raise ValueError('Truncated log batch')
+                    store.add_logs(json.loads(data))
+                except (ValueError, UnicodeDecodeError):
+                    self.send_bytes(400, b'Invalid log batch')
+                    return
+                self.send_bytes(204)
+                return
             if self.path == '/api/project/import':
                 if project_dir is None:
                     self.close_connection = True
@@ -265,12 +317,15 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             self.send_bytes(204)
 
         def do_DELETE(self):
-            if self.path != '/api/frame':
+            if self.path not in ('/api/frame', '/api/logs'):
                 self.send_bytes(404, b'Not found')
                 return
             if not self.check_auth():
                 return
-            store.clear()
+            if self.path == '/api/logs':
+                store.clear_logs()
+            else:
+                store.clear()
             self.send_bytes(204)
 
     return Handler
@@ -283,6 +338,8 @@ def tools():
         {'name': 'game_play', 'description': 'Queue play-main-scene for the connected native editor. Check game_status for actual state.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'game_stop', 'description': 'Queue stop for the connected native editor. Check game_status for actual state.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'game_status', 'description': 'Read native editor connectivity, playing state and frame availability.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'read_logs', 'description': 'Read up to 200 recent explicitly shared editor/game log entries. They may contain sensitive information.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
+        {'name': 'delete_logs', 'description': 'Clear shared log entries from bridge memory. New entries can arrive if sharing continues.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'project_status', 'description': 'Check whether a local project is configured for explicit snapshot exchange.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'project_snapshot_export', 'description': 'Export configured local project as an embedded ZIP resource, at most 8 MiB compressed. It may contain private project files; call only with permission.', 'inputSchema': {'type': 'object', 'properties': {}, 'additionalProperties': False}},
         {'name': 'project_snapshot_import', 'description': 'Import a base64 ZIP into a NEW sibling directory, never overwrite the configured project. At most 8 MiB compressed. This is not a live merge.', 'inputSchema': {'type': 'object', 'properties': {'zip_base64': {'type': 'string', 'maxLength': 11184816}}, 'required': ['zip_base64'], 'additionalProperties': False}},
@@ -330,6 +387,20 @@ def call_editor(url, token, command=None):
         raise ValueError('Bridge unavailable; start the local server first') from exc
 
 
+def call_logs(url, token, method):
+    request = urllib.request.Request(url.rstrip('/') + '/api/logs', method=method, headers={'Authorization': 'Bearer ' + token})
+    try:
+        with HTTP.open(request, timeout=5) as response:
+            data = response.read(MAX_LOG_RESPONSE + 1)
+            if len(data) > MAX_LOG_RESPONSE:
+                raise ValueError('Log response exceeds size limit')
+            return data.decode('utf-8')
+    except urllib.error.HTTPError as exc:
+        raise ValueError(f'Bridge HTTP error: {exc.code}') from exc
+    except (urllib.error.URLError, UnicodeDecodeError) as exc:
+        raise ValueError('Bridge unavailable or returned invalid logs') from exc
+
+
 def call_project(url, token, path, data=None, limit=MAX_MCP_SNAPSHOT):
     headers = {'Authorization': 'Bearer ' + token}
     if data is not None:
@@ -370,7 +441,7 @@ def mcp_response(message, url, token):
         if not isinstance(params, dict):
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Invalid params'}}
         name = params.get('name')
-        if name not in ('game_screenshot', 'delete_game_screenshot', 'game_play', 'game_stop', 'game_status', 'project_status', 'project_snapshot_export', 'project_snapshot_import'):
+        if name not in ('game_screenshot', 'delete_game_screenshot', 'game_play', 'game_stop', 'game_status', 'read_logs', 'delete_logs', 'project_status', 'project_snapshot_export', 'project_snapshot_import'):
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Unknown tool'}}
         arguments = params.get('arguments', {})
         if name == 'project_snapshot_import':
@@ -391,6 +462,11 @@ def mcp_response(message, url, token):
                 result = {'content': [{'type': 'text', 'text': 'Command queued; check game_status to confirm.'}]}
             elif name == 'game_status':
                 result = {'content': [{'type': 'text', 'text': call_editor(url, token)}]}
+            elif name == 'read_logs':
+                result = {'content': [{'type': 'text', 'text': call_logs(url, token, 'GET')}]}
+            elif name == 'delete_logs':
+                call_logs(url, token, 'DELETE')
+                result = {'content': [{'type': 'text', 'text': 'Logs deleted from bridge memory.'}]}
             elif name == 'project_status':
                 body = call_project(url, token, '/api/project/status', limit=4096)
                 result = {'content': [{'type': 'text', 'text': body.decode('utf-8')}]}

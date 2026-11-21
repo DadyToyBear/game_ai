@@ -30,5 +30,34 @@ func _initialize() -> void:
 		quit(1)
 		return
 	capture.free()
-	print("Redot bridge scripts compiled and secret validation passed")
+	var buffer: Logger = load("res://addons/redot_android_mcp/log_buffer.gd").new()
+	var fake_secret := "fake-secret-012345678901234567890123456789"
+	buffer.call("configure", fake_secret)
+	OS.add_logger(buffer)
+	print("logger smoke test ", fake_secret)
+	push_warning("logger smoke warning")
+	OS.remove_logger(buffer)
+	var entries: Array = []
+	for _i in range(50):
+		var batch: Array = buffer.call("take_batch")
+		if batch.is_empty():
+			break
+		entries.append_array(batch)
+	var found_message := false
+	var found_warning := false
+	for entry in entries:
+		if entry["message"].contains(fake_secret):
+			push_error("Logger leaked the bridge secret")
+			quit(1)
+			return
+		if entry["message"].contains("logger smoke test") and entry["message"].contains("[bridge secret]"):
+			found_message = true
+		if entry["message"].contains("logger smoke warning"):
+			found_warning = true
+	buffer.call("clear")
+	if not found_message or not found_warning:
+		push_error("Logger did not capture expected messages")
+		quit(1)
+		return
+	print("Redot bridge scripts compiled and logger smoke test passed")
 	quit(0)

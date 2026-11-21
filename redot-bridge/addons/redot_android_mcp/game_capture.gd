@@ -3,12 +3,14 @@ extends Node
 # Development-only Autoload: the running game asks before sharing its viewport.
 # The game is a separate Android process; no secret is stored in the project.
 const ConnectionConfig = preload("res://addons/redot_android_mcp/connection_config.gd")
+const LogUploader = preload("res://addons/redot_android_mcp/log_uploader.gd")
 const MAX_WIDTH := 960
 const CAPTURE_INTERVAL := 0.5
 
 var _dialog: ConfirmationDialog
 var _token_input: LineEdit
 var _url_input: LineEdit
+var _share_logs: CheckBox
 var _base_url := ""
 var _status: Label
 var _request: HTTPRequest
@@ -57,6 +59,10 @@ func _create_dialog() -> void:
 	_token_input.placeholder_text = "Bridge secret (32+ characters)"
 	_token_input.secret = true
 	content.add_child(_token_input)
+	_share_logs = CheckBox.new()
+	_share_logs.text = "Share game logs (may contain secrets)"
+	_share_logs.button_pressed = false
+	content.add_child(_share_logs)
 	_status = Label.new()
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_status)
@@ -86,6 +92,10 @@ func _start_capture() -> void:
 		return
 	_token = value
 	_base_url = base
+	if _share_logs.button_pressed:
+		var log_uploader: Node = LogUploader.new()
+		add_child(log_uploader)
+		log_uploader.call("start", _base_url, _token, "game")
 	# Timer's first tick occurs after the dialog closes, so it is not captured.
 	_timer.start()
 

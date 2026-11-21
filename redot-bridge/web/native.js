@@ -1,9 +1,9 @@
 (() => {
   const $ = id => document.getElementById(id);
   let token = '', active = false, busy = false, timer = null, latest = null, generation = 0;
-  let recorder = null, recorded = [], stream = null, recordTimer = null;
+  let recorder = null, recorded = [], stream = null, recordTimer = null, logsGeneration = 0;
   const canvas = $('screen'), ctx = canvas.getContext('2d');
-  const buttons = ['play', 'stop', 'snapshot', 'delete', 'record'];
+  const buttons = ['play', 'stop', 'snapshot', 'delete', 'record', 'load-logs', 'delete-logs'];
   function controls(enabled) { for (const name of buttons) $(name).disabled = !enabled; }
   function download(blob, filename) {
     const url = URL.createObjectURL(blob), link = document.createElement('a');
@@ -47,8 +47,8 @@
   }
   $('connect').onclick = () => {
     if (active) {
-      active = false; generation++; clearInterval(timer); if (recorder && recorder.state !== 'inactive') recorder.stop();
-      token = ''; clearFrame(); $('token').value = ''; $('token').disabled = false;
+      active = false; generation++; logsGeneration++; clearInterval(timer); if (recorder && recorder.state !== 'inactive') recorder.stop();
+      token = ''; clearFrame(); $('logs').textContent = ''; $('token').value = ''; $('token').disabled = false;
       $('connect').textContent = 'Подключить'; $('status').textContent = 'Отключено'; controls(false); return;
     }
     token = $('token').value;
@@ -68,6 +68,22 @@
   $('delete').onclick = async () => {
     try { await request('/api/frame', {method: 'DELETE'}); generation++; clearFrame(); $('status').textContent = 'Кадр удалён из памяти моста. Во время игры новый кадр появится снова.'; }
     catch (err) { $('status').textContent = `Не удалось удалить кадр: ${err.message}`; }
+  };
+  $('load-logs').onclick = async () => {
+    const current = logsGeneration;
+    try {
+      const data = await (await request('/api/logs')).json();
+      if (!active || current !== logsGeneration) return;
+      $('logs').textContent = data.entries.map(entry => `[${new Date(entry.received_at * 1000).toLocaleString()}] ${entry.source}/${entry.level}: ${entry.message}`).join('\n') || 'Журнал пуст.';
+    } catch (err) { if (active && current === logsGeneration) $('status').textContent = `Не удалось получить журнал: ${err.message}`; }
+  };
+  $('delete-logs').onclick = async () => {
+    const current = logsGeneration;
+    try {
+      await request('/api/logs', {method: 'DELETE'});
+      if (!active || current !== logsGeneration) return;
+      logsGeneration++; $('logs').textContent = ''; $('status').textContent = 'Журнал моста очищен; новые сообщения могут появиться снова.';
+    } catch (err) { if (active && current === logsGeneration) $('status').textContent = `Не удалось очистить журнал: ${err.message}`; }
   };
   $('record').onclick = () => {
     if (recorder && recorder.state !== 'inactive') { recorder.stop(); return; }

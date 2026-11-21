@@ -61,6 +61,19 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r.status, 204)
         r = await self.client.get('/api/frame', headers=self.headers(CONTROL))
         self.assertEqual(r.status, 404)
+        logs = {'source': 'editor', 'entries': [{'level': 'warning', 'message': 'Project warning'}]}
+        r = await self.client.post('/api/logs', headers=self.headers(CONTROL), json=logs)
+        self.assertEqual(r.status, 401)
+        r = await self.client.post('/api/logs', headers=self.headers(DEVICE), json=logs)
+        self.assertEqual(r.status, 204)
+        r = await self.client.get('/api/logs', headers=self.headers(DEVICE))
+        self.assertEqual(r.status, 401)
+        r = await self.client.get('/api/logs', headers=self.headers(CONTROL))
+        self.assertEqual((await r.json())['entries'][0]['message'], 'Project warning')
+        r = await self.client.delete('/api/logs', headers=self.headers(DEVICE))
+        self.assertEqual(r.status, 401)
+        r = await self.client.delete('/api/logs', headers=self.headers(CONTROL))
+        self.assertEqual(r.status, 204)
         r = await self.client.get('/api/project/export', headers=self.headers(CONTROL))
         self.assertEqual(r.status, 404)
 
@@ -121,6 +134,12 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(response.status, 204)
                     reply = await asyncio.to_thread(bridge.mcp_response, {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/call', 'params': {'name': 'game_screenshot'}}, origin, CONTROL)
                     self.assertEqual(base64.b64decode(reply['result']['content'][0]['data']), PNG)
+                    response = await session.post(origin + '/api/logs', headers={'Authorization': 'Bearer ' + DEVICE}, json={'source': 'game', 'entries': [{'level': 'info', 'message': 'Started'}]}, ssl=trust)
+                    self.assertEqual(response.status, 204)
+                    reply = await asyncio.to_thread(bridge.mcp_response, {'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call', 'params': {'name': 'read_logs'}}, origin, CONTROL)
+                    self.assertIn('Started', reply['result']['content'][0]['text'])
+                    reply = await asyncio.to_thread(bridge.mcp_response, {'jsonrpc': '2.0', 'id': 4, 'method': 'tools/call', 'params': {'name': 'delete_logs'}}, origin, CONTROL)
+                    self.assertFalse(reply['result'].get('isError', False))
             finally:
                 if old_ca is None:
                     os.environ.pop('SSL_CERT_FILE', None)
