@@ -46,6 +46,7 @@
     </div>
 
     <div class="top-actions">
+      <button class="btn ghost" id="btnQuickSave" title="Быстрое сохранение в браузер (Ctrl+S)">Сохранить</button>
       <button class="btn ghost" id="btnMidi">MIDI</button>
       <button class="btn ghost" id="btnHelp">?</button>
     </div>
@@ -103,18 +104,48 @@
     <section id="view-io" class="view">
       <div class="io-grid">
         <div class="card">
-          <h3>Экспорт</h3>
-          <p class="muted">WAV — офлайн-рендер аранжировки (16 бит / 44.1 кГц) встроенными машинами.
-             MIDI — партии проекта для любого DAW: один трек = одна машина, ударные на 10-м канале,
-             сцены A–D уже разложены по тактам.</p>
+          <h3>Экспорт аудио</h3>
+          <p class="muted">Офлайн-рендер аранжировки встроенными машинами.
+             <b>WAV</b> — без потерь, 16 бит / 44.1 кГц. <b>MP3</b> — сжатый файл для телефона,
+             мессенджеров и веба (LAME, работает прямо в браузере, ничего не отправляется в сеть).</p>
+          <div class="row">
+            <label class="hint" for="mp3kbps">Битрейт MP3</label>
+            <select id="mp3kbps" class="preset-select">
+              <option value="128">128 кбит/с — маленький файл</option>
+              <option value="192" selected>192 кбит/с — обычный</option>
+              <option value="256">256 кбит/с — качество</option>
+              <option value="320">320 кбит/с — максимум</option>
+            </select>
+          </div>
           <div class="row">
             <button class="btn primary" id="btnExportWav">Экспорт WAV</button>
+            <button class="btn" id="btnExportMp3">Экспорт MP3</button>
             <button class="btn" id="btnExportMidi">Экспорт MIDI</button>
-            <button class="btn" id="btnExportJson">Сохранить проект</button>
-            <button class="btn" id="btnImportJson">Загрузить проект</button>
-            <input type="file" id="fileJson" accept=".json" hidden />
           </div>
           <div class="meter mono" id="renderStatus"></div>
+          <div class="hint" id="renderInfo"></div>
+        </div>
+
+        <div class="card">
+          <h3>Проекты (сохранения)</h3>
+          <p class="muted">Проект — обычный JSON: дорожки, паттерны, банки A–D, сцены, микшер, BPM.
+             Сохранения лежат в браузере (localStorage) — можно держать несколько версий
+             и вернуться к любой. Файл .json переносит проект на другое устройство.</p>
+          <div class="row">
+            <input id="projName" class="preset-select" style="max-width:260px" placeholder="Название сохранения" />
+            <button class="btn primary" id="btnSaveSlot">Сохранить в браузер</button>
+            <button class="btn" id="btnSaveFile">Скачать .json</button>
+            <button class="btn" id="btnImportJson">Загрузить .json</button>
+            <input type="file" id="fileJson" accept=".json,application/json" hidden />
+          </div>
+          <p class="muted" style="margin-top:6px">Свои WAV-сэмплы и загруженные MP3 в JSON не попадают
+             (это аудио, а не ноты) — после загрузки проекта их надо подставить заново.</p>
+          <div id="projList" class="proj-list"></div>
+          <div class="row">
+            <span class="pill" id="autosaveState">автосохранение включено</span>
+            <button class="btn ghost mini" id="btnAutoRestore">Восстановить автосохранение</button>
+            <button class="btn ghost mini" id="btnClearAll">Стереть все сохранения</button>
+          </div>
         </div>
 
         <div class="card">
@@ -176,7 +207,8 @@
             <li>Степ-секвенсор и пиано-ролл</li>
             <li>3 эффект-шины на канал: delay / reverb + мастер-секция</li>
             <li>MIDI-вход через Web MIDI API</li>
-            <li>Экспорт WAV (офлайн-рендер), MIDI (SMF type 1) и JSON-проекта</li>
+            <li>Экспорт WAV, MP3 (LAME в браузере), MIDI (SMF type 1) и JSON-проекта</li>
+            <li>Сохранения проектов: слоты в браузере + файлы .json</li>
           </ul>
         </div>
       </div>
@@ -189,6 +221,7 @@
 <script src="js/pattern.js"></script>
 <script src="js/midi-file.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/export-mp3.js"></script>
 <script src="js/kaoss.js"></script>
 <script src="js/kaoss-ui.js"></script>
 <script src="js/kaoss-deck.js"></script>

@@ -133,6 +133,7 @@
     state.kaossFX = Kaoss.createFX(state.ctx);
     applyFxRouting();
     bindKaossMidi();
+    if (pendingKaoss) { applyKaossState(pendingKaoss); pendingKaoss = null; }
     return state.ctx;
   }
 
@@ -1393,14 +1394,25 @@
     return events;
   }
 
-  function exportWav() {
+  /* ---------- рендер аранжировки (общий для WAV/MP3) ---------- */
+  let rendering = false;
+
+  function renderProject(opts) {
+    opts = opts || {};
     const status = document.getElementById('renderStatus');
-    status.innerHTML = '';
-    status.appendChild(el('i', { style: { width: '10%' } }));
-    const total = (60 / song.bpm / 4) * song.steps * song.arrangeBars;
+    const info = document.getElementById('renderInfo');
+    const fill = (pct, text) => {
+      if (!status) return;
+      status.innerHTML = '';
+      status.appendChild(el('i', { style: { width: Math.max(2, Math.min(100, pct)) + '%' } }));
+      if (info) info.textContent = text || '';
+    };
+
+    if (rendering) { UI.toast('Рендер уже идёт — дождитесь готовности', 'error'); return; }
     const events = buildEvents(0, song.arrangeBars);
     if (!events.length) { UI.toast('Секвенсор пуст — нечего рендерить', 'error'); return; }
 
+    const total = (60 / song.bpm / 4) * song.steps * song.arrangeBars;
     const renderSong = {
       bpm: song.bpm,
       eq: song.eq,
@@ -1412,21 +1424,84 @@
       events,
     };
 
-    UI.toast('Рендерю WAV…');
-    AE.renderToBuffer(renderSong, total, 44100).then((buffer) => {
-      const blob = AE.encodeWav(buffer);
-      UI.download(blob, 'mini-studio-' + Date.now() + '.wav');
-      status.innerHTML = '';
-      status.appendChild(el('i', { style: { width: '100%' } }));
-      UI.toast('WAV готов: ' + song.arrangeBars + ' такт(ов), ' + (blob.size / 1048576).toFixed(1) + ' МБ', 'ok');
+    rendering = true;
+    fill(8, 'рендер ' + song.arrangeBars + ' такт(ов)…');
+    UI.toast(opts.to === 'mp3' ? 'Рендерю и кодирую MP3…' : 'Рендерю WAV…');
+
+    return AE.renderToBuffer(renderSong, total, 44100).then((buffer) => {
+      fill(62, 'аудио готово: ' + buffer.duration.toFixed(1) + ' с');
+      const stem = opts.name || ('mini-studio-' + Date.now());
+      if (opts.to === 'wav') {
+        const blob = AE.encodeWav(buffer);
+        UI.download(blob, stem + '.wav');
+        fill(100, 'WAV: ' + (blob.size / 1048576).toFixed(1) + ' МБ · ' + buffer.duration.toFixed(1) + ' с');
+        UI.toast('WAV готов: ' + song.arrangeBars + ' такт(ов), ' + (blob.size / 1048576).toFixed(1) + ' МБ', 'ok');
+        return { blob, buffer };
+      }
+      if (!window.ExportMp3) throw new Error('Модуль MP3 не загружен (js/export-mp3.js)');
+      const kbpsSel = document.getElementById('mp3kbps');
+      const kbps = kbpsSel ? Number(kbpsSel.value) || 192 : 192;
+      return window.ExportMp3.encodeBuffer(buffer, {
+        kbps,
+        onProgress: (p) => fill(62 + p * 36, 'кодирую MP3 ' + Math.round(p * 100) + '% · ' + kbps + ' кбит/с…'),
+      }).then((blob) => {
+        UI.download(blob, stem + '.mp3');
+        fill(100, 'MP3: ' + (blob.size / 1048576).toFixed(2) + ' МБ · ' + kbps + ' кбит/с · ' + buffer.duration.toFixed(1) + ' с');
+        UI.toast('MP3 готов: ' + (blob.size / 1048576).toFixed(2) + ' МБ, ' + kbps + ' кбит/с', 'ok');
+        return { blob, buffer };
+      });
     }).catch((err) => {
       console.error(err);
+      fill(0, '');
       UI.toast('Ошибка рендера: ' + err.message, 'error');
-    });
+    }).then((res) => { rendering = false; return res; });
+  }
+
+  function exportWav() {
+    return renderProject({ to: 'wav' });
+  }
+
+  function exportMp3() {
+    return renderProject({ to: 'mp3' });
+  }
+
+  /* Состояние Kaoss-деки (звук, гамма, октава, FX-программа, записанные лупы) */
+  function kaossSnapshot() {
+    const inst = state.kaossInst;
+    const fx = state.kaossFX;
+    if (!inst && !fx) return null;
+    return {
+      prog: inst ? inst.prog : 0,
+      scale: inst ? inst.scale : 'pentaMin',
+      octave: inst ? inst.octave : 4,
+      bpm: inst ? inst.bpm : song.bpm,
+      loops: inst ? inst.loops.map((l) => (Array.isArray(l) ? l : null)) : [null, null],
+      fxProgram: fx ? fx.program : 0,
+      fxHold: fx ? !!fx.hold : false,
+    };
+  }
+
+  let pendingKaoss = null;
+
+  function applyKaossState(ks) {
+    if (!ks) return;
+    const inst = state.kaossInst;
+    const fx = state.kaossFX;
+    if (inst) {
+      if (ks.prog != null) inst.setProgram(ks.prog);
+      if (ks.scale) inst.scale = ks.scale;
+      if (ks.octave != null) inst.octave = ks.octave;
+      if (ks.bpm) inst.bpm = ks.bpm;
+      if (Array.isArray(ks.loops)) {
+        ks.loops.forEach((l, i) => { inst.loops[i] = Array.isArray(l) ? l : null; });
+      }
+    }
+    if (fx && ks.fxProgram != null) fx.setProgram(ks.fxProgram);
   }
 
   function serialize() {
     return JSON.parse(JSON.stringify({
+      kaoss: kaossSnapshot(),
       bpm: song.bpm, steps: song.steps, bars: song.bars,
       arrangeBars: song.arrangeBars, feedback: song.feedback,
       masterVol: song.masterVol, eq: song.eq,
@@ -1447,11 +1522,130 @@
     UI.toast('MIDI готов: ' + song.tracks.length + ' дорожек, ' + events.length + ' нот, ' + bars + ' такт(ов). Откройте в DAW и назначьте инструмент Nexus.', 'ok');
   }
 
+  /* ---------- сохранения проектов: слоты в браузере + файлы ---------- */
+  const SLOTS_KEY = 'mini-studio-slots-v1';
+  const SLOT_LIMIT = 20;
+
+  function readSlots() {
+    try {
+      const raw = localStorage.getItem(SLOTS_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+
+  function writeSlots(list) {
+    try {
+      localStorage.setItem(SLOTS_KEY, JSON.stringify(list.slice(0, SLOT_LIMIT)));
+      return true;
+    } catch (e) {
+      UI.toast('Не хватает места в браузере — сохраните проект в файл', 'error');
+      return false;
+    }
+  }
+
+  function projectSummary(obj) {
+    const notes = (obj.tracks || []).reduce((sum, t) => sum
+      + (Array.isArray(t.bank) ? t.bank.reduce((s2, b) => s2 + ((b.notes || []).length), 0) : (t.notes || []).length), 0);
+    return {
+      bpm: obj.bpm, bars: obj.arrangeBars, tracks: (obj.tracks || []).length, notes,
+    };
+  }
+
+  function saveToSlot(name) {
+    const data = serialize();
+    const list = readSlots();
+    const title = (name || '').trim() || ('Проект ' + new Date().toLocaleString('ru-RU'));
+    list.unshift({
+      id: 'p' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      name: title,
+      savedAt: Date.now(),
+      data,
+    });
+    if (writeSlots(list)) {
+      renderProjectList();
+      UI.toast('Сохранено в браузер: ' + title, 'ok');
+    }
+  }
+
   function saveProject() {
     const clean = serialize();
     try { localStorage.setItem(LS_KEY, JSON.stringify(clean)); } catch (e) {}
-    UI.download(new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' }), 'mini-studio-project.json');
+    const nameInput = document.getElementById('projName');
+    const base = (nameInput && nameInput.value.trim()) || 'mini-studio-project';
+    UI.download(new Blob([JSON.stringify(clean, null, 2)], { type: 'application/json' }),
+      base.replace(/[^\wа-яА-ЯёЁ \-]/g, '').trim().replace(/\s+/g, '-') + '.json');
     UI.toast('Проект сохранён (в файл и в браузер)', 'ok');
+  }
+
+  function loadSlot(slot) {
+    try {
+      loadProject(JSON.parse(JSON.stringify(slot.data)));
+      UI.toast('Загружено: ' + slot.name, 'ok');
+      const nameInput = document.getElementById('projName');
+      if (nameInput) nameInput.value = slot.name;
+    } catch (e) {
+      UI.toast('Повреждённое сохранение: ' + e.message, 'error');
+    }
+  }
+
+  function deleteSlot(id) {
+    const list = readSlots().filter((s) => s.id !== id);
+    writeSlots(list);
+    renderProjectList();
+    UI.toast('Сохранение удалено');
+  }
+
+  function renameSlot(slot) {
+    const name = window.prompt('Новое название сохранения', slot.name);
+    if (name == null) return;
+    const list = readSlots();
+    const item = list.find((s) => s.id === slot.id);
+    if (!item) return;
+    item.name = name.trim() || item.name;
+    writeSlots(list);
+    renderProjectList();
+  }
+
+  function downloadSlot(slot) {
+    UI.download(new Blob([JSON.stringify(slot.data, null, 2)], { type: 'application/json' }),
+      'mini-studio-' + slot.name.replace(/[^\wа-яА-ЯёЁ \-]/g, '').trim().replace(/\s+/g, '-') + '.json');
+    UI.toast('Файл проекта скачивается', 'ok');
+  }
+
+  function renderProjectList() {
+    const host = document.getElementById('projList');
+    if (!host) return;
+    host.innerHTML = '';
+    const list = readSlots();
+    if (!list.length) {
+      host.appendChild(el('p', { class: 'hint', text: 'Сохранений в браузере пока нет — нажмите «Сохранить в браузер».' }));
+      return;
+    }
+    list.forEach((slot) => {
+      const sum = projectSummary(slot.data || {});
+      const when = new Date(slot.savedAt || Date.now());
+      host.appendChild(el('div', { class: 'proj-row' }, [
+        el('div', { class: 'proj-main' }, [
+          el('div', { class: 'proj-name', text: slot.name }),
+          el('div', { class: 'proj-meta', text: when.toLocaleString('ru-RU') + ' · ' + sum.tracks + ' дор. · '
+            + sum.notes + ' нот · ' + sum.bpm + ' BPM · ' + sum.bars + ' такт.' }),
+        ]),
+        el('div', { class: 'proj-actions' }, [
+          el('button', { class: 'btn mini primary', text: 'Открыть', onclick: () => loadSlot(slot) }),
+          el('button', { class: 'btn mini', text: 'Имя', onclick: () => renameSlot(slot) }),
+          el('button', { class: 'btn mini', text: '.json', title: 'Скачать файлом', onclick: () => downloadSlot(slot) }),
+          el('button', { class: 'btn mini ghost', text: '✕', title: 'Удалить', onclick: () => deleteSlot(slot.id) }),
+        ]),
+      ]));
+    });
+  }
+
+  function autoSaveState(text, ok) {
+    const p = document.getElementById('autosaveState');
+    if (!p) return;
+    p.textContent = text;
+    p.className = 'pill' + (ok ? ' ok' : '');
   }
 
   function loadProject(obj) {
@@ -1494,6 +1688,8 @@
       }),
     };
     resizePatterns(song);
+    pendingKaoss = obj.kaoss || null;
+    if (state.kaossInst || state.kaossFX) applyKaossState(pendingKaoss);
     state.activeTrack = Math.min(state.activeTrack, song.tracks.length - 1);
     document.getElementById('bpm').value = song.bpm;
     document.getElementById('stepCount').value = String(song.steps);
@@ -1686,15 +1882,54 @@
     }
 
     document.getElementById('btnExportWav').addEventListener('click', exportWav);
+    const mp3Btn = document.getElementById('btnExportMp3');
+    if (mp3Btn) mp3Btn.addEventListener('click', exportMp3);
     document.getElementById('btnExportMidi').addEventListener('click', exportMidi);
-    document.getElementById('btnExportJson').addEventListener('click', saveProject);
+    const quickSave = document.getElementById('btnQuickSave');
+    if (quickSave) quickSave.addEventListener('click', () => {
+      saveToSlot('');
+      UI.toast('Быстрое сохранение добавлено в список (вкладка «Экспорт»)', 'ok');
+    });
+    const saveSlotBtn = document.getElementById('btnSaveSlot');
+    if (saveSlotBtn) saveSlotBtn.addEventListener('click', () => {
+      const inp = document.getElementById('projName');
+      saveToSlot(inp ? inp.value : '');
+      if (inp) inp.value = '';
+    });
+    const saveFileBtn = document.getElementById('btnSaveFile');
+    if (saveFileBtn) saveFileBtn.addEventListener('click', saveProject);
+    const autoRestore = document.getElementById('btnAutoRestore');
+    if (autoRestore) autoRestore.addEventListener('click', () => {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) { UI.toast('Автосохранения ещё нет', 'error'); return; }
+        loadProject(JSON.parse(raw));
+        UI.toast('Автосохранение восстановлено', 'ok');
+      } catch (e) { UI.toast('Не удалось прочитать автосохранение: ' + e.message, 'error'); }
+    });
+    const clearAll = document.getElementById('btnClearAll');
+    if (clearAll) clearAll.addEventListener('click', () => {
+      const ok = window.confirm('Стереть все сохранения в браузере (слоты и автосохранение)? Файлы .json останутся.');
+      if (!ok) return;
+      try { localStorage.removeItem(SLOTS_KEY); localStorage.removeItem(LS_KEY); } catch (e) {}
+      renderProjectList();
+      autoSaveState('автосохранение очищено', false);
+      UI.toast('Все сохранения в браузере стёрты');
+    });
+    renderProjectList();
     document.getElementById('btnImportJson').addEventListener('click', () => document.getElementById('fileJson').click());
     document.getElementById('fileJson').addEventListener('change', (e) => {
       const f = e.target.files[0];
       if (!f) return;
       const reader = new FileReader();
       reader.onload = () => {
-        try { loadProject(JSON.parse(reader.result)); UI.toast('Проект загружен', 'ok'); }
+        try {
+          const obj = JSON.parse(reader.result);
+          loadProject(obj && obj.data && obj.data.tracks ? obj.data : obj);
+          const ni = document.getElementById('projName');
+          if (ni && f.name) ni.value = f.name.replace(/\.json$/i, '');
+          UI.toast('Проект загружен: ' + f.name, 'ok');
+        }
         catch (err) { UI.toast('Ошибка загрузки: ' + err.message, 'error'); }
       };
       reader.readAsText(f);
@@ -1727,6 +1962,12 @@
     window.addEventListener('keydown', (e) => {
       if (e.target.matches('input, select, textarea')) return;
       const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && (k === 's' || k === 'ы')) {
+        e.preventDefault();
+        saveToSlot('');
+        UI.toast('Проект сохранён в браузер (Ctrl+S)', 'ok');
+        return;
+      }
       if (k === ' ') { e.preventDefault(); ensureAudio(); startTransport(); return; }
       if (held.has(k)) return;
       const t = song.tracks[state.activeTrack];
@@ -1769,10 +2010,21 @@
       }
     });
 
-    // периодическая автосохранение
+    // автосохранение: каждые 20 с, только если проект изменился
+    let lastAuto = '';
     setInterval(() => {
-      try { localStorage.setItem(LS_KEY, JSON.stringify(serialize())); } catch (e) {}
-    }, 5000);
+      if (state.playing) return;
+      let json = '';
+      try { json = JSON.stringify(serialize()); } catch (e) { return; }
+      if (json === lastAuto) return;
+      try {
+        localStorage.setItem(LS_KEY, json);
+        lastAuto = json;
+        autoSaveState('автосохранено ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }), true);
+      } catch (e) {
+        autoSaveState('автосохранение не удалось (нет места)', false);
+      }
+    }, 20000);
   }
 
   function randomBeat() {
@@ -1856,6 +2108,13 @@
     buildEvents: (a, b) => buildEvents(a, b),
     kaoss: () => ({ inst: state.kaossInst, fx: state.kaossFX }),
     renderKaoss,
+    exportWav,
+    exportMp3,
+    renderProject,
+    saveToSlot,
+    readSlots,
+    kaossSnapshot,
+    renderProjectList,
     patternSteps: () => patternSteps(),
     arrangeSteps: () => arrangeSteps(),
   };
