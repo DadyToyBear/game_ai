@@ -152,7 +152,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             # Do not log paths, authorization headers or payloads.
             pass
 
-        def send_bytes(self, code, body=b'', content_type='text/plain; charset=utf-8', extra_headers=None):
+        def send_bytes(self, code, body=b'', content_type='text/plain; charset=utf-8', extra_headers=None, cross_origin_isolation=True):
             self.send_response(code)
             self.send_header('Content-Type', content_type)
             for name, value in (extra_headers or {}).items():
@@ -160,8 +160,10 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
-            self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+            if cross_origin_isolation:
+                self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+                self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+            self.send_header('Referrer-Policy', 'no-referrer')
             self.end_headers()
             if self.command != 'HEAD':
                 self.wfile.write(body)
@@ -177,10 +179,13 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             return True
 
         def do_GET(self):
-            if self.path in ('/', '/demo.html', '/capture.js', '/redot-overlay.js', '/native.html', '/native.js', '/sync.html', '/sync.js', '/project-open.html', '/project-open.js'):
+            if self.path in ('/', '/demo.html', '/capture.js', '/redot-overlay.js', '/native.html', '/native.js', '/sync.html', '/sync.js', '/project-open.html', '/project-open.js', '/workspace.html', '/workspace.js'):
                 name = 'demo.html' if self.path in ('/', '/demo.html') else self.path[1:]
                 kind = 'text/html; charset=utf-8' if name.endswith('.html') else 'text/javascript; charset=utf-8'
-                self.send_bytes(200, (WEB / name).read_bytes(), kind)
+                # The workspace intentionally embeds a separately hosted dashboard;
+                # only it omits COEP/COOP. The Web editor retains isolation.
+                headers = {'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; frame-src 'self' https: http://localhost:* http://127.0.0.1:* http://[::1]:*; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"} if name == 'workspace.html' else None
+                self.send_bytes(200, (WEB / name).read_bytes(), kind, headers, cross_origin_isolation=name != 'workspace.html')
                 return
             if self.path == '/api/status':
                 if self.check_auth():

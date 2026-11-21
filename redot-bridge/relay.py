@@ -55,7 +55,11 @@ def create_app(origin, device_token, controller_token):
         response.headers['Cache-Control'] = 'no-store'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Referrer-Policy'] = 'no-referrer'
-        response.headers['Content-Security-Policy'] = "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+        # The workspace may frame the local viewer and a trusted HTTPS
+        # dashboard. No other origin may frame the viewer or workspace.
+        ancestors = "'self'" if request.path == '/native.html' else "'none'"
+        frames = "'self' https:" if request.path == '/workspace.html' else "'none'"
+        response.headers['Content-Security-Policy'] = f"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; frame-src {frames}; base-uri 'none'; frame-ancestors {ancestors}; form-action 'none'"
         return response
 
     app = web.Application(middlewares=[security], client_max_size=MAX_FRAME)
@@ -68,7 +72,7 @@ def create_app(origin, device_token, controller_token):
         return web.Response(status=401, text='Unauthorized')
 
     async def page(request):
-        name = 'native.html' if request.path in ('/', '/native.html') else 'native.js'
+        name = 'native.html' if request.path in ('/', '/native.html') else request.path[1:]
         return web.Response(body=(WEB / name).read_bytes(), content_type='text/html' if name.endswith('.html') else 'text/javascript', charset='utf-8')
 
     async def status(request):
@@ -136,7 +140,7 @@ def create_app(origin, device_token, controller_token):
             return web.Response(status=404, text='No frame available')
         return web.Response(body=current[0], content_type=current[1], headers=frame_headers(current))
 
-    for path in ('/', '/native.html', '/native.js'):
+    for path in ('/', '/native.html', '/native.js', '/workspace.html', '/workspace.js'):
         app.router.add_get(path, page, allow_head=False)
     app.router.add_get('/api/status', status, allow_head=False)
     app.router.add_post('/api/command', command)

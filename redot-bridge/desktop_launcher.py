@@ -57,7 +57,7 @@ def launch(project=None):
         child = subprocess.Popen(editor_args, env=env, cwd=ROOT, **options)
         print('\nSecret for this local session (do not share):\n' + env['REDOT_BRIDGE_TOKEN'], flush=True)
         print('Editor process ID: ' + str(child.pid), flush=True)
-        print('Game: http://127.0.0.1:8765/native.html\nWeb editor: http://127.0.0.1:8765/editor/godot.editor.html\nProjects: http://127.0.0.1:8765/project-open.html\nCtrl+C stops the bridge only. Save and close the editor normally.', flush=True)
+        print('Game and chat: http://127.0.0.1:8765/workspace.html\nGame: http://127.0.0.1:8765/native.html\nWeb editor: http://127.0.0.1:8765/editor/godot.editor.html\nProjects: http://127.0.0.1:8765/project-open.html\nCtrl+C stops the bridge only. Save and close the editor normally.', flush=True)
         while server.poll() is None:
             time.sleep(0.5)
         raise RuntimeError('Bridge stopped unexpectedly; save your work in the editor.')

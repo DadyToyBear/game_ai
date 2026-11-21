@@ -47,6 +47,20 @@ class BridgeTest(unittest.TestCase):
         req = urllib.request.Request(self.url + path, data=data, method=method, headers=headers)
         return urllib.request.urlopen(req, timeout=3)
 
+    def test_workspace_allows_external_dashboard_without_disabling_editor_isolation(self):
+        with urllib.request.urlopen(self.url + '/workspace.html') as response:
+            html = response.read()
+            self.assertIn(b'/workspace.js', html)
+            self.assertIn(b'src="/native.html"', html)
+            self.assertIsNone(response.headers.get('Cross-Origin-Embedder-Policy'))
+            self.assertIn('frame-src', response.headers['Content-Security-Policy'])
+            self.assertEqual(response.headers['Referrer-Policy'], 'no-referrer')
+        with urllib.request.urlopen(self.url + '/workspace.js') as response:
+            self.assertIn(b'safeDashboard', response.read())
+        with urllib.request.urlopen(self.url + '/editor/godot.editor.html') as response:
+            self.assertEqual(response.headers['Cross-Origin-Embedder-Policy'], 'require-corp')
+            self.assertEqual(response.headers['Cross-Origin-Opener-Policy'], 'same-origin')
+
     def test_project_open_pages_are_served_and_injected(self):
         with urllib.request.urlopen(self.url + '/editor/godot.editor.html') as response:
             self.assertIn(b'<script src="/project-open.js"></script>', response.read())

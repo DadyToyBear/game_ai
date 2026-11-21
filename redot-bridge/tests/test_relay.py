@@ -79,6 +79,18 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
         r = await self.client.get('/api/project/export', headers=self.headers(CONTROL))
         self.assertEqual(r.status, 404)
 
+    async def test_workspace_and_viewer_are_framed_only_as_intended(self):
+        r = await self.client.get('/workspace.html', headers=self.host)
+        self.assertEqual(r.status, 200)
+        self.assertIn('/workspace.js', await r.text())
+        self.assertIn("frame-src 'self' https:", r.headers['Content-Security-Policy'])
+        self.assertIn("frame-ancestors 'none'", r.headers['Content-Security-Policy'])
+        r = await self.client.get('/native.html', headers=self.host)
+        self.assertIn("frame-ancestors 'self'", r.headers['Content-Security-Policy'])
+        r = await self.client.get('/workspace.js', headers=self.host)
+        self.assertEqual(r.status, 200)
+        self.assertIn('safeDashboard', await r.text())
+
     async def test_bad_requests_and_origin(self):
         r = await self.client.get('/native.html', headers={'Host': 'evil.example'})
         self.assertEqual(r.status, 400)

@@ -76,5 +76,8 @@ const path = require('node:path');
   elements.find(e => e.tag === 'button').click();
   assert.equal(overlayOptions.source, 'web-game', 'editor overlay must explicitly identify the game canvas');
   assert.equal(overlayOptions.canvas(), canvas);
+  const workspace = elements.find(e => e.tag === 'a');
+  assert.equal(workspace.href, '/workspace.html');
+  assert.equal(workspace.rel, 'noopener noreferrer');
   console.log('capture opt-in and stop test passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

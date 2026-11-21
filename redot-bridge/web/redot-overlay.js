@@ -6,6 +6,8 @@
   const input = document.createElement('input'); input.type = 'password'; input.placeholder = 'Секрет моста'; input.autocomplete = 'off';
   input.style.display = 'block'; input.style.margin = '8px 0';
   const button = document.createElement('button'); button.textContent = 'Включить кадры игры';
+  const workspace = document.createElement('a'); workspace.href = '/workspace.html'; workspace.target = '_blank'; workspace.rel = 'noopener noreferrer';
+  workspace.textContent = 'Игра и мультиагентский чат'; workspace.style.cssText = 'display:block;color:#9dc3ff;margin-top:8px';
   const status = document.createElement('p'); status.textContent = 'Выключено. Секрет не сохраняется.';
   status.setAttribute('role', 'status');
   button.addEventListener('click', () => {
@@ -21,5 +23,5 @@
       input.value = ''; input.disabled = true; button.textContent = 'Остановить кадры';
     } catch (error) { status.textContent = error.message; }
   });
-  panel.append(title, input, button, status); document.body.append(panel);
+  panel.append(title, input, button, status, workspace); document.body.append(panel);
 })();

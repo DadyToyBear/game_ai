@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Redot — игра и мультиагентский чат</title>
+  <style>
+    *{box-sizing:border-box}body{font:15px system-ui,sans-serif;background:#101522;color:#e6ecff;margin:0}
+    header{padding:1.2rem 1.5rem;background:#172133;border-bottom:1px solid #33415a}
+    h1{margin:0 0 .4rem;font-size:1.5rem}p{line-height:1.45;margin:.45rem 0}a{color:#9dc3ff}
+    main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;padding:1rem}
+    section{min-width:0;background:#172133;border:1px solid #33415a;border-radius:.6rem;padding:1rem}
+    h2{margin:.1rem 0 .5rem;font-size:1.1rem}input,button{font:inherit;padding:.55rem;border-radius:.35rem}
+    input{width:min(100%,36rem);background:#0f1725;border:1px solid #8292a8;color:white}
+    button{background:#dae7ff;color:#101522;border:0;margin:.4rem .3rem .4rem 0;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}iframe{display:block;background:white;width:100%;height:70vh;min-height:32rem;border:1px solid #8292a8;border-radius:.35rem}
+    .status{min-height:2.5em;color:#c9d5ea}.muted{color:#b5c3d8;font-size:.9rem}
+    @media(max-width:850px){main{grid-template-columns:1fr}iframe{height:65vh;min-height:26rem}}
+  </style>
+</head>
+<body>
+<header><h1>Redot: игра и мультиагентский чат</h1><p>Просмотр игры через наш мост и существующий дашборд — рядом, но с разными подключениями.</p></header>
+<main>
+  <section aria-labelledby="game-heading">
+    <h2 id="game-heading">Игра и управление</h2>
+    <p class="muted">Секрет вводится только внутри просмотра игры. Play/Stop управляет подключённым к нашему мосту нативным или Android-редактором, не Web-редактором.</p>
+    <p><a href="/native.html" target="_blank" rel="noopener noreferrer">Открыть просмотр игры отдельно</a> · <a href="/project-open.html" target="_blank" rel="noopener noreferrer">Папки и проекты (только локальный мост)</a></p>
+    <iframe id="game" title="Просмотр игры и управление" src="/native.html" referrerpolicy="no-referrer"></iframe>
+  </section>
+  <section aria-labelledby="chat-heading">
+    <h2 id="chat-heading">Существующий дашборд и чат</h2>
+    <p class="muted">Введите адрес доверенного HTTPS-дашборда. Ссылка может содержать секрет доступа. Публичная запись заданий небезопасна. Дашборд и новый мост не обмениваются командами автоматически.</p>
+    <label for="dashboard-url">Адрес дашборда</label><br>
+    <input id="dashboard-url" type="password" autocomplete="off" spellcheck="false" placeholder="https://…/dashboard.html">
+    <div><button id="load-dashboard" type="button">Открыть рядом</button><button id="open-dashboard" type="button" disabled>Открыть отдельно</button><button id="close-dashboard" type="button" disabled>Закрыть дашборд</button></div>
+    <p id="dashboard-status" class="status" role="status">Дашборд не подключён. Адрес не сохраняется.</p>
+    <iframe id="dashboard" title="Мультиагентский дашборд" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-downloads" referrerpolicy="no-referrer"></iframe>
+    <p class="muted">Если панель пуста, сервер может запрещать встраивание, либо браузер может блокировать cookie или сертификат. Попробуйте «Открыть отдельно».</p>
+  </section>
+</main>
+<script src="/workspace.js"></script>
+</body></html>
