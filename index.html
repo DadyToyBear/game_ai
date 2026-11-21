@@ -55,6 +55,7 @@
     <button class="tab active" data-view="rack">Стойка</button>
     <button class="tab" data-view="seq">Секвенсор</button>
     <button class="tab" data-view="mix">Микшер</button>
+    <button class="tab" data-view="kaoss">Kaoss</button>
     <button class="tab" data-view="io">Экспорт</button>
   </nav>
 
@@ -88,6 +89,14 @@
         <div class="seq-tools"><span class="hint">Фейдеры, панорама, посылы в delay/reverb, мастер-эквалайзер и лимитер</span></div>
       </div>
       <div class="mixer" id="mixer"></div>
+    </section>
+
+    <section id="view-kaoss" class="view">
+      <div class="seq-head">
+        <h2>Korg Kaoss — веб-аналоги</h2>
+        <div class="seq-tools"><span class="hint">X-Y пэд-синтезатор с двумя лупами и X-Y процессор эффектов на мастер-шине</span></div>
+      </div>
+      <div id="kaossArea"></div>
     </section>
 
     <section id="view-io" class="view">
@@ -179,6 +188,8 @@
 <script src="js/pattern.js"></script>
 <script src="js/midi-file.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/kaoss.js"></script>
+<script src="js/kaoss-ui.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

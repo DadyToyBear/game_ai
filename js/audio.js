@@ -141,13 +141,28 @@
     delaySend.gain.value = 0;
     revSend.gain.value = 0;
 
+    /* fxOut — точка врезки Kaoss-процессора (null = прямой путь) */
     let tail = gain;
     if (pan) { gain.connect(pan); tail = pan; }
-    tail.connect(mixer.input);
-    tail.connect(delaySend); delaySend.connect(mixer.delayIn);
-    tail.connect(revSend); revSend.connect(mixer.revIn);
+    const ch = { gain, pan, delaySend, revSend, input: gain, tail: tail, fxOut: null };
+    A.wireChannel(ch, mixer);
+    return ch;
+  };
 
-    return { gain, pan, delaySend, revSend, input: gain };
+  /* Подключение хвоста канала к мастеру и посылам.
+     Если ch.fxOut задан — сначала проходит через него. */
+  A.wireChannel = function (ch, mixer) {
+    try { ch.tail.disconnect(); } catch (e) {}
+    const dest = ch.fxOut || mixer.input;
+    ch.tail.connect(dest);
+    ch.tail.connect(ch.delaySend); ch.delaySend.connect(mixer.delayIn);
+    ch.tail.connect(ch.revSend); ch.revSend.connect(mixer.revIn);
+  };
+
+  /* Врезка/снятие внешнего процессора */
+  A.setChannelFX = function (ch, mixer, fxNode) {
+    ch.fxOut = fxNode || null;
+    A.wireChannel(ch, mixer);
   };
 
   // ---------- конверты ----------

@@ -33,6 +33,9 @@
     midiInputs: [],
     midiOutId: '',
     midiOutChannel: 0,
+    kaossInst: null,
+    kaossFX: null,
+    fxChannels: [],
     cellRefs: [],
     lastPlayed: -1,
   };
@@ -124,6 +127,10 @@
       applyChannel(t, ch);
       return ch;
     });
+    state.kaossInst = Kaoss.createInstrument(state.ctx, state.mixer.input);
+    state.kaossInst.bpm = song.bpm;
+    state.kaossFX = Kaoss.createFX(state.ctx);
+    applyFxRouting();
     return state.ctx;
   }
 
@@ -1041,6 +1048,7 @@
       applyChannel(t, ch);
       return ch;
     });
+    applyFxRouting();
   }
 
   function removeTrack() {
@@ -1049,6 +1057,100 @@
     state.activeTrack = Math.max(0, state.activeTrack - 1);
     refreshChannelsRebuild();
     renderAll();
+  }
+
+  // ---------- Kaoss (X-Y пэд и процессор эффектов) ----------
+  function renderKaoss() {
+    const area = document.getElementById('kaossArea');
+    if (!area) return;
+    area.innerHTML = '';
+
+    // инструмент создаём сразу — звук появится после первого касания
+    if (!state.kaossInst) {
+      // ленивая инициализация: инстанс создаётся в ensureAudio
+    }
+    const inst = state.kaossInst;
+    const fx = state.kaossFX;
+
+    if (inst) {
+      area.appendChild(KaossUI.instrumentPanel(inst, () => {}));
+    } else {
+      area.appendChild(el('div', { class: 'card', style: { marginBottom: '14px' } }, [
+        el('h3', { text: 'Kaossilator 2 (веб-аналог)' }),
+        el('p', { class: 'muted', text: 'Нажмите «Включить звук», чтобы создать аудио-движок, затем играйте по X-Y пэду.' }),
+        el('div', { class: 'row' }, [
+          el('button', { class: 'btn primary', text: 'Включить звук', onclick: () => { ensureAudio(); renderKaoss(); } }),
+        ]),
+      ]));
+    }
+
+    if (fx) {
+      area.appendChild(KaossUI.fxPanel(fx, state.mixer, () => {}));
+      area.appendChild(fxRoutingCard());
+    } else if (state.ctx) {
+      state.kaossFX = Kaoss.createFX(state.ctx);
+      renderKaoss();
+      return;
+    }
+
+    area.appendChild(el('div', { class: 'card' }, [
+      el('h3', { text: 'Что это и как пользоваться' }),
+      el('ul', { class: 'clean' }, [
+        el('li', { text: 'X-Y пэд Kaossilator: горизонталь — нота по выбранной гамме, вертикаль — яркость и срез фильтра. Играется пальцем, мышью или тачем.' }),
+        el('li', { text: 'Два лупа: нажмите ● на LOOP 1, сыграйте фразу, отпустите ● — фраза зацикливается. Второй луп накладывается сверху.' }),
+        el('li', { text: 'mini Kaoss Pad 2 — 12 программ на мастер-шине: фильтры, флэнжер, эхо, реверб, vinyl break, гейт, дисторшн, crush, ring mod.' }),
+        el('li', { text: 'Врезка процессора настраивается ниже: «Мастер» (вся студия) или отдельные каналы.' }),
+      ]),
+    ]));
+  }
+
+  /* Карточка маршрутизации FX-процессора */
+  function fxRoutingCard() {
+    const box = el('div', { class: 'card' });
+    box.appendChild(el('h3', { text: 'Куда врезать процессор' }));
+    box.appendChild(el('p', { class: 'muted', text: 'По умолчанию miniKP2 стоит на мастер-шине. Можно врезать его в отдельные каналы — тогда эффект слышно только на них.' }));
+
+    const row = el('div', { class: 'row' });
+    row.appendChild(el('button', {
+      class: 'btn' + (state.fxChannels.length === 0 ? ' primary' : ''),
+      text: 'Мастер',
+      onclick: () => { state.fxChannels = []; applyFxRouting(); renderKaoss(); },
+    }));
+    song.tracks.forEach((t, i) => {
+      const on = state.fxChannels.indexOf(i) >= 0;
+      row.appendChild(el('button', {
+        class: 'btn' + (on ? ' primary' : ''),
+        text: (i + 1) + '. ' + t.name,
+        onclick: () => {
+          const k = state.fxChannels.indexOf(i);
+          if (k >= 0) state.fxChannels.splice(k, 1); else state.fxChannels.push(i);
+          applyFxRouting();
+          renderKaoss();
+        },
+      }));
+    });
+    box.appendChild(row);
+    box.appendChild(el('p', { class: 'muted', style: { marginTop: '8px' }, text: state.fxChannels.length ? 'Процессор врезан в выбранные каналы.' : 'Процессор работает на мастер-шине (вся студия).' }));
+    return box;
+  }
+
+  function applyFxRouting() {
+    const fx = state.kaossFX;
+    if (!fx || !state.mixer || !state.channels.length) return;
+    state.channels.forEach((ch) => {
+      AE.setChannelFX(ch, state.mixer, null);
+    });
+    if (!fx.output.__wired) {
+      fx.output.connect(state.mixer.input);
+      fx.output.__wired = true;
+    }
+    if (!state.fxChannels.length) {
+      state.channels.forEach((ch) => AE.setChannelFX(ch, state.mixer, fx.input));
+    } else {
+      state.fxChannels.forEach((i) => {
+        if (state.channels[i]) AE.setChannelFX(state.channels[i], state.mixer, fx.input);
+      });
+    }
   }
 
   // ---------- MIDI ----------
@@ -1466,6 +1568,10 @@
         document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + tab.dataset.view));
         if (tab.dataset.view === 'seq') renderSeq();
         if (tab.dataset.view === 'mix') renderMixer();
+        if (tab.dataset.view === 'kaoss') {
+          ensureAudio();
+          renderKaoss();
+        }
       });
     });
 
@@ -1482,6 +1588,8 @@
 
     document.getElementById('btnStopAll').addEventListener('click', () => {
       panicVoices();
+      if (state.kaossInst) state.kaossInst.stopAll();
+      if (state.kaossFX) state.kaossFX.reset();
       UI.toast('Всё заглушено');
     });
 
@@ -1489,6 +1597,7 @@
       song.bpm = UI.clamp(Number(e.target.value) || 120, 40, 220);
       e.target.value = song.bpm;
       updateStepDur();
+      if (state.kaossInst) state.kaossInst.bpm = song.bpm;
     });
 
     document.getElementById('stepCount').addEventListener('change', (e) => {
@@ -1699,6 +1808,8 @@
     renderAll,
     demo: () => { song = demoSong(); refreshChannelsRebuild(); renderAll(); },
     buildEvents: (a, b) => buildEvents(a, b),
+    kaoss: () => ({ inst: state.kaossInst, fx: state.kaossFX }),
+    renderKaoss,
     patternSteps: () => patternSteps(),
     arrangeSteps: () => arrangeSteps(),
   };
