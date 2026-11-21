@@ -75,6 +75,26 @@ final class SshRunner {
         try{session.connect(15000);if(cancel!=null)cancel.throwIfCanceled();session.setTimeout(30000);return session;}
         catch(Exception ex){session.disconnect();throw ex;}
     }
+    /** One SSH connection holding a decrypted identity only until closed. */
+    static final class KeyConnection implements AutoCloseable {
+        final Session session;private final JSch jsch;
+        KeyConnection(Session session,JSch jsch){this.session=session;this.jsch=jsch;}
+        @Override public void close(){try{session.disconnect();}finally{try{jsch.removeAllIdentity();}catch(Exception ignored){}}}
+    }
+    static JSch loadSavedIdentity(android.content.Context context,String keyId,String passphrase) throws Exception {
+        JSch jsch=new JSch();byte[] key=null,phrase=null;boolean success=false;
+        try{
+            key=new StoredSshKeys(context).load(keyId);phrase=passphrase.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            jsch.addIdentity("saved-key",key,null,phrase.length==0?null:phrase);
+            if(jsch.getIdentityRepository().getIdentities().get(0).isEncrypted())throw new IOException("Не удалось расшифровать ключ: проверьте парольную фразу");
+            success=true;return jsch;
+        }finally{if(key!=null)java.util.Arrays.fill(key,(byte)0);if(phrase!=null)java.util.Arrays.fill(phrase,(byte)0);if(!success)try{jsch.removeAllIdentity();}catch(Exception ignored){}}
+    }
+    static KeyConnection connectSavedKey(Activity activity,String host,int port,String user,String keyId,String passphrase) throws Exception {
+        JSch jsch=loadSavedIdentity(activity.getApplicationContext(),keyId,passphrase);boolean transferred=false;
+        try{Session session=connectWithIdentity(activity,host,port,user,null,null,jsch,true);transferred=true;return new KeyConnection(session,jsch);}
+        finally{if(!transferred)try{jsch.removeAllIdentity();}catch(Exception ignored){}}
+    }
     /** The key is read into bounded temporary memory; never saved to app storage. */
     static byte[] readKey(InputStream in,CancellationSignal cancel) throws IOException {
         byte[] buffer=new byte[65537];int length=0;

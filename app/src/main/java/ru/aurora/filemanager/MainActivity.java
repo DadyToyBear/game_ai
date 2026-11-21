@@ -61,7 +61,7 @@ public class MainActivity extends Activity {
     private static final class TunnelUi { TextView status; Button start,stop; }
     private PendingSftp pendingSftp;
     private static final class SftpUi {
-        EditText host,port,user,password,path; TextView status; LinearLayout entries; Button list,upload; boolean busy;
+        EditText host,port,user,password,path; TextView status; LinearLayout entries; Button list,upload,auth; boolean busy; String keyId;
     }
     private static final class PendingSftp {
         final SftpUi ui; final SftpClient.Credentials credentials; final String remote; final int request;
@@ -534,12 +534,15 @@ public class MainActivity extends Activity {
     }
     private void sftpScreen(){
         layout("SFTP · удалённые файлы");
-        note("Парольный вход. Каждая операция создаёт отдельное SSH-соединение: проверяйте отпечаток сервера. Поля не сохраняются; при повороте экрана выбор файла может сброситься.");
+        note("Вход по паролю или сохранённому ключу. Каждая операция создаёт отдельное SSH-соединение: проверяйте отпечаток сервера. Пароль и парольная фраза остаются в поле до выхода с экрана, но не сохраняются на диск; при повороте выбор сбросится.");
         SftpUi ui=new SftpUi();sftpUi=ui;
         ui.host=field("Адрес сервера",false); ui.port=field("Порт (22)",false); ui.user=field("Пользователь",false); ui.password=field("Пароль",true); ui.path=field("Папка на сервере",false);ui.path.setText("/");
+        ui.auth=button("Вход: пароль · выбрать сохранённый ключ",()->chooseSftpKey(ui));body.addView(ui.auth);
         ui.status=text("",15); ui.list=button("Показать файлы",()->{}); ui.upload=button("Загрузить файл на сервер",()->{});
         body.addView(ui.list);body.addView(ui.upload);body.addView(ui.status);
         ui.entries=new LinearLayout(this);ui.entries.setOrientation(LinearLayout.VERTICAL);body.addView(ui.entries);
+        android.text.TextWatcher clearEntries=new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int start,int count,int after){}public void onTextChanged(CharSequence s,int start,int before,int count){ui.entries.removeAllViews();}public void afterTextChanged(android.text.Editable text){}};
+        for(EditText field:new EditText[]{ui.host,ui.port,ui.user,ui.password,ui.path})field.addTextChangedListener(clearEntries);
         body.addView(button("Назад",this::home));
         ui.list.setOnClickListener(v->listSftp(ui));
         ui.upload.setOnClickListener(v->{
@@ -558,13 +561,30 @@ public class MainActivity extends Activity {
     }
     private SftpClient.Credentials sftpCredentials(SftpUi ui){
         String host=ui.host.getText().toString().trim(), user=ui.user.getText().toString().trim(), pass=ui.password.getText().toString();int port;
-        try{String value=ui.port.getText().toString().trim();port=value.isEmpty()?22:Integer.parseInt(value);if(host.isEmpty()||user.isEmpty()||pass.isEmpty()||port<1||port>65535)throw new IllegalArgumentException();}
-        catch(Exception ex){toast("Укажите адрес, порт, имя и пароль");return null;}
-        return new SftpClient.Credentials(host,port,user,pass);
+        try{String value=ui.port.getText().toString().trim();port=value.isEmpty()?22:Integer.parseInt(value);if(host.isEmpty()||user.isEmpty()||(ui.keyId==null&&pass.isEmpty())||pass.length()>1024||port<1||port>65535)throw new IllegalArgumentException();}
+        catch(Exception ex){toast("Укажите адрес, порт, имя и пароль или выберите ключ");return null;}
+        return new SftpClient.Credentials(host,port,user,pass,ui.keyId);
+    }
+    private void chooseSftpKey(SftpUi ui){
+        if(ui.busy)return;ui.status.setText("Чтение сохранённых ключей…");
+        new Thread(()->{List<StoredSshKeys.Entry> entries=null;String problem=null;try{entries=new StoredSshKeys(getApplicationContext()).list();}catch(Exception ex){problem=ex.getMessage();}
+            List<StoredSshKeys.Entry> all=entries;String failure=problem;runOnUiThread(()->{
+                if(sftpUi!=ui||isDestroyed()||isFinishing()||ui.busy)return;
+                if(failure!=null){ui.status.setText("Ошибка хранилища: "+failure);return;}
+                List<StoredSshKeys.Entry> usable=new ArrayList<>();for(StoredSshKeys.Entry entry:all)if(entry.readable)usable.add(entry);
+                String[] labels=new String[usable.size()+1];labels[0]="Вход по паролю";for(int i=0;i<usable.size();i++)labels[i+1]=usable.get(i).name+" · "+usable.get(i).id.substring(0,8);
+                ui.status.setText(usable.isEmpty()?"Сохранённых ключей нет. Добавьте ключ на экране SSH-команды.":"Выберите способ входа.");
+                new AlertDialog.Builder(this).setTitle("SFTP: способ входа").setItems(labels,(d,index)->{
+                    if(sftpUi!=ui||ui.busy)return;ui.password.setText("");ui.entries.removeAllViews();
+                    if(index==0){ui.keyId=null;ui.password.setHint("Пароль SSH");ui.auth.setText("Вход: пароль · выбрать сохранённый ключ");ui.status.setText("Выбран вход по паролю.");}
+                    else{StoredSshKeys.Entry entry=usable.get(index-1);ui.keyId=entry.id;ui.password.setHint("Парольная фраза ключа (если есть)");ui.auth.setText("Ключ: "+entry.name+" · сменить");ui.status.setText("Выбран ключ: "+entry.name);}
+                }).setNegativeButton("Отмена",null).show();
+            });
+        },"sftp-key-list").start();
     }
     private String sftpPath(SftpUi ui){String path=ui.path.getText().toString().trim();if(!path.startsWith("/")||path.indexOf('\0')>=0){toast("Укажите абсолютный путь к папке, начиная с /");return null;}return path;}
     private boolean validRemoteName(String name){return !name.isEmpty()&&!name.equals(".")&&!name.equals("..")&&!name.contains("/")&&name.indexOf('\0')<0;}
-    private void sftpBusy(SftpUi ui,boolean busy){ui.busy=busy;ui.list.setEnabled(!busy);ui.upload.setEnabled(!busy);}
+    private void sftpBusy(SftpUi ui,boolean busy){ui.busy=busy;ui.list.setEnabled(!busy);ui.upload.setEnabled(!busy);ui.auth.setEnabled(!busy);for(EditText field:new EditText[]{ui.host,ui.port,ui.user,ui.password,ui.path})field.setEnabled(!busy);}
     private void listSftp(SftpUi ui){
         if(ui.busy)return;SftpClient.Credentials credentials=sftpCredentials(ui);String path=sftpPath(ui);if(credentials==null||path==null)return;
         sftpBusy(ui,true);ui.status.setText("Подключение и чтение папки…");ui.entries.removeAllViews();
@@ -579,7 +599,7 @@ public class MainActivity extends Activity {
                     if(ui.busy)return;if(item.link){toast("Символические ссылки не открываются в этой версии");return;}
                     if(!validRemoteName(item.name)){toast("Недопустимое имя файла");return;}String remote=SftpClient.join(path,item.name);
                     if(item.directory){ui.path.setText(remote);listSftp(ui);return;}
-                    pendingSftp=new PendingSftp(ui,credentials,remote,SFTP_DOWNLOAD);
+                    SftpClient.Credentials currentCred=sftpCredentials(ui);if(currentCred==null)return;pendingSftp=new PendingSftp(ui,currentCred,remote,SFTP_DOWNLOAD);
                     Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/octet-stream");intent.putExtra(Intent.EXTRA_TITLE,item.name);
                     try{startActivityForResult(intent,SFTP_DOWNLOAD);}catch(Exception ex){pendingSftp=null;error(ex);}
                 });ui.entries.addView(row);

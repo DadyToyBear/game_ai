@@ -13,8 +13,9 @@ import java.util.List;
 /** One verified SSH connection per operation, closed even on error. */
 final class SftpClient {
     static final class Credentials {
-        final String host,user,password; final int port;
-        Credentials(String host,int port,String user,String password){this.host=host;this.port=port;this.user=user;this.password=password;}
+        final String host,user,password,keyId; final int port;
+        Credentials(String host,int port,String user,String password){this(host,port,user,password,null);}
+        Credentials(String host,int port,String user,String password,String keyId){this.host=host;this.port=port;this.user=user;this.password=password;this.keyId=keyId;}
     }
     static final class Item {
         final String name; final boolean directory, link; final long size;
@@ -25,13 +26,14 @@ final class SftpClient {
     interface Result<T>{void done(T value,Exception error);}
     static <T> void execute(Activity activity,Credentials credentials,Task<T> task,Result<T> result){
         new Thread(()->{
-            Session session=null;ChannelSftp channel=null;T value=null;Exception error=null;
+            Session session=null;SshRunner.KeyConnection keyConnection=null;ChannelSftp channel=null;T value=null;Exception error=null;
             try {
-                session=SshRunner.connect(activity,credentials.host,credentials.port,credentials.user,credentials.password);
+                if(credentials.keyId==null)session=SshRunner.connect(activity,credentials.host,credentials.port,credentials.user,credentials.password);
+                else{keyConnection=SshRunner.connectSavedKey(activity,credentials.host,credentials.port,credentials.user,credentials.keyId,credentials.password);session=keyConnection.session;}
                 channel=(ChannelSftp)session.openChannel("sftp");channel.connect(15000);
                 value=task.run(channel);
             } catch(Exception e){error=e;}
-            finally {if(channel!=null)channel.disconnect();if(session!=null)session.disconnect();}
+            finally {if(channel!=null)channel.disconnect();if(keyConnection!=null)keyConnection.close();else if(session!=null)session.disconnect();}
             T answer=value;Exception failure=error;
             activity.runOnUiThread(()->{if(!activity.isFinishing()&&!activity.isDestroyed())result.done(answer,failure);});
         },"sftp-operation").start();
