@@ -40,6 +40,16 @@ final class FileOperations {
         catch(Exception ex){try{DocumentsContract.deleteDocument(resolver,u);}catch(Exception ignored){} if(ex instanceof IOException)throw (IOException)ex;throw new IOException(ex);}
         return u;
     }
+    /** Create only; never open an existing document for writing or delete a returned URI. */
+    Item createEmptyText(Uri parent,String name) throws IOException {
+        valid(name);List<Item> before=children(parent);for(Item item:before)if(name.equals(item.name))throw new IOException("Уже существует: "+name);
+        Uri created=DocumentsContract.createDocument(resolver,parent,"text/plain",name);if(created==null)throw new IOException("Провайдер не создал файл");
+        for(Item item:before)if(item.uri.equals(created))throw new IOException("Провайдер вернул существующий файл; проверьте папку вручную");
+        try{return info(created);}catch(Exception ex){throw new IOException("Файл мог быть создан, но проверить его свойства не удалось; проверьте папку вручную",ex);}
+    }
+    static String textName(String name) throws IOException {
+        valid(name);if(!name.toLowerCase(java.util.Locale.ROOT).endsWith(".txt"))name+=".txt";return name;
+    }
     private InputStream in(Uri u) throws IOException {InputStream i=resolver.openInputStream(u);if(i==null)throw new IOException("Не удалось открыть файл");return i;}
     private OutputStream out(Uri u) throws IOException {OutputStream o=resolver.openOutputStream(u,"wt");if(o==null)throw new IOException("Не удалось записать файл");return o;}
     private void transfer(InputStream in,OutputStream out,boolean limitSize) throws IOException {byte[] buf=new byte[32768];int n;while((n=in.read(buf))!=-1){if(limitSize && (bytes+=n)>MAX_UNPACKED)throw new IOException("Архив превышает лимит распаковки 1 ГиБ");out.write(buf,0,n);}}
