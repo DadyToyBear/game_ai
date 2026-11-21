@@ -1,0 +1,8 @@
+; Minimal headless project for checking the actual Redot RC2 scripts.
+config_version=5
+
+[application]
+config/name="Redot bridge smoke test"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"

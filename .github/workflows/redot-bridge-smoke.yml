@@ -1,0 +1,69 @@
+name: Redot RC2 bridge script smoke test
+
+on:
+  push:
+    branches: [arena/b84b9c4f-game-ai]
+    paths:
+      - '.github/workflows/redot-bridge-smoke.yml'
+      - 'redot-bridge/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  relay-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r redot-bridge/requirements-relay.txt
+      - run: python -m unittest discover -s redot-bridge/tests -v
+      - run: node redot-bridge/tests/test_native.js && node redot-bridge/tests/test_capture.js && node redot-bridge/tests/test_sync_page.js
+
+  redot-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify official Redot RC2 Linux build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! (
+            set -euo pipefail
+            mkdir -p /tmp/redot-rc2
+            gh release download redot-26.3-rc.2 --repo Redot-Engine/redot-engine --dir /tmp/redot-rc2 \
+              --pattern 'Redot_v26.3-rc.2_linux_x64.zip' --pattern 'SHA512-SUMS.txt' || exit 1
+            cd /tmp/redot-rc2 || exit 1
+            grep '  releases/Redot_v26.3-rc.2_linux_x64.zip$' SHA512-SUMS.txt | sed 's|  releases/|  |' | sha512sum -c - || exit 1
+            unzip -q Redot_v26.3-rc.2_linux_x64.zip -d editor || exit 1
+          ) > download.log 2>&1; then
+            cat download.log
+            python3 -c 'from pathlib import Path; s=Path("download.log").read_text(errors="replace")[-6000:]; print("::error title=Redot download::" + s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))'
+            exit 1
+          fi
+          cat download.log
+      - name: Compile scripts with Redot and test secret validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a redot-bridge/addons redot-bridge/tests/godot/addons
+          mapfile -t editors < <(find /tmp/redot-rc2/editor -maxdepth 2 -type f -executable)
+          if [ "${#editors[@]}" -ne 1 ]; then echo '::error::Expected one executable Redot editor' >&2; exit 1; fi
+          if ! "${editors[0]}" --headless --path redot-bridge/tests/godot --script res://smoke.gd > smoke.log 2>&1; then
+            cat smoke.log
+            python3 -c 'from pathlib import Path; s=Path("smoke.log").read_text(errors="replace")[-6000:]; print("::error title=Redot smoke test::" + s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))'
+            exit 1
+          fi
+          cat smoke.log
+          if ! python3 redot-bridge/tests/godot/run_upload_smoke.py "${editors[0]}" > upload.log 2>&1; then
+            cat upload.log
+            python3 -c 'from pathlib import Path; s=Path("upload.log").read_text(errors="replace")[-6000:]; print("::error title=Redot logger upload::" + s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))'
+            exit 1
+          fi
+          cat upload.log

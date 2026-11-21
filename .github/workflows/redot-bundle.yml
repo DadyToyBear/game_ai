@@ -1,0 +1,121 @@
+name: Assemble Redot Web Editor with Local Bridge
+
+on:
+  push:
+    branches: [arena/b84b9c4f-game-ai]
+    paths:
+      - '.github/workflows/redot-bundle.yml'
+      - 'build-patches/**'
+      - 'redot-web/**'
+      - 'redot-bridge/bridge.py'
+      - 'redot-bridge/project_sync.py'
+      - 'redot-bridge/relay.py'
+      - 'redot-bridge/requirements-relay.txt'
+      - 'redot-bridge/make_bundle.py'
+      - 'redot-bridge/README.md'
+      - 'redot-bridge/relay-deploy/**'
+      - 'redot-bridge/addons/**'
+      - 'redot-bridge/web/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find a compatible unexpired Web build
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=80d31f765b0ead5551c277704e52bb51c515db1f
+          patch_hash=$(sha256sum build-patches/fix_tinyexr.py | cut -d' ' -f1)
+          gh run list --repo "$GITHUB_REPOSITORY" --branch "$BRANCH" --limit 100 --json databaseId,headSha,status,conclusion,workflowName > runs.json
+          found=false
+          while IFS=$'\t' read -r id sha workflow; do
+            [ -n "$id" ] || continue
+            workflow_path=redot-web-editor.yml
+            if [ "$workflow" = 'Assemble Redot Web Editor with Local Bridge' ]; then workflow_path=redot-bundle.yml; fi
+            if ! gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$workflow_path?ref=$sha" --jq .content | base64 -d > old-workflow.yml; then continue; fi
+            if ! grep -Fq "ref: $expected" old-workflow.yml || ! grep -Fq 'version: 4.0.11' old-workflow.yml || ! grep -Fq 'scons platform=web target=editor threads=yes' old-workflow.yml; then continue; fi
+            if ! gh api "repos/$GITHUB_REPOSITORY/contents/build-patches/fix_tinyexr.py?ref=$sha" --jq .content | base64 -d > old-patch.py; then continue; fi
+            [ "$(sha256sum old-patch.py | cut -d' ' -f1)" = "$patch_hash" ] || continue
+            available=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts" --jq '[.artifacts[] | select(.name == "redot-26.3-rc2-web-editor" and .expired == false)] | length')
+            [ "$available" -eq 1 ] || continue
+            mkdir -p "source-$id"
+            if ! gh run download "$id" --repo "$GITHUB_REPOSITORY" --name redot-26.3-rc2-web-editor --dir "source-$id"; then continue; fi
+            valid=true
+            for file in godot.editor.html godot.editor.js godot.editor.wasm service.worker.js; do [ -s "source-$id/$file" ] || valid=false; done
+            [ "$valid" = true ] || continue
+            mkdir -p bundle
+            cp -a "source-$id/." bundle/
+            printf 'Engine revision: %s\nWeb build run: %s\nWeb build commit: %s\nBridge commit: %s\n' "$expected" "$id" "$sha" "$GITHUB_SHA" > bundle/BUILD-PROVENANCE.txt
+            found=true
+            break
+          done < <(jq -r '.[] | select(.status == "completed" and .conclusion == "success" and (.workflowName == "Build Redot 26.3 RC2 Web Editor" or .workflowName == "Assemble Redot Web Editor with Local Bridge")) | [.databaseId, .headSha, .workflowName] | @tsv' runs.json)
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+          if [ "$found" = false ]; then echo 'No compatible unexpired Web build: a fresh build will be made.'; fi
+
+      - name: Checkout Redot RC2 for fallback build
+        if: steps.source.outputs.found == 'false'
+        uses: actions/checkout@v4
+        with:
+          repository: Redot-Engine/redot-engine
+          ref: 80d31f765b0ead5551c277704e52bb51c515db1f
+          path: engine
+          persist-credentials: false
+      - name: Install Emscripten for fallback build
+        if: steps.source.outputs.found == 'false'
+        uses: emscripten-core/setup-emsdk@v16
+        with:
+          version: 4.0.11
+          no-cache: true
+      - name: Install Python for fallback build
+        if: steps.source.outputs.found == 'false'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build fresh RC2 Web editor
+        if: steps.source.outputs.found == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C engine rev-parse HEAD)" = 80d31f765b0ead5551c277704e52bb51c515db1f
+          python -m pip install 'scons==4.10.1'
+          python build-patches/fix_tinyexr.py engine
+          (cd engine && scons platform=web target=editor threads=yes debug_symbols=no -j2)
+          mkdir -p bundle
+          cp -a engine/bin/.web_zip/. bundle/
+          for file in godot.editor.html godot.editor.js godot.editor.wasm service.worker.js; do test -s "bundle/$file"; done
+          printf 'Engine revision: %s\nWeb build: fresh in run %s\nBridge commit: %s\n' 80d31f765b0ead5551c277704e52bb51c515db1f "$GITHUB_RUN_ID" "$GITHUB_SHA" > bundle/BUILD-PROVENANCE.txt
+
+      - name: Preserve fresh Web build for future bundles
+        if: steps.source.outputs.found == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: redot-26.3-rc2-web-editor
+          path: bundle/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Add current bridge and project smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp redot-web/serve.py redot-web/README.md bundle/
+          (cd redot-web/plugin-smoke-test && python3 -m zipfile -c ../../bundle/plugin-smoke-test.zip project.godot addons)
+          python3 redot-bridge/make_bundle.py bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redot-web-editor-with-local-bridge
+          path: bundle/
+          if-no-files-found: error
+          retention-days: 14

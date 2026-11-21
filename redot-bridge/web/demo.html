@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Проверка моста кадров</title>
+<style>body{background:#111827;color:#fff;font:16px sans-serif;margin:2rem}canvas{border:1px solid #8fa9c7;display:block;max-width:100%}input,button{padding:.5rem;margin:.4rem}</style></head>
+<body><h1>Тест моста кадров</h1><p>Это тестовое поле, не Redot. Публикация кадров выключена, пока вы её не включите.</p>
+<canvas id="game-canvas" width="640" height="360"></canvas>
+<label>Секрет моста <input type="password" id="token" autocomplete="off"></label><button id="toggle">Включить кадры</button><p id="status" role="status">Выключено.</p>
+<script src="/capture.js"></script><script>
+const canvas = document.getElementById('game-canvas'), ctx = canvas.getContext('2d');
+function draw(t) {ctx.fillStyle = '#1d3557'; ctx.fillRect(0, 0, 640, 360); ctx.fillStyle = '#9df'; ctx.beginPath(); ctx.arc(320 + Math.sin(t/500)*160, 180, 45, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = '24px sans-serif'; ctx.fillText('Тестовый игровой кадр', 20, 35); requestAnimationFrame(draw)} requestAnimationFrame(draw);
+const token = document.getElementById('token'), status = document.getElementById('status'), toggle = document.getElementById('toggle');
+toggle.addEventListener('click', () => {if (RedotFrameCapture.isRunning()) {RedotFrameCapture.stop(); token.disabled = false; token.value = ''; toggle.textContent = 'Включить кадры'; status.textContent = 'Выключено. Последний кадр остаётся в мосту до удаления.'; return;} if (!token.value) {status.textContent = 'Введите секрет моста.'; return;} RedotFrameCapture.start({canvas: () => canvas, token: token.value, onStatus: s => status.textContent = s}); token.value = ''; token.disabled = true; toggle.textContent = 'Остановить кадры';});
+</script></body></html>

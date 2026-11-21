@@ -1,0 +1,122 @@
+name: Audit Redot Web and Android artifacts
+
+on:
+  push:
+    branches: [arena/b84b9c4f-game-ai]
+    paths:
+      - '.github/workflows/redot-artifact-audit.yml'
+      - 'redot-audit/**'
+      - 'redot-bridge/bridge.py'
+      - 'redot-bridge/web/project-open.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  web-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download successful RC2 Web editor build
+        uses: actions/download-artifact@v4
+        with:
+          name: redot-26.3-rc2-web-editor
+          run-id: 44878548484
+          path: web-editor
+          github-token: ${{ github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.56.1 pngjs@7.0.0
+      - run: npx playwright install --with-deps chromium
+      - name: Check local folder and HTTPS ZIP preparation in Chromium
+        run: node redot-audit/project-open-test.cjs web-editor
+      - name: Start real Web editor in Chromium
+        run: node redot-audit/browser-smoke.cjs web-editor
+      - name: Run a real Web game and inspect the captured frame
+        run: node redot-audit/web-game-smoke.cjs web-editor
+      - name: Import and open nested projects in the real Web editor
+        run: |
+          node redot-audit/web-import-test.cjs web-editor folder
+          node redot-audit/web-import-test.cjs web-editor registry
+
+  mounted-drive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SMB server and client
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y samba cifs-utils
+      - name: Exercise an actual mounted read-only SMB project
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d /tmp/redot-cifs-XXXXXX)
+          chmod 755 "$tmp"
+          mkdir -p "$tmp/source" "$tmp/mount" "$tmp/state" "$tmp/cache" "$tmp/private"
+          chmod 755 "$tmp/source"
+          printf 'config_version=5\n' > "$tmp/source/project.godot"
+          printf 'extends Node\n' > "$tmp/source/scene.gd"
+          cat > "$tmp/smb.conf" <<EOF
+          [global]
+          server role = standalone server
+          security = user
+          map to guest = Bad User
+          guest account = nobody
+          interfaces = 127.0.0.1
+          bind interfaces only = yes
+          disable netbios = yes
+          smb ports = 445
+          pid directory = $tmp
+          lock directory = $tmp/state
+          state directory = $tmp/state
+          cache directory = $tmp/cache
+          private dir = $tmp/private
+          [redot]
+          path = $tmp/source
+          guest ok = yes
+          read only = yes
+          EOF
+          cleanup() {
+            sudo umount "$tmp/mount" 2>/dev/null || true
+            if [ -f "$tmp/smbd.pid" ]; then sudo kill "$(cat "$tmp/smbd.pid")" 2>/dev/null || true; fi
+            sudo rm -rf "$tmp"
+          }
+          trap cleanup EXIT
+          sudo testparm -s "$tmp/smb.conf" > /dev/null
+          sudo smbd -D -s "$tmp/smb.conf"
+          if ! sudo mount -t cifs //127.0.0.1/redot "$tmp/mount" -o "guest,vers=3.0,ro,nosuid,nodev,noexec,uid=$(id -u),gid=$(id -g)" 2>"$tmp/mount.err"; then
+            echo "::error title=SMB mount failed::$(tr '\n' ' ' < "$tmp/mount.err")"
+            exit 1
+          fi
+          if ! python redot-audit/mounted-drive-test.py "$tmp/mount" > "$tmp/test.log" 2>&1; then
+            cat "$tmp/test.log"
+            echo "::error title=SMB project test failed::$(tr '\n' ' ' < "$tmp/test.log")"
+            exit 1
+          fi
+          cat "$tmp/test.log"
+
+  android-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download successful Android bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: redot-26.3-rc2-android-latest-bridge
+          run-id: 44904841519
+          path: android-package
+          github-token: ${{ github.token }}
+      - name: Inspect manifest, ABIs and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_tools=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          test -x "$build_tools/aapt" && test -x "$build_tools/apksigner"
+          python3 redot-audit/check_apks.py android-package "$build_tools/aapt" "$build_tools/apksigner"
