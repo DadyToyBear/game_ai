@@ -114,6 +114,25 @@ class BridgeTest(unittest.TestCase):
         self.assertEqual(base64.b64decode(image['data']), PNG)
         self.assertTrue(replies[4]['result']['isError'])
 
+    def test_malformed_json_is_rejected_without_stopping_bridge(self):
+        deep = b'[' * 2000 + b'0' + b']' * 2000
+        for path in ('/api/logs', '/api/projects/add'):
+            with self.subTest(path=path):
+                with self.assertRaises(urllib.error.HTTPError) as err:
+                    self.request(path, 'POST', deep, mime='application/json')
+                self.assertEqual(err.exception.code, 400)
+        self.assertEqual(self.request('/api/status').status, 200)
+        msg = {'jsonrpc':'2.0','id':1,'method':'tools/call','params':[]}
+        self.assertEqual(bridge.mcp_response(msg,self.url,TOKEN)['error']['code'], -32602)
+        deep_line = '[' * 2000 + '0' + ']' * 2000 + '\n'
+        good = json.dumps({'jsonrpc':'2.0','id':2,'method':'tools/list'}) + '\n'
+        process = subprocess.run([sys.executable, str(ROOT / 'bridge.py'), 'mcp'], input=deep_line + good,
+                                 capture_output=True, text=True, env=dict(os.environ,REDOT_BRIDGE_TOKEN=TOKEN), timeout=10)
+        self.assertEqual(process.returncode,0,process.stderr)
+        replies = [json.loads(line) for line in process.stdout.splitlines()]
+        self.assertEqual(replies[0]['error']['code'],-32700)
+        self.assertEqual(replies[1]['id'],2)
+
     def test_game_screenshot_requires_source_on_same_frame_response(self):
         def screenshot():
             return bridge.mcp_response({'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': 'game_screenshot'}}, self.url, TOKEN)['result']

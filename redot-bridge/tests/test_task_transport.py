@@ -24,6 +24,7 @@ PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4
 class Share(BaseHTTPRequestHandler):
     files = {}
     fail_put = False
+    put_reply = b''
     def log_message(self, *args):
         pass
     def do_GET(self):
@@ -40,13 +41,15 @@ class Share(BaseHTTPRequestHandler):
         if self.fail_put:
             self.send_response(500); self.end_headers(); return
         name = parse_qs(urlsplit(self.path).query).get('name', [''])[0]
-        self.files[name] = self.rfile.read(int(self.headers['Content-Length']))
-        self.send_response(200); self.end_headers()
+        data = self.rfile.read(int(self.headers['Content-Length']))
+        if not self.put_reply or self.put_reply == b'{"ok":true}':
+            self.files[name] = data
+        self.send_response(200); self.end_headers(); self.wfile.write(self.put_reply)
 
 
 class SignedTransportTest(unittest.TestCase):
     def setUp(self):
-        Share.files = {}; Share.fail_put = False
+        Share.files = {}; Share.fail_put = False; Share.put_reply = b''
         self.share = ThreadingHTTPServer(('127.0.0.1', 0), Share)
         self.store = bridge.FrameStore()
         self.editor = ThreadingHTTPServer(('127.0.0.1', 0), bridge.handler_for(self.store, TOKEN))
@@ -123,6 +126,21 @@ class SignedTransportTest(unittest.TestCase):
         self.assertEqual(tt.work_once(self.client, SECRET, self.claims, self.editor_url, TOKEN), 0)
         self.assertIsNone(self.store.editor_poll(False))
         with self.assertRaises(ValueError): tt.get_result(self.client, SECRET, identifier)
+
+    def test_json_failure_with_http_200_is_not_reported_as_success(self):
+        Share.put_reply = b'{"ok":false,"error":"disk full"}'
+        with self.assertRaises(ValueError): tt.submit(self.client, SECRET, 'game_play')
+        self.assertEqual(Share.files, {})
+        Share.put_reply = b'{"ok":true}'
+        identifier = tt.submit(self.client, SECRET, 'game_play')
+        self.store.editor_poll(False)
+        Share.put_reply = b'{"error":"disk full"}'
+        with self.assertRaises(ValueError): tt.work_once(self.client, SECRET, self.claims, self.editor_url, TOKEN)
+        self.assertEqual(self.store.editor_poll(False), 'play')
+        Share.put_reply = b'{"ok":true}'
+        self.assertEqual(tt.work_once(self.client, SECRET, self.claims, self.editor_url, TOKEN), 0)
+        self.assertNotIn(tt.RESULT_PREFIX + identifier + '.json', Share.files)
+        self.assertIsNone(self.store.editor_poll(False))
 
     def test_combined_mcp_produces_and_verifies_task_results(self):
         self.store.editor_poll(False)

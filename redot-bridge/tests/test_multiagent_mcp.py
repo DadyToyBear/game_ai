@@ -87,6 +87,24 @@ class CombinedMcpTest(unittest.TestCase):
         self.assertEqual(self.store.editor_poll(False), 'play')
         self.assertTrue(replies[-1]['result']['isError'])
 
+    def test_invalid_tool_names_and_deep_json_do_not_kill_stdio(self):
+        requests = [{'jsonrpc':'2.0','id':n,'method':'tools/call','params':{'name':value}} for n,value in enumerate(([], {}, None), 1)]
+        requests.append({'jsonrpc':'2.0','id':4,'method':'tools/list'})
+        process = self.run_mcp(requests, dict(self.env, REDOT_TASK_SECRET='s' * 48, REDOT_PRESENCE_ENABLED='1'))
+        self.assertEqual(process.returncode, 0, process.stderr)
+        replies = [json.loads(x) for x in process.stdout.splitlines()]
+        self.assertEqual([r['error']['code'] for r in replies[:3]], [-32602] * 3)
+        self.assertIn('tools', replies[3]['result'])
+        deep = '[' * 2000 + '0' + ']' * 2000 + '\n'
+        good = json.dumps({'jsonrpc':'2.0','id':5,'method':'tools/list'}) + '\n'
+        process = subprocess.run([sys.executable, str(ROOT / 'redot-bridge/multiagent_mcp.py')],
+                                 input=deep + good, capture_output=True, text=True, env=self.env, timeout=15)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        replies = [json.loads(x) for x in process.stdout.splitlines()]
+        self.assertEqual(replies[0]['error']['code'], -32700)
+        self.assertEqual(replies[1]['id'], 5)
+        self.assertIn('tools', replies[1]['result'])
+
     def test_insecure_share_is_rejected_without_request(self):
         env = dict(self.env, WEBFTP_SHARE='http://example.com/s/private')
         process = self.run_mcp([], env)

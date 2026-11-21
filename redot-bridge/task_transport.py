@@ -121,7 +121,16 @@ class WebFTP:
         data = canonical(value)
         if len(data) > MAX_RESULT:
             raise ValueError('Response exceeds size limit')
-        self.request(self.share + '/?name=' + urllib.parse.quote(name, safe=''), 'PUT', data, limit=4096)
+        reply = self.request(self.share + '/?name=' + urllib.parse.quote(name, safe=''), 'PUT', data, limit=4096)
+        # Some WebFTP implementations return HTTP 200 with a JSON error.
+        # Preserve compatibility with empty or non-JSON success bodies, but do
+        # not claim success if the server explicitly reports a failure.
+        try:
+            decoded = json.loads(reply) if reply else None
+        except (ValueError, UnicodeError, RecursionError):
+            decoded = None
+        if isinstance(decoded, dict) and (decoded.get('ok') is False or decoded.get('error')):
+            raise ValueError('WebFTP rejected the write')
 
 
 def make_task(method, secret, now=None):

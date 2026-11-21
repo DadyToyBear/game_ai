@@ -105,6 +105,11 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r.status, 400)
         r = await self.client.post('/api/command', headers=self.headers(CONTROL), json={'command': ['play']})
         self.assertEqual(r.status, 400)
+        deep = b'[' * 2000 + b'0' + b']' * 2000
+        r = await self.client.post('/api/logs', headers=self.headers(DEVICE, **{'Content-Type': 'application/json'}), data=deep)
+        self.assertEqual(r.status, 400)
+        r = await self.client.get('/api/status', headers=self.headers(CONTROL))
+        self.assertEqual(r.status, 200)
         r = await self.client.post('/api/frame', headers=self.headers(DEVICE, **{'Content-Type': 'image/png'}), data=b'bad')
         self.assertEqual(r.status, 400)
         r = await self.client.post('/api/frame', headers=self.headers(DEVICE, **{'Content-Type': 'image/png'}), data=b'x' * (relay.MAX_FRAME + 1))

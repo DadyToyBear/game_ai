@@ -279,7 +279,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
                     if len(data) != length:
                         raise ValueError('Truncated log batch')
                     store.add_logs(json.loads(data))
-                except (ValueError, UnicodeDecodeError):
+                except (ValueError, UnicodeDecodeError, RecursionError):
                     self.send_bytes(400, b'Invalid log batch')
                     return
                 self.send_bytes(204)
@@ -312,7 +312,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
                         else:
                             data = project_sync.pack_project(registry.get(payload['id']))
                             self.send_bytes(200, data, 'application/zip')
-                except (project_sync.RegistryError, project_sync.SnapshotError, OSError, ValueError, TypeError) as exc:
+                except (project_sync.RegistryError, project_sync.SnapshotError, OSError, ValueError, TypeError, RecursionError) as exc:
                     self.send_bytes(400, str(exc).encode('utf-8'))
                 return
             if self.path == '/api/project/import':
@@ -342,7 +342,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
                     payload = json.loads(self.rfile.read(length))
                     if not isinstance(payload, dict):
                         raise ValueError('Expected object')
-                except (ValueError, UnicodeDecodeError):
+                except (ValueError, UnicodeDecodeError, RecursionError):
                     self.send_bytes(400, b'Invalid JSON')
                     return
                 if self.path == '/api/editor/poll':
@@ -507,7 +507,7 @@ def mcp_response(message, url, token):
     elif method == 'tools/list':
         result = {'tools': tools()}
     elif method == 'tools/call':
-        params = message.get('params') or {}
+        params = message.get('params', {})
         if not isinstance(params, dict):
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Invalid params'}}
         name = params.get('name')
@@ -563,7 +563,7 @@ def mcp_stdio(url, token):
     for line in sys.stdin:
         try:
             response = mcp_response(json.loads(line), url, token)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):
             response = {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32700, 'message': 'Parse error'}}
         if response is not None:
             print(json.dumps(response, separators=(',', ':')), flush=True)

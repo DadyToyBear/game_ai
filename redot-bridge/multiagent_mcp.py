@@ -131,7 +131,7 @@ def response(message, url, token, chat, task_client=None, task_secret='', presen
             except (ValueError, OSError, TypeError, RecursionError):
                 payload = {'content': [{'type': 'text', 'text': 'Heartbeat unavailable or invalid.'}], 'isError': True}
             return {'jsonrpc': '2.0', 'id': rid, 'result': payload}
-        if isinstance(params, dict) and params.get('name') in {item['name'] for item in chat.TOOLS}:
+        if isinstance(params, dict) and isinstance(params.get('name'), str) and params['name'] in {item['name'] for item in chat.TOOLS}:
             arguments = params.get('arguments', {})
             if not isinstance(arguments, dict):
                 return {'jsonrpc': '2.0', 'id': rid, 'error': {'code': -32602, 'message': 'Invalid tool arguments'}}
@@ -183,7 +183,7 @@ def main():
     for line in sys.stdin:
         try:
             reply = response(json.loads(line), url, token, chat, task_client, task_secret, presence_client)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):
             reply = {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32700, 'message': 'Parse error'}}
         if reply is not None:
             # ASCII JSON remains valid UTF-8 while also working with Windows

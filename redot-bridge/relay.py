@@ -163,7 +163,7 @@ async def read_json(request, limit=1024):
     try:
         data = await request.read()
         return json.loads(data)
-    except (ValueError, UnicodeDecodeError):
+    except (ValueError, UnicodeDecodeError, RecursionError):
         return None
 
 
