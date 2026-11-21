@@ -1,0 +1,40 @@
+name: Assemble Redot Web Editor with Local Bridge
+
+on:
+  push:
+    branches:
+      - arena/b84b9c4f-game-ai
+    paths:
+      - '.github/workflows/redot-bundle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout bridge code
+        uses: actions/checkout@v4
+
+      - name: Download existing Redot Web Editor
+        uses: actions/download-artifact@v4
+        with:
+          name: redot-26.3-rc2-web-editor
+          path: bundle
+          run-id: 44878548484
+          github-token: ${{ github.token }}
+
+      - name: Add local bridge and project snapshot tools
+        run: python3 redot-bridge/make_bundle.py bundle
+
+      - name: Upload combined package
+        uses: actions/upload-artifact@v4
+        with:
+          name: redot-web-editor-with-local-bridge
+          path: bundle/
+          if-no-files-found: error
+          retention-days: 14
