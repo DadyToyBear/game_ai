@@ -1,5 +1,5 @@
 /* Mini Studio — офлайн-кэш. Обновляйте CACHE при изменении файлов. */
-const CACHE = 'mini-studio-v12';
+const CACHE = 'mini-studio-v13';
 const ASSETS = [
   './',
   './index.html',

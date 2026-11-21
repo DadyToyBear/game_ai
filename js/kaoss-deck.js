@@ -469,7 +469,6 @@
     const deck = document.getElementById('deckGrid');
     if (!deck) return;
     const host = deck.parentNode || document;
-    const inst = window.MS.state.kaossInst;
     const fx = window.MS.state.kaossFX;
     // зеркалим на другой девайс
     if (from === 'kaoss') {

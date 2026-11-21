@@ -300,6 +300,11 @@ main { flex: 1; padding: 0 16px 28px; }
 .pblock.active .pletter { color: var(--accent); }
 .pblock .pmini { display: flex; align-items: flex-end; gap: 1px; height: 16px; }
 .pblock .pmini i { flex: 1; background: #2a3a4d; border-radius: 1px; min-height: 1px; }
+.pblock .pmini i.hit { background: #4a6b8f; }
+.pblock.active .pmini i.hit { background: var(--accent); opacity: 1; }
+/* предупреждение: правится один паттерн, а сцена играет другой */
+.btn.warn { border-color: #d9a23a; color: #f0c069; }
+.btn.warn:hover { background: rgba(217,162,58,.12); }
 .pblock.active .pmini i { background: var(--accent); opacity: .8; }
 .pblock .pmark { position: absolute; top: 4px; right: 5px; font-size: 8px; color: var(--accent2); }
 

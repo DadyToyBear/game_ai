@@ -118,9 +118,7 @@
   }
 
   /* Сколько тактов в паттерне и сколько в аранжировке */
-  function patternBars() { return song.bars; }
   function patternSteps() { return song.steps * song.bars; }
-  function clipSteps() { return song.steps; }
   function arrangeSteps() { return song.steps * song.arrangeBars; }
 
   // ---------- аудио ----------
@@ -245,23 +243,44 @@
   }
 
   /* Запись живых нот в активный паттерн (с учётом такта аранжировки) */
+  /* Куда писать при записи: в паттерн, который РЕАЛЬНО звучит в этом такте.
+     Иначе получалось, что записанное уходит в слот A, а сцена играет B —
+     нота «не слышна» после записи. Если сцена и слот совпадают, поведение
+     прежнее; если нет — пишем в звучащий паттерн и говорим об этом. */
+  function recordTarget(t) {
+    const playing = playingPatternIndex(t, Math.floor(state.currentStep / song.steps));
+    if (playing !== t.patIndex) {
+      const was = 'ABCD'[t.patIndex];
+      t.patIndex = playing;               // редактор переключается на слышимый паттерн
+      Pattern.markUsed(t);
+      if (state.recordNotified !== t.id + playing) {
+        state.recordNotified = t.id + playing;
+        UI.toast('Запись идёт в паттерн ' + 'ABCD'[playing] + ' (его играет сцена, а не ' + was + ')');
+        renderSeq();
+      }
+    }
+    return Pattern.pattern(t);
+  }
+
   function recordNote(t, midi, vel) {
     if (!t) return;
-    const pat = Pattern.pattern(t);
+    const pat = recordTarget(t);
     const step = recStep();
     pat.notes.push({ at: step, m: midi, len: 1, v: vel != null ? vel : 0.85 });
     Pattern.markUsed(t);
+    Pattern.refresh(t);
     renderSeq();
   }
 
   function recordPad(t, pad) {
     if (!t) return;
-    const pat = Pattern.pattern(t);
+    const pat = recordTarget(t);
     const step = recStep();
     if (!(pat.pads || []).some((e) => e.at === step && e.p === pad)) {
       pat.pads.push({ at: step, p: pad });
     }
     Pattern.markUsed(t);
+    Pattern.refresh(t);
     renderSeq();
   }
 
@@ -285,15 +304,20 @@
   function startMidiClock() {
     stopMidiClock();
     if (!midiOut()) return;
+    state.clockBpm = song.bpm;
     const tickMs = 60000 / song.bpm / 24;
     state.clockTimer = setInterval(() => {
       if (!state.playing) return;
+      // темп поменяли на ходу — перезаводим интервал, иначе внешний
+      // синтезатор едет не в такт (раньше интервал оставался старым)
+      if (song.bpm !== state.clockBpm) { startMidiClock(); return; }
       sendMidi([0xf8]);
     }, tickMs);
   }
 
   function stopMidiClock() {
     if (state.clockTimer) { clearInterval(state.clockTimer); state.clockTimer = null; }
+    state.clockBpm = null;
   }
 
   function panicVoices() {
@@ -727,13 +751,23 @@
     const bucket = Math.max(1, Math.ceil((t.patLen || 16) / 8));
     const items = (t.engine === 'beatbox' ? pat.pads : pat.notes) || [];
     for (let b = 0; b < 8; b++) {
-      let h = 0;
-      items.forEach((e) => {
-        if (Math.floor(e.at / bucket) === b) h++;
-      });
-      bars.push(el('i', { style: { height: Math.min(16, 3 + h * 3) + 'px' } }));
+      const hits = items.filter((e) => Math.floor(e.at / bucket) === b);
+      bars.push(el('i', {
+        class: hits.length ? 'hit' : '',
+        title: hits.length ? 'нот: ' + hits.length : 'пусто',
+        style: { height: Math.min(16, 3 + hits.length * 3) + 'px' },
+      }));
     }
     return el('div', { class: 'pmini' }, bars);
+  }
+
+  /* Какой паттерн машины РЕАЛЬНО звучит сейчас: его задаёт сцена такта,
+     а редактируется слот patIndex — это не всегда одно и то же. */
+  function playingPatternIndex(t, bar) {
+    const b = bar != null ? bar : (state.currentBar || 0);
+    const letter = (t.scenes || 'A').charAt(b % Math.max(1, song.arrangeBars)) || 'A';
+    const idx = 'ABCD'.indexOf(letter);
+    return idx < 0 ? 0 : idx;
   }
 
   function patternBar() {
@@ -759,6 +793,23 @@
             },
           })
         )),
+        (() => {
+          const playing = playingPatternIndex(t, state.currentBar || 0);
+          // если сцена играет другой паттерн, правки в текущем не слышны — говорим об этом прямо
+          return el('button', {
+            class: 'btn ghost' + (playing !== t.patIndex ? ' warn' : ''),
+            style: { fontSize: '11px', padding: '6px 9px' },
+            title: playing !== t.patIndex
+              ? 'Сейчас играет паттерн ' + 'ABCD'[playing] + ', а редактируется ' + 'ABCD'[t.patIndex]
+              + ' — нажмите, чтобы поставить текущий в сцену'
+              : 'Сцена уже играет этот паттерн',
+            text: playing !== t.patIndex ? 'Играет ' + 'ABCD'[playing] + ' → сцену сюда' : 'Сцена = паттерн',
+            onclick: () => {
+              if (playing === t.patIndex) return;
+              setSceneForActive(t.patIndex);
+            },
+          });
+        })(),
         el('button', { class: 'btn ghost', text: 'Копия A→B', style: { fontSize: '11px', padding: '6px 9px' }, onclick: copyPatternDialog }),
         el('button', { class: 'btn ghost', text: 'Очистить', style: { fontSize: '11px', padding: '6px 9px' }, onclick: () => { Pattern.clear(t); renderSeq(); UI.toast('Паттерн ' + 'ABCD'[t.patIndex] + ' очищен'); } }),
         el('span', { class: 'hint', text: 'шагов: ' + t.patLen + ' · тактов: ' + song.bars }),
@@ -814,6 +865,20 @@
     bar.appendChild(bankRow);
     bar.appendChild(sceneRow);
     return bar;
+  }
+
+  /* Ставит паттерн machine.patIndex в сцены тактов, где играет другой паттерн. */
+  function setSceneForActive(idx) {
+    const t = song.tracks[state.activeTrack];
+    if (!t) return;
+    const bars = song.arrangeBars || 4;
+    const arr = (t.scenes || 'A').padEnd(bars, 'A').slice(0, bars).split('');
+    const from = playingPatternIndex(t, state.currentBar || 0);
+    for (let b = 0; b < bars; b++) if (arr[b] === 'ABCD'[from]) arr[b] = 'ABCD'[idx];
+    t.scenes = arr.join('');
+    renderSeq();
+    renderMachine();
+    UI.toast('Сцены «' + from + '» заменены на «' + 'ABCD'[idx] + '»: правки теперь слышны', 'ok');
   }
 
   function copyPatternDialog() {
@@ -1252,8 +1317,6 @@
     UI.modal('Свои сэмплы — ' + t.name, box, [{ label: 'Готово', primary: true }]);
   }
 
-  function openNoteDialog() { /* зарезервировано */ }
-
   function addMachineDialog() {
     const list = el('div', { class: 'row' });
     Object.keys(ENG).forEach((k) => {
@@ -1557,7 +1620,6 @@
 
   function handleKaossMidi(cmd, d1, d2, chan) {
     if (!state.kaossMidi) return false;
-    const K = window.Kaoss;
     if (cmd === 0xb0 && (d1 === 1 || d1 === 2 || d1 === 16 || d1 === 17)) {
       // CC1/CC16 → X, CC2/CC17 → Y
       if (d1 === 1 || d1 === 16) state.kaossMidi.x = d2 / 127;

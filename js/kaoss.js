@@ -680,7 +680,6 @@
     };
     const fx = {
       input, output, programs: PROGRAMS, program: 0, player,
-      hold: false,
       x: 0.5, y: 0.5,
       active: false,
       /* HOLD: фиксация последней позиции X/Y (как кнопка HOLD на miniKP2) */
