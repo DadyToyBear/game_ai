@@ -17,7 +17,7 @@ async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://
 (async () => { let browser, cloud;
   try {
     await waitServer(); browser = await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
-    const page = await browser.newPage({acceptDownloads:true, ignoreHTTPSErrors:true}); const errors=[]; page.on('pageerror', e=>errors.push(String(e)));
+    const page = await browser.newPage({acceptDownloads:true, ignoreHTTPSErrors:true}); const errors=[], diagnostics=[]; page.on('pageerror', e=>errors.push(String(e))); page.on('console', m=>{if(m.type()==='error') diagnostics.push(m.text());}); page.on('requestfailed', req=>diagnostics.push(`${req.url()}: ${req.failure()?.errorText}`));
     await page.goto('http://127.0.0.1:8765/editor/godot.editor.html');
     await page.locator('#welcome-modal-dismiss').click();
     await page.locator('#redot-folder').setInputFiles(folder);
@@ -35,7 +35,7 @@ async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://
     const cloudURL = `https://127.0.0.1:${cloud.address().port}/project.zip`;
     await page.locator('#redot-cloud-url').fill(cloudURL); await page.locator('#redot-cloud-load').click();
     await page.waitForFunction(() => /ZIP подготовлен|Не удалось/.test(document.querySelector('#redot-project-status').textContent));
-    assert.match(await page.locator('#redot-project-status').textContent(), /ZIP подготовлен/);
+    assert.match(await page.locator('#redot-project-status').textContent(), /ZIP подготовлен/, `TLS test requests: ${requests}; browser: ${diagnostics.join(' | ')}`);
     assert.equal(requests,1); assert.equal(await page.locator('#redot-cloud-url').inputValue(),'');
     assert.deepEqual(await page.locator('#zip-file').evaluate(async el=>Array.from(new Uint8Array(await el.files[0].arrayBuffer()))),zipBytes);
     await page.locator('#redot-cloud-url').fill('http://cloud.example/project.zip'); await page.locator('#redot-cloud-load').click();
