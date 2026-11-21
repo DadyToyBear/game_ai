@@ -14,7 +14,7 @@ import java.util.*;
 
 /** Small, independent file manager based on Android's Storage Access Framework. */
 public class MainActivity extends Activity {
-    private static final int OPEN_TREE=1, SAVE_IMAGE=2, SFTP_DOWNLOAD=3, SFTP_UPLOAD=4, FTP_DOWNLOAD=5, FTP_UPLOAD=6, DAV_DOWNLOAD=7, DAV_UPLOAD=8, PAINT_OPEN_IMAGE=9, VIDEO_OPEN=10, VIDEO_SAVE=11, SMB_DOWNLOAD=12, SMB_UPLOAD=13;
+    private static final int OPEN_TREE=1, SAVE_IMAGE=2, SFTP_DOWNLOAD=3, SFTP_UPLOAD=4, FTP_DOWNLOAD=5, FTP_UPLOAD=6, DAV_DOWNLOAD=7, DAV_UPLOAD=8, PAINT_OPEN_IMAGE=9, VIDEO_OPEN=10, VIDEO_SAVE=11, SMB_DOWNLOAD=12, SMB_UPLOAD=13, SSH_KEY_OPEN=14;
     private LinearLayout root, body;
     private Uri tree, current;
     private final Stack<Uri> parents = new Stack<>();
@@ -27,6 +27,8 @@ public class MainActivity extends Activity {
     private Object mediaToken;
     private WebFilesServer webServer;
     private Entry clipboard; private boolean cut;
+    private KeySshUi keySshUi;private android.os.CancellationSignal keySshCancel;
+    private static final class KeySshUi {Uri key;TextView status;}
     private Object accountsView;
     private Object trashView;
     private android.os.CancellationSignal scanCancellation;
@@ -70,7 +72,7 @@ public class MainActivity extends Activity {
     private TextView text(String s, int size) { TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(Color.rgb(28,38,55)); return t; }
     private Button button(String label, Runnable action) { Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setOnClickListener(v -> action.run()); return b; }
     private void layout(String title) {
-        stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;
+        stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;
         stopMedia();mediaToken=null;mediaScreen=false;canvas=null;
         sftpUi=null; pendingSftp=null; ftpUi=null; pendingFtp=null; davUi=null; pendingDav=null; smbUi=null; pendingSmb=null; tunnelUi=null; reverseTunnelUi=null;
         fileScreen="Файлы".equals(title);searchScreenVisible=false;
@@ -90,6 +92,7 @@ public class MainActivity extends Activity {
             catch(Exception ex) { error(ex); }
         }));
         body.addView(button("SSH — выполнить команду", this::sshScreen));
+        body.addView(button("SSH — команда с ключом", this::sshKeyScreen));
         body.addView(button("SSH — интерактивная оболочка", this::interactiveSshScreen));
         body.addView(button("SFTP — удалённые файлы", this::sftpScreen));
         body.addView(button("FTP / FTPS — удалённые файлы", this::ftpScreen));
@@ -105,6 +108,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int req,int result,Intent data) {
         super.onActivityResult(req,result,data);
+        if(req==SSH_KEY_OPEN){if(keySshUi!=null&&result==RESULT_OK&&data!=null&&data.getData()!=null){keySshUi.key=data.getData();keySshUi.status.setText("Ключ выбран. Перед входом проверьте отпечаток сервера.");}return;}
         if(req==VIDEO_OPEN){
             if(videoUi!=null && result==RESULT_OK && data!=null && data.getData()!=null){videoUi.source=data.getData();videoUi.status.setText("Исходный видеофайл выбран. Укажите начало и конец в миллисекундах.");videoUi.save.setEnabled(true);}return;
         }
@@ -709,6 +713,26 @@ public class MainActivity extends Activity {
         });
         body.addView(button("Назад",this::home));
     }
+    private void cancelKeySsh(){if(keySshCancel!=null){keySshCancel.cancel();keySshCancel=null;}}
+    private void sshKeyScreen(){
+        layout("SSH · команда с ключом");note("Выберите закрытый ключ через Android. Приложение не сохраняет ключ и парольную фразу; используйте только доверенный провайдер документов. Размер ключа — до 64 КиБ. Поддержка форматов и алгоритмов зависит от JSch и Android.");
+        note("Одна команда за соединение, без интерактивного ввода. Сверьте отпечаток ключа сервера по независимому каналу. При выходе с экрана подключение отменяется; уже запущенная команда на сервере может продолжиться.");
+        KeySshUi ui=new KeySshUi();keySshUi=ui;ui.status=text("Ключ не выбран",15);
+        EditText host=field("Адрес сервера",false),port=field("Порт SSH (22)",false),user=field("Пользователь",false),passphrase=field("Парольная фраза ключа (если есть)",true),command=field("Команда",false);
+        body.addView(button("Выбрать закрытый ключ",()->{Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("*/*");intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);try{startActivityForResult(intent,SSH_KEY_OPEN);}catch(Exception ex){error(ex);}}));
+        Button run=button("Выполнить команду",()->{}),cancel=button("Отменить",()->{});cancel.setEnabled(false);body.addView(run);body.addView(cancel);body.addView(ui.status);body.addView(button("Назад",this::home));
+        run.setOnClickListener(v->{
+            String h=host.getText().toString().trim(),u=user.getText().toString().trim(),cmd=command.getText().toString();int sshPort;
+            try{String value=port.getText().toString().trim();sshPort=value.isEmpty()?22:Integer.parseInt(value);if(ui.key==null||h.isEmpty()||u.isEmpty()||cmd.trim().isEmpty()||sshPort<1||sshPort>65535||passphrase.length()>1024)throw new IllegalArgumentException();}
+            catch(Exception ex){toast("Выберите ключ и заполните адрес, пользователя, порт и команду");return;}
+            char[] chars=new char[passphrase.length()];passphrase.getText().getChars(0,passphrase.length(),chars,0);passphrase.setText("");byte[] secret;
+            try{java.nio.ByteBuffer bytes=java.nio.charset.StandardCharsets.UTF_8.newEncoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT).onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT).encode(java.nio.CharBuffer.wrap(chars));secret=new byte[bytes.remaining()];bytes.get(secret);if(bytes.hasArray())java.util.Arrays.fill(bytes.array(),(byte)0);}
+            catch(Exception ex){toast("Не удалось прочитать парольную фразу");return;}finally{java.util.Arrays.fill(chars,'\0');}
+            android.os.CancellationSignal signal=new android.os.CancellationSignal();keySshCancel=signal;run.setEnabled(false);cancel.setEnabled(true);ui.status.setText("Подключение… Проверьте отпечаток сервера.");
+            SshRunner.runWithKey(this,ui.key,h,sshPort,u,secret,cmd,signal,answer->{if(keySshUi!=ui||keySshCancel!=signal)return;keySshCancel=null;run.setEnabled(true);cancel.setEnabled(false);ui.status.setText(answer);});
+        });
+        cancel.setOnClickListener(v->{cancelKeySsh();run.setEnabled(true);cancel.setEnabled(false);ui.status.setText("Отменено. Удалённая команда может продолжить работу.");});
+    }
     private void accountsScreen(){
         layout("Локальные учётные записи");Object token=new Object();accountsView=token;
         note("Учётные записи используются только для входа в HTTP/WebDAV-сервер этого приложения. Запись разрешается отдельно для каждого пользователя и включается на сервере. Пароли хранятся в виде солёных хешей, но передаются по HTTP без шифрования.");
@@ -800,7 +824,7 @@ public class MainActivity extends Activity {
         if(mediaPlayer!=null){mediaPlayer.stopPlayback();mediaStopped=true;if(mediaController!=null)mediaController.hide();}
         super.onStop();
     }
-    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}if(reverseTunnel!=null){reverseTunnel.stop();reverseTunnel=null;}super.onDestroy();}
+    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelKeySsh();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}if(reverseTunnel!=null){reverseTunnel.stop();reverseTunnel=null;}super.onDestroy();}
     private void pingScreen(){ layout("Проверка сети"); note("ICMP ping: доступность зависит от сети и устройства."); EditText host=new EditText(this); host.setSingleLine(); host.setHint("Адрес или домен"); body.addView(host); TextView result=text("",15); body.addView(button("Проверить",()->{String h=host.getText().toString().trim(); if(!h.matches("[a-zA-Z0-9.:-]{1,253}") || h.startsWith("-")){result.setText("Некорректный адрес");return;} result.setText("Проверка…"); new Thread(()->{String output; try { Process p=new ProcessBuilder("ping","-c","1","-W","3",h).redirectErrorStream(true).start(); ByteArrayOutputStream b=new ByteArrayOutputStream(); try(InputStream in=p.getInputStream()){byte[] buf=new byte[1024];int n;while((n=in.read(buf))!=-1 && b.size()<8192)b.write(buf,0,n);} p.waitFor();output=b.toString("UTF-8"); }catch(Exception ex){output="Ошибка: "+ex.getMessage();} String finalOutput=output;runOnUiThread(()->result.setText(finalOutput));}).start();})); body.addView(result); body.addView(button("Назад",this::home)); }
     private void cancelVideo(){if(videoCancellation!=null){videoCancellation.cancel();videoCancellation=null;}}
     private void videoEditorScreen(){
