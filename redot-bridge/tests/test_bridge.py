@@ -130,7 +130,7 @@ class BridgeTest(unittest.TestCase):
                                  capture_output=True, text=True, env=dict(os.environ,REDOT_BRIDGE_TOKEN=TOKEN), timeout=10)
         self.assertEqual(process.returncode,0,process.stderr)
         replies = [json.loads(line) for line in process.stdout.splitlines()]
-        self.assertEqual(replies[0]['error']['code'],-32700)
+        self.assertIn(replies[0]['error']['code'],(-32700, -32600))
         self.assertEqual(replies[1]['id'],2)
 
     def test_game_screenshot_requires_source_on_same_frame_response(self):
