@@ -25,14 +25,14 @@ public class VncClientTest {
                     assertEquals(3,in.readUnsignedByte());byte[] req=new byte[9];in.readFully(req);assertEquals(0,req[0]);
                     out.writeByte(0);out.writeByte(0);out.writeShort(1);out.writeShort(0);out.writeShort(0);out.writeShort(2);out.writeShort(2);out.writeInt(0);
                     out.write(new byte[]{0,0,(byte)255,0, 0,(byte)255,0,0, (byte)255,0,0,0, (byte)255,(byte)255,(byte)255,0});out.flush();
-                    int pointer=0,key=0;while(pointer<6||key<4){int type=in.readUnsignedByte();if(type==3){in.readFully(req);}else if(type==5){int mask=in.readUnsignedByte(),x=in.readUnsignedShort(),y=in.readUnsignedShort();assertEquals(1,x);assertEquals(0,y);assertEquals(new int[]{1,0,4,0,16,0}[pointer],mask);pointer++;}else if(type==4){int down=in.readUnsignedByte();in.readUnsignedShort();int sym=in.readInt();assertEquals(new int[]{'A','A',0x0100042f,0x0100042f}[key],sym);assertEquals(key%2==0?1:0,down);key++;}else throw new IOException("Unexpected message: "+type);}
+                    int pointer=0,key=0;while(pointer<6||key<6){int type=in.readUnsignedByte();if(type==3){in.readFully(req);}else if(type==5){int mask=in.readUnsignedByte(),x=in.readUnsignedShort(),y=in.readUnsignedShort();assertEquals(1,x);assertEquals(0,y);assertEquals(new int[]{1,0,4,0,16,0}[pointer],mask);pointer++;}else if(type==4){int down=in.readUnsignedByte();in.readUnsignedShort();int sym=in.readInt();assertEquals(new int[]{'A','A',0x0100042f,0x0100042f,0xff51,0xff51}[key],sym);assertEquals(key%2==0?1:0,down);key++;}else throw new IOException("Unexpected message: "+type);}
                     events.countDown();
                 }catch(Throwable ex){failure.set(ex);events.countDown();}
             },"test-vnc-server");peer.start();
             CountDownLatch received=new CountDownLatch(1);AtomicReference<int[]> pixels=new AtomicReference<>();AtomicReference<String> problem=new AtomicReference<>();
             VncClient client=new VncClient(new VncClient.Listener(){public void connected(int w,int h,String name){assertEquals(2,w);assertEquals(2,h);assertEquals("test",name);}public void frame(int w,int h,int[] p){pixels.set(p);received.countDown();}public void finished(String reason){problem.set(reason);}});
             try{client.start("127.0.0.1",server.getLocalPort(),"password",false);assertTrue("frame "+problem.get(),received.await(15,TimeUnit.SECONDS));assertArrayEquals(new int[]{0xffff0000,0xff00ff00,0xff0000ff,0xffffffff},pixels.get());
-                assertTrue(client.pointer(1,0,true));assertTrue(client.pointer(1,0,false));assertTrue(client.click(1,0,4));assertTrue(client.click(1,0,16));assertTrue(client.keys("AЯ"));assertTrue(events.await(15,TimeUnit.SECONDS));if(failure.get()!=null)throw new AssertionError(failure.get());
+                assertTrue(client.pointer(1,0,true));assertTrue(client.pointer(1,0,false));assertTrue(client.click(1,0,4));assertTrue(client.click(1,0,16));assertTrue(client.keys("AЯ"));assertTrue(client.special(0xff51));assertFalse(client.special(0xdead));assertTrue(events.await(15,TimeUnit.SECONDS));if(failure.get()!=null)throw new AssertionError(failure.get());
             }finally{client.stop();peer.join(5000);}
         }
     }

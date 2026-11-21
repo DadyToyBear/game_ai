@@ -21,6 +21,7 @@ public class MainActivity extends Activity {
     private PaintView canvas;
     private boolean fileScreen, searchScreenVisible, propertiesVisible, bookmarkScreenVisible, zipScreenVisible;
     private FileSort.Mode fileSort=FileSort.Mode.NAME_ASC;
+    private boolean showHiddenFiles=true;
     private boolean mediaScreen;
     private VideoView mediaPlayer;
     private MediaController mediaController;
@@ -155,6 +156,7 @@ public class MainActivity extends Activity {
     private void list() {
         layout("Файлы"); body.addView(button("← Назад", () -> { if(parents.empty()) home(); else {current=parents.pop(); list();} }));
         body.addView(button("Поиск в этой папке",this::searchScreen));
+        body.addView(button(showHiddenFiles?"Скрыть имена с точкой":"Показать имена с точкой",()->{showHiddenFiles=!showHiddenFiles;list();}));
         body.addView(button("Добавить папку в закладки",this::addCurrentBookmark));
         body.addView(button("Сортировка: "+sortLabel(fileSort),()->{
             String[] labels={"Имя: А–Я", "Имя: Я–А", "Размер: сначала большие", "Размер: сначала маленькие"};
@@ -176,8 +178,9 @@ public class MainActivity extends Activity {
                 while(c.moveToNext()) entries.add(new Entry(DocumentsContract.buildDocumentUriUsingTree(tree,c.getString(0)),c.getString(1),c.getString(2),c.isNull(3)?-1:c.getLong(3)));
             }
             Collections.sort(entries,FileSort.comparator(fileSort));
-            if(entries.isEmpty()) note("Папка пуста");
-            for(Entry e:entries) { TextView row=text((e.dir()?"📁  ":"📄  ")+e.name+(e.dir()||e.size<0?"":"  ·  "+android.text.format.Formatter.formatFileSize(this,e.size)),16); row.setPadding(dp(8),dp(16),dp(8),dp(16)); body.addView(row); row.setOnClickListener(v->{ if(e.dir()){parents.push(current);current=e.uri;list();} else open(e); }); row.setOnLongClickListener(v->{actions(e);return true;}); }
+            int hidden=0;for(Entry e:entries)if(!FileVisibility.show(e.name,showHiddenFiles))hidden++;
+            if(entries.isEmpty())note("Папка пуста");else if(hidden==entries.size())note("Нет видимых элементов; имена с точкой скрыты.");
+            for(Entry e:entries) { if(!FileVisibility.show(e.name,showHiddenFiles))continue; TextView row=text((e.dir()?"📁  ":"📄  ")+e.name+(e.dir()||e.size<0?"":"  ·  "+android.text.format.Formatter.formatFileSize(this,e.size)),16); row.setPadding(dp(8),dp(16),dp(8),dp(16)); body.addView(row); row.setOnClickListener(v->{ if(e.dir()){parents.push(current);current=e.uri;list();} else open(e); }); row.setOnLongClickListener(v->{actions(e);return true;}); }
         } catch(Exception e) { error(e); }
     }
     private String sortLabel(FileSort.Mode mode){switch(mode){case NAME_DESC:return "имя Я–А";case SIZE_DESC:return "сначала большие";case SIZE_ASC:return "сначала маленькие";default:return "имя А–Я";}}
@@ -856,9 +859,11 @@ public class MainActivity extends Activity {
         body.addView(connect);body.addView(disconnect);body.addView(send);
         LinearLayout keys=new LinearLayout(this);body.addView(keys);Button enter=button("Enter",()->{}),backspace=button("⌫",()->{}),escape=button("Esc",()->{}),tab=button("Tab",()->{});keys.addView(enter);keys.addView(backspace);keys.addView(escape);keys.addView(tab);
         enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);
+        LinearLayout navigation=new LinearLayout(this);body.addView(navigation);Button left=button("←",()->{}),up=button("↑",()->{}),down=button("↓",()->{}),rightArrow=button("→",()->{}),delete=button("Del",()->{});for(Button key:new Button[]{left,up,down,rightArrow,delete}){key.setMinWidth(0);key.setMinimumWidth(0);navigation.addView(key,new LinearLayout.LayoutParams(0,-2,1));}
+        left.setEnabled(false);up.setEnabled(false);down.setEnabled(false);rightArrow.setEnabled(false);delete.setEnabled(false);
         note("Правая кнопка и прокрутка действуют в последней выбранной точке экрана; если точка не выбиралась — по центру.");
         LinearLayout mouse=new LinearLayout(this);body.addView(mouse);Button right=button("Правый клик",()->{}),wheelUp=button("↑",()->{}),wheelDown=button("↓",()->{});mouse.addView(right);mouse.addView(wheelUp);mouse.addView(wheelDown);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);body.addView(button("Назад",this::home));
-        Runnable disconnected=()->{connect.setEnabled(true);disconnect.setEnabled(false);send.setEnabled(false);enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);display.clear();};
+        Runnable disconnected=()->{connect.setEnabled(true);disconnect.setEnabled(false);send.setEnabled(false);enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);left.setEnabled(false);up.setEnabled(false);down.setEnabled(false);rightArrow.setEnabled(false);delete.setEnabled(false);right.setEnabled(false);wheelUp.setEnabled(false);wheelDown.setEnabled(false);display.clear();};
         vncUiReset=()->{disconnected.run();status.setText("Соединение закрыто при переходе приложения в фон.");};
         connect.setOnClickListener(v->{
             if(vncClient!=null)return;String h=host.getText().toString().trim(),secret=password.getText().toString();boolean anonymous=noPassword.isChecked();int number;
@@ -869,7 +874,7 @@ public class MainActivity extends Activity {
                     if(vncClient!=null)return;connect.setEnabled(false);disconnect.setEnabled(true);status.setText("Подключение…");password.setText("");
                     Object frameLock=new Object();final int[][] pending={null};final int[] dimensions={0,0};final boolean[] scheduled={false};VncClient[] reference=new VncClient[1];
                     VncClient client=new VncClient(new VncClient.Listener(){
-                        public void connected(int width,int height,String name){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;status.setText("Подключено: "+name+" · "+width+" × "+height+". Нажатие — левая кнопка мыши.");send.setEnabled(true);enter.setEnabled(true);backspace.setEnabled(true);escape.setEnabled(true);tab.setEnabled(true);right.setEnabled(true);wheelUp.setEnabled(true);wheelDown.setEnabled(true);});}
+                        public void connected(int width,int height,String name){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;status.setText("Подключено: "+name+" · "+width+" × "+height+". Нажатие — левая кнопка мыши.");send.setEnabled(true);enter.setEnabled(true);backspace.setEnabled(true);escape.setEnabled(true);tab.setEnabled(true);left.setEnabled(true);up.setEnabled(true);down.setEnabled(true);rightArrow.setEnabled(true);delete.setEnabled(true);right.setEnabled(true);wheelUp.setEnabled(true);wheelDown.setEnabled(true);});}
                         public void frame(int width,int height,int[] pixels){synchronized(frameLock){pending[0]=pixels;dimensions[0]=width;dimensions[1]=height;if(scheduled[0])return;scheduled[0]=true;}
                             runOnUiThread(()->{int[] frame;int fw,fh;synchronized(frameLock){frame=pending[0];pending[0]=null;fw=dimensions[0];fh=dimensions[1];scheduled[0]=false;}if(vncClient==reference[0]&&!isDestroyed()&&frame!=null)display.updateFrame(fw,fh,frame);});}
                         public void finished(String reason){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;vncClient=null;disconnected.run();status.setText(reason);});}
@@ -878,6 +883,7 @@ public class MainActivity extends Activity {
         });
         disconnect.setOnClickListener(v->{stopVnc();disconnected.run();status.setText("Отключено");});
         send.setOnClickListener(v->{VncClient client=vncClient;String text=input.getText().toString();if(client!=null&&client.keys(text))input.setText("");else toast("Текст до 256 символов без управляющих знаков или соединение недоступно");});
+        left.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff51);});up.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff52);});rightArrow.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff53);});down.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff54);});delete.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xffff);});
         right.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,4);});
         wheelUp.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,8);});wheelDown.setOnClickListener(v->{if(vncClient!=null&&display.frame!=null&&!display.down)vncClient.click(display.lastX,display.lastY,16);});
         enter.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff0d);});backspace.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff08);});escape.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff1b);});tab.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff09);});
@@ -1136,6 +1142,8 @@ public class MainActivity extends Activity {
         tools.addView(button("Отменить",()->{if(!view.undo())toast("Нет действия для отмены");}));
         tools.addView(button("Повторить",()->{if(!view.redo())toast("Нет действия для повтора");}));
         tools.addView(button("Очистить",()->new AlertDialog.Builder(this).setMessage("Очистить холст?").setNegativeButton("Отмена",null).setPositiveButton("Очистить",(d,w)->view.clear()).show()));
+        body.addView(button("Фильтр: чёрно-белый",()->applyPaintFilter(view,true)));
+        body.addView(button("Фильтр: инверсия цветов",()->applyPaintFilter(view,false)));
         body.addView(button("Повернуть холст на 90° вправо",()->{if(!view.transform(false))toast("Недостаточно памяти для поворота");}));
         body.addView(button("Отразить холст по горизонтали",()->{if(!view.transform(true))toast("Недостаточно памяти для отражения");}));
         body.addView(button("Открыть картинку",()->{
@@ -1146,6 +1154,20 @@ public class MainActivity extends Activity {
         body.addView(button("Сохранить PNG",()->choosePaintDestination(false)));
         body.addView(button("Сохранить JPEG",()->choosePaintDestination(true)));
         body.addView(button("Назад",this::home));
+    }
+    private void applyPaintFilter(PaintView target,boolean grayscale){
+        Bitmap snapshot;long revision=target.revision;
+        try{snapshot=target.bitmap.copy(Bitmap.Config.ARGB_8888,true);if(snapshot==null)throw new OutOfMemoryError();}
+        catch(OutOfMemoryError ex){toast("Недостаточно памяти для фильтра");return;}
+        toast("Обработка изображения…");new Thread(()->{
+            String failure=null;try{PaintFilters.apply(snapshot,grayscale);}catch(Exception | OutOfMemoryError ex){failure=ex.getMessage()==null?"Недостаточно памяти или ошибка обработки":ex.getMessage();}
+            String problem=failure;runOnUiThread(()->{
+                if(canvas!=target||isDestroyed()||isFinishing()){snapshot.recycle();return;}
+                if(problem!=null){snapshot.recycle();toast("Ошибка фильтра: "+problem);return;}
+                if(target.revision!=revision||target.drawingStroke){snapshot.recycle();toast("Холст изменился во время обработки; фильтр не применён");return;}
+                target.replaceWithSnapshot(snapshot);toast("Фильтр применён; действие можно отменить");
+            });
+        },"paint-filter").start();
     }
     private void choosePaintDestination(boolean jpeg){
         String type=jpeg?"JPEG":"PNG";
@@ -1201,6 +1223,9 @@ public class MainActivity extends Activity {
         void clear(){checkpoint();drawing.drawColor(Color.WHITE);revision++;invalidate();}
         boolean undo(){if(previous==null||drawingStroke)return false;if(nextRedo!=null)nextRedo.recycle();nextRedo=bitmap;bitmap=previous;previous=null;drawing=new Canvas(bitmap);revision++;invalidate();return true;}
         boolean redo(){if(nextRedo==null||drawingStroke)return false;if(previous!=null)previous.recycle();previous=bitmap;bitmap=nextRedo;nextRedo=null;drawing=new Canvas(bitmap);revision++;invalidate();return true;}
+        void replaceWithSnapshot(Bitmap next){
+            if(nextRedo!=null){nextRedo.recycle();nextRedo=null;}if(previous!=null)previous.recycle();previous=bitmap;bitmap=next;drawing=new Canvas(bitmap);revision++;invalidate();
+        }
         boolean transform(boolean flip){
             Bitmap next=null;
             try{next=Bitmap.createBitmap(SIDE,SIDE,Bitmap.Config.ARGB_8888);Canvas output=new Canvas(next);

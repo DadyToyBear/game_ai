@@ -90,7 +90,8 @@ final class VncClient {
     }
     boolean keys(String text){int[] keys=keysyms(text);if(keys==null)return false;
         return enqueue(()->{try{synchronized(writeLock){if(out==null)return;for(int key:keys){writeKey(out,true,key);writeKey(out,false,key);}out.flush();}}catch(IOException ex){stop();}});}
-    boolean special(int keysym){if(keysym!=0xff0d&&keysym!=0xff08&&keysym!=0xff1b&&keysym!=0xff09)return false;
+    static boolean allowedSpecial(int keysym){return keysym==0xff0d||keysym==0xff08||keysym==0xff1b||keysym==0xff09||keysym==0xff51||keysym==0xff52||keysym==0xff53||keysym==0xff54||keysym==0xffff;}
+    boolean special(int keysym){if(!allowedSpecial(keysym))return false;
         return enqueue(()->{try{synchronized(writeLock){if(out==null)return;writeKey(out,true,keysym);writeKey(out,false,keysym);out.flush();}}catch(IOException ex){stop();}});}
     private static void writeKey(DataOutputStream out,boolean down,int key) throws IOException {out.writeByte(4);out.writeByte(down?1:0);out.writeShort(0);out.writeInt(key);}
     private boolean isStopped(){synchronized(lock){return stopped;}}
