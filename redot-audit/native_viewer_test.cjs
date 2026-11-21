@@ -43,10 +43,17 @@ function redPixels(image) {
         video.src = url;
         await new Promise((resolve, reject) => { video.onloadeddata = resolve; video.onerror = () => reject(Error('WebM decode failed')); });
         const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0);
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data; let count = 0;
-        for (let i=0; i<data.length; i+=4) if(data[i]>140 && data[i+1]<100 && data[i+2]<100) count++;
-        return count;
+        const ctx = canvas.getContext('2d'); let maximum = 0;
+        await video.play();
+        for (let attempt=0; attempt<30; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          ctx.drawImage(video, 0, 0);
+          const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data; let count = 0;
+          for (let i=0; i<data.length; i+=4) if(data[i]>140 && data[i+1]<100 && data[i+2]<100) count++;
+          maximum = Math.max(maximum, count);
+          if (maximum > 1000 || video.ended) break;
+        }
+        return maximum;
       } finally { URL.revokeObjectURL(url); }
     }, Array.from(videoBytes));
     assert.ok(recordedRed > 1000, `Recorded WebM does not contain the red game scene (${recordedRed} pixels)`);
