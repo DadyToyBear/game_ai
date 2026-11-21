@@ -1,7 +1,7 @@
 // Exercise actual EditorInterface Play and game-canvas capture in the RC2 Web editor.
 const { chromium } = require('playwright');
 const { PNG } = require('pngjs');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -113,11 +113,30 @@ async function capture(page, label) {
       await page.waitForTimeout(1000);
     }
     assert.ok(frame && countRed(frame)>1000, 'Web editor game frame was blank or unavailable');
-    console.log('::notice title=Real Web editor Play::The test EditorPlugin called play_main_scene; the resulting game canvas and bridge frame contained the red test scene.');
+    const mcp = name => {
+      const message = JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name}})+'\\n';
+      const result = spawnSync('python3',['redot-bridge/bridge.py','mcp'],{input:message,encoding:'utf8',env:{...process.env,REDOT_BRIDGE_TOKEN:secret},timeout:10000});
+      assert.equal(result.status,0,result.stderr); const reply=JSON.parse(result.stdout).result;
+      assert.ok(!reply.isError,JSON.stringify(reply)); return reply;
+    };
+    const image = mcp('game_screenshot').content[0];
+    assert.ok(countRed(Buffer.from(image.data,'base64'))>1000, 'MCP frame was not the Web editor game');
+    console.log('::notice title=Real Web editor Play::Test EditorPlugin called play_main_scene; actual game canvas and MCP image contained the red test scene.');
     await page.getByRole('button', {name:'Остановить кадры'}).click();
-    await page.locator('#btn-close-game').click();
-    await page.waitForFunction(() => document.querySelector('#btn-tab-game').disabled && getComputedStyle(document.querySelector('#tab-editor')).display !== 'none',null,{timeout:60000});
-    console.log('::notice title=Web shell game close::The editor shell closed the running game and returned to the editor. EditorInterface.stop_playing_scene was not tested.');
+    await page.evaluate(() => { window.__webPlayAuditCommand = 'stop'; });
+    try {
+      await page.waitForFunction(() => document.querySelector('#btn-tab-game').disabled && getComputedStyle(document.querySelector('#tab-editor')).display !== 'none',null,{timeout:45000});
+    } catch (error) {
+      const playing=await page.evaluate(() => window.__webPlayAuditPlaying);
+      console.log(`::warning title=Web editor Stop::EditorInterface.stop_playing_scene did not close the Web game within 45 seconds; reported playing=${playing}. Trying shell close for diagnostics.`);
+      await page.locator('#btn-close-game').click();
+      await page.waitForFunction(() => document.querySelector('#btn-tab-game').disabled && getComputedStyle(document.querySelector('#tab-editor')).display !== 'none',null,{timeout:60000});
+      console.log('::notice title=Web shell game close::Shell close did stop the game and return to the editor.');
+      throw error;
+    }
+    mcp('delete_game_screenshot');
+    assert.equal((await fetch('http://127.0.0.1:8765/api/frame',{headers:{Authorization:`Bearer ${secret}`}})).status,404);
+    console.log('::notice title=Real Web editor Stop::Test EditorPlugin called stop_playing_scene; game closed, and MCP deleted the last frame.');
     assert.deepEqual(treeDigest(project), original, 'The original project directory changed');
   } catch(e) {
     if(page) { try {await capture(page,'WEB_EDITOR_PLAY_FAILURE');} catch (_) {} }
