@@ -47,7 +47,12 @@
           canvas.width = image.width; canvas.height = image.height;
         }
         ctx.drawImage(image, 0, 0); image.close(); latest = blob;
-        $('status').textContent = `${label} · источник заявлен как ${frameSource}`;
+        // This header refers to the same frame response, unlike /status which
+        // may have described a different frame by the time we fetched it.
+        const ageHeader = response.headers.get('X-Redot-Frame-Age') || '';
+        const age = /^\d{1,12}(?:\.\d{1,3})?$/.test(ageHeader) ? Number(ageHeader) : null;
+        const ageLabel = age === null ? 'возраст кадра неизвестен' : `получен мостом ${age.toFixed(1)} с назад${age >= 5 ? ' (возможно устарел)' : ''}`;
+        $('status').textContent = `${label} · источник заявлен как ${frameSource} · ${ageLabel}`;
       } else {
         clearFrame();
       }
@@ -66,17 +71,22 @@
     $('connect').textContent = 'Отключить'; refresh(); timer = setInterval(refresh, 1000);
   };
   async function command(value) {
+    const current = generation;
     try {
       await request('/api/command', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({command: value})});
-      $('status').textContent = 'Команда поставлена в очередь; ожидаем подтверждения состояния.';
-    } catch (err) { $('status').textContent = `Команда не отправлена: ${err.message}`; }
+      if (active && current === generation) $('status').textContent = 'Команда поставлена в очередь; ожидаем подтверждения состояния.';
+    } catch (err) { if (active && current === generation) $('status').textContent = `Команда не отправлена: ${err.message}`; }
   }
   $('play').onclick = () => command('play');
   $('stop').onclick = () => command('stop');
   $('snapshot').onclick = () => { if (latest) download(latest, latest.type === 'image/jpeg' ? 'redot-game.jpg' : 'redot-game.png'); else $('status').textContent = 'Кадров пока нет.'; };
   $('delete').onclick = async () => {
-    try { await request('/api/frame', {method: 'DELETE'}); generation++; clearFrame(); $('status').textContent = 'Кадр удалён из памяти моста. Во время игры новый кадр появится снова.'; }
-    catch (err) { $('status').textContent = `Не удалось удалить кадр: ${err.message}`; }
+    const current = generation;
+    try {
+      await request('/api/frame', {method: 'DELETE'});
+      if (!active || current !== generation) return;
+      generation++; clearFrame(); $('status').textContent = 'Кадр удалён из памяти моста. Во время игры новый кадр появится снова.';
+    } catch (err) { if (active && current === generation) $('status').textContent = `Не удалось удалить кадр: ${err.message}`; }
   };
   $('load-logs').onclick = async () => {
     const current = logsGeneration;
@@ -95,7 +105,11 @@
     } catch (err) { if (active && current === logsGeneration) $('status').textContent = `Не удалось очистить журнал: ${err.message}`; }
   };
   $('record').onclick = () => {
-    if (recorder && recorder.state !== 'inactive') { recorder.stop(); return; }
+    if (recorder) {
+      if (recorder.state !== 'inactive') recorder.stop();
+      else $('status').textContent = 'Предыдущая запись ещё сохраняется.';
+      return;
+    }
     if (!latest) { $('status').textContent = 'Нет кадра для записи.'; return; }
     if (!canvas.captureStream || typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported('video/webm')) { $('status').textContent = 'Браузер не поддерживает запись canvas в WebM.'; return; }
     try {

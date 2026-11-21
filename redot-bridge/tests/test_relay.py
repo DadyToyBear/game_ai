@@ -57,6 +57,7 @@ class RelayTests(unittest.IsolatedAsyncioTestCase):
         r = await self.client.get('/api/frame', headers=self.headers(CONTROL))
         self.assertEqual(await r.read(), PNG)
         self.assertEqual(r.headers['X-Redot-Source'], 'web-game')
+        self.assertGreaterEqual(float(r.headers['X-Redot-Frame-Age']), 0)
         self.assertEqual(r.headers['Cache-Control'], 'no-store')
         r = await self.client.delete('/api/frame', headers=self.headers(CONTROL))
         self.assertEqual(r.status, 204)

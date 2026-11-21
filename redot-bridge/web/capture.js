@@ -28,6 +28,7 @@
               method: 'POST', headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'image/png', 'X-Redot-Source': source === 'web-game' ? 'web-game' : 'unspecified'},
               body: blob, cache: 'no-store', signal: controller.signal,
             });
+            if (!running || session !== generation) return;
             if (!res.ok) throw new Error(`Мост ответил HTTP ${res.status}.`);
             onStatus('Кадр игры передан в мост.');
           }

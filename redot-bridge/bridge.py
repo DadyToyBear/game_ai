@@ -7,6 +7,7 @@ import hashlib
 import json
 import mimetypes
 import os
+import re
 from pathlib import Path
 import sys
 import threading
@@ -135,6 +136,12 @@ class FrameStore:
             return existed
 
 
+def frame_headers(frame):
+    # Age and source correspond to the same immutable frame tuple as the body.
+    # Age measures time since receipt, not necessarily the game's frame time.
+    return {'X-Redot-Source': frame[3], 'X-Redot-Frame-Age': f'{max(0.0, time.monotonic() - frame[2]):.1f}'}
+
+
 def handler_for(store, token, editor_dir=None, project_dir=None):
     registry = project_sync.ProjectRegistry()
     if project_dir is not None:
@@ -241,7 +248,7 @@ def handler_for(store, token, editor_dir=None, project_dir=None):
             if frame is None:
                 self.send_bytes(404, b'No frame available')
                 return
-            self.send_bytes(200, frame[0], frame[1], {'X-Redot-Source': frame[3]})
+            self.send_bytes(200, frame[0], frame[1], frame_headers(frame))
 
         def do_POST(self):
             if self.path not in ('/api/frame', '/api/command', '/api/editor/poll', '/api/project/import', '/api/logs', '/api/projects/add', '/api/projects/remove', '/api/projects/export'):
@@ -411,7 +418,10 @@ def call_frame(url, token, method):
                     raise ValueError('Unexpected frame MIME type')
                 if source not in GAME_SOURCES:
                     raise ValueError('Frame has no recognized game source label; refusing game_screenshot')
-            return body, mime, source
+            age = response.headers.get('X-Redot-Frame-Age', '')
+            if not re.fullmatch(r'\d{1,12}(?:\.\d{1,3})?', age):
+                age = None  # Older bridge/relay versions have no trustworthy age.
+            return body, mime, source, age
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             raise ValueError('No game frame has been shared yet') from exc
@@ -507,9 +517,10 @@ def mcp_response(message, url, token):
             return {'jsonrpc': '2.0', 'id': request_id, 'error': {'code': -32602, 'message': 'Invalid tool arguments'}}
         try:
             if name == 'game_screenshot':
-                body, mime, source = call_frame(url, token, 'GET')
+                body, mime, source, age = call_frame(url, token, 'GET')
+                age_text = f'{age} seconds' if age is not None else 'unknown'
                 result = {'content': [{'type': 'image', 'data': base64.b64encode(body).decode('ascii'), 'mimeType': mime},
-                                      {'type': 'text', 'text': f'Sender-reported source: {source}; source label is not independently verified.'}]}
+                                      {'type': 'text', 'text': f'Sender-reported source: {source}; source label is not independently verified. Time since bridge received this frame: {age_text}; content may already have been stale when received.'}]}
             elif name == 'delete_game_screenshot':
                 call_frame(url, token, 'DELETE')
                 result = {'content': [{'type': 'text', 'text': 'Frame deleted from bridge memory.'}]}

@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from aiohttp import web
-from bridge import FrameStore, MAX_FRAME, MAX_LOG_REQUEST, GAME_SOURCES
+from bridge import FrameStore, MAX_FRAME, MAX_LOG_REQUEST, GAME_SOURCES, frame_headers
 
 WEB = Path(__file__).resolve().parent / 'web'
 
@@ -134,7 +134,7 @@ def create_app(origin, device_token, controller_token):
         current = store.get()
         if current is None:
             return web.Response(status=404, text='No frame available')
-        return web.Response(body=current[0], content_type=current[1], headers={'X-Redot-Source': current[3]})
+        return web.Response(body=current[0], content_type=current[1], headers=frame_headers(current))
 
     for path in ('/', '/native.html', '/native.js'):
         app.router.add_get(path, page, allow_head=False)

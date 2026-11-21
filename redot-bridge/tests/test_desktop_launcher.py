@@ -16,6 +16,14 @@ ROOT = Path(__file__).resolve().parents[1]
 @unittest.skipIf(os.name == 'nt', 'POSIX fixture; real Windows launcher is checked in Windows CI')
 class DesktopLauncherTests(unittest.TestCase):
     def setUp(self):
+        # Never interact with a real bridge already running on the developer's
+        # machine; these fixtures intentionally exercise the default port.
+        with socket.socket() as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                probe.bind(('127.0.0.1', 8765))
+            except OSError:
+                self.skipTest('Local bridge port is already in use')
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
@@ -42,6 +50,7 @@ class DesktopLauncherTests(unittest.TestCase):
 
     def test_bridge_collision_does_not_open_editor(self):
         with socket.socket() as busy:
+            busy.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             busy.bind(('127.0.0.1', 8765)); busy.listen()
             with tempfile.TemporaryFile(mode='w+') as log:
                 process = self.launch(log)

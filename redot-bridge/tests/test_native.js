@@ -7,21 +7,30 @@ const path = require('node:path');
   const ids = ['screen', 'token', 'connect', 'status', 'play', 'stop', 'snapshot', 'delete', 'record', 'load-logs', 'delete-logs', 'logs'];
   const els = Object.fromEntries(ids.map(id => [id, {id, disabled: false, value: '', textContent: ''}]));
   let drawings = 0, clears = 0, frameAvailable = true, tick, frameDeferred = null;
-  let stateSource = 'native-game', responseSource = 'native-game';
+  let stateSource = 'native-game', responseSource = 'native-game', frameAge = '0.0', commandDeferred = null;
+  const recordings = [], tracks = [];
+  class FakeRecorder {
+    constructor(stream) { this.stream = stream; this.state = 'inactive'; recordings.push(this); }
+    static isTypeSupported(type) { return type === 'video/webm'; }
+    start() { this.state = 'recording'; }
+    stop() { this.state = 'inactive'; } // onstop is intentionally deferred
+  }
+  els.screen.captureStream = () => { const track = {stopped:false, stop() { this.stopped = true; }}; tracks.push(track); return {getTracks: () => [track]}; };
   els.screen.width = 960; els.screen.height = 540;
   els.screen.getContext = () => ({drawImage: () => drawings++, clearRect: () => clears++});
   const requests = [];
   const context = {
     document: {getElementById: id => els[id]},
     window: {addEventListener: () => {}},
-    Headers, Blob, URL, setTimeout, clearTimeout,
+    Headers, Blob, URL, MediaRecorder: FakeRecorder, setTimeout, clearTimeout,
     setInterval: callback => { tick = callback; return 1; }, clearInterval: () => {},
     createImageBitmap: async () => ({width: 4, height: 4, close() {}}),
     fetch: async (url, opts) => {
       requests.push([url, opts]);
       assert.equal(opts.headers.get('Authorization'), 'Bearer correct');
       if (url === '/api/frame' && !opts.method && frameDeferred) await frameDeferred;
-      return {ok: true, headers: new Headers({'X-Redot-Source': responseSource}), json: async () => url === '/api/logs' ? ({entries: [{source: 'game', level: 'info', message: '<img src=x onerror=alert(1)>', received_at: 0}]}) : ({editor_connected: true, playing: true, pending: null, frame_available: frameAvailable, frame_source: stateSource, frame_age_seconds: 0}), blob: async () => new Blob(['x'], {type: 'image/jpeg'})};
+      if (url === '/api/command' && commandDeferred) await commandDeferred;
+      return {ok: true, headers: new Headers({'X-Redot-Source': responseSource, ...(frameAge === null ? {} : {'X-Redot-Frame-Age': frameAge})}), json: async () => url === '/api/logs' ? ({entries: [{source: 'game', level: 'info', message: '<img src=x onerror=alert(1)>', received_at: 0}]}) : ({editor_connected: true, playing: true, pending: null, frame_available: frameAvailable, frame_source: stateSource, frame_age_seconds: 0}), blob: async () => new Blob(['x'], {type: 'image/jpeg'})};
     },
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../web/native.js'), 'utf8'), context);
@@ -30,6 +39,12 @@ const path = require('node:path');
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(drawings, 1);
   assert.match(els.status.textContent, /Игра запущена/);
+  assert.match(els.status.textContent, /получен мостом 0\.0 с назад/);
+  frameAge = '12.3'; await tick();
+  assert.match(els.status.textContent, /12\.3 с назад \(возможно устарел\)/);
+  frameAge = null; await tick();
+  assert.match(els.status.textContent, /возраст кадра неизвестен/);
+  frameAge = '0.0'; drawings = 1;
   stateSource = 'web-game'; responseSource = 'web-game'; await tick();
   assert.equal(drawings, 2, 'Web game frames are displayed');
   assert.match(els.status.textContent, /web-game/);
@@ -67,5 +82,34 @@ const path = require('node:path');
   assert.equal(els.logs.textContent, '', 'disconnect clears visible logs');
   assert.equal(els.token.value, '');
   assert.equal(els.play.disabled, true);
-  console.log('native viewer opt-in and play command test passed');
+  // A late command response must not overwrite disconnected UI state.
+  frameDeferred = null; els.token.value = 'correct'; els.connect.onclick();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  let releaseCommand;
+  commandDeferred = new Promise(resolve => { releaseCommand = resolve; });
+  const command = els.play.onclick();
+  els.connect.onclick();
+  releaseCommand(); await command;
+  assert.equal(els.status.textContent, 'Отключено');
+  commandDeferred = null;
+  // Reconnecting during asynchronous MediaRecorder finalization must not
+  // start a second recording that the old onstop handler could corrupt.
+  els.token.value = 'correct'; els.connect.onclick();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  els.record.onclick();
+  assert.equal(recordings.length, 1);
+  els.connect.onclick();
+  els.token.value = 'correct'; els.connect.onclick();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  els.record.onclick();
+  assert.equal(recordings.length, 1, 'wait for previous recording to finish');
+  assert.match(els.status.textContent, /ещё сохраняется/);
+  recordings[0].onstop();
+  assert.equal(tracks[0].stopped, true);
+  els.record.onclick();
+  assert.equal(recordings.length, 2, 'recording can restart after finalization');
+  els.record.onclick(); recordings[1].onstop();
+  assert.equal(tracks[1].stopped, true);
+  els.connect.onclick();
+  console.log('native viewer opt-in, frame age, command and recording race tests passed');
 })().catch(err => {console.error(err); process.exitCode = 1;});

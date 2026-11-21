@@ -112,14 +112,45 @@ class BridgeTest(unittest.TestCase):
         for source in ('native-game', 'web-game'):
             with self.subTest(source=source):
                 self.request(method='POST', data=PNG, source=source).close()
+                with self.store.lock:
+                    data, mime, timestamp, label = self.store.frame
+                    self.store.frame = (data, mime, timestamp - 12, label)
                 with self.request() as response:
                     self.assertEqual(response.headers['X-Redot-Source'], source)
+                    self.assertGreaterEqual(float(response.headers['X-Redot-Frame-Age']), 12.0)
                     self.assertEqual(response.read(), PNG)
                 result = screenshot()
                 self.assertFalse(result.get('isError', False))
                 self.assertEqual(base64.b64decode(result['content'][0]['data']), PNG)
                 self.assertIn(source, result['content'][1]['text'])
                 self.assertIn('not independently verified', result['content'][1]['text'])
+                self.assertIn('Time since bridge received this frame:', result['content'][1]['text'])
+                self.assertNotIn('received this frame: unknown', result['content'][1]['text'])
+
+    def test_old_or_invalid_frame_age_is_unknown(self):
+        class FrameServer(BaseHTTPRequestHandler):
+            age = None
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/png')
+                self.send_header('X-Redot-Source', 'native-game')
+                if self.age is not None:
+                    self.send_header('X-Redot-Frame-Age', self.age)
+                self.end_headers()
+                self.wfile.write(PNG)
+            def log_message(self, *args):
+                pass
+        server = ThreadingHTTPServer(('127.0.0.1', 0), FrameServer)
+        worker = threading.Thread(target=server.serve_forever, daemon=True); worker.start()
+        try:
+            origin = f'http://127.0.0.1:{server.server_port}'
+            for age in (None, 'NaN', '-1', '1e999', '99999999999999999999'):
+                with self.subTest(age=age):
+                    FrameServer.age = age
+                    result = bridge.mcp_response({'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call', 'params': {'name': 'game_screenshot'}}, origin, TOKEN)
+                    self.assertIn('received this frame: unknown', result['result']['content'][1]['text'])
+        finally:
+            server.shutdown(); server.server_close(); worker.join()
 
     def test_native_editor_poll_and_mcp_control(self):
         def post(path, obj, token=TOKEN):

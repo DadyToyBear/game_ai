@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 (async () => {
-  let calls = 0;
+  let calls = 0, delayedFetch = null;
   const sources = [];
   const canvas = {isConnected: true, width: 2, height: 2, getClientRects: () => [{}], toBlob: cb => cb(new Blob(['fake'], {type: 'image/png'}))};
   const context = {window: {}, Blob, AbortController, setTimeout, clearTimeout, fetch: async (url, options) => {
@@ -13,6 +13,7 @@ const path = require('node:path');
     assert.equal(options.headers['Content-Type'], 'image/png');
     sources.push(options.headers['X-Redot-Source']);
     calls++;
+    if (delayedFetch) await delayedFetch;
     return {ok: true};
   }};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../web/capture.js'), 'utf8'), context);
@@ -30,6 +31,15 @@ const path = require('node:path');
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(sources[1], 'web-game');
   api.stop();
+  let releaseFetch;
+  delayedFetch = new Promise(resolve => { releaseFetch = resolve; });
+  const staleStatuses = [];
+  api.start({canvas: () => canvas, token: 'test-secret', source: 'web-game', onStatus: value => staleStatuses.push(value)});
+  await new Promise(resolve => setTimeout(resolve, 10));
+  api.stop(); releaseFetch();
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.deepEqual(staleStatuses, [], 'a completed old upload must not update a stopped session');
+  delayedFetch = null;
   const elements = [];
   const createElement = tag => {
     const element = {tag, style: {}, textContent: '', value: '', addEventListener: (_name, callback) => { element.click = callback; }, setAttribute() {}, append() {}};
