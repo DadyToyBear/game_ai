@@ -23,12 +23,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p /tmp/redot-rc2
-          gh release download redot-26.3-rc.2 --repo Redot-Engine/redot-engine --dir /tmp/redot-rc2 \
-            --pattern 'Redot_v26.3-rc.2_linux_x64.zip' --pattern 'SHA512-SUMS.txt'
-          cd /tmp/redot-rc2
-          grep '  Redot_v26.3-rc.2_linux_x64.zip$' SHA512-SUMS.txt | sha512sum -c -
-          unzip -q Redot_v26.3-rc.2_linux_x64.zip -d editor
+          if ! (
+            set -euo pipefail
+            mkdir -p /tmp/redot-rc2
+            gh release download redot-26.3-rc.2 --repo Redot-Engine/redot-engine --dir /tmp/redot-rc2 \
+              --pattern 'Redot_v26.3-rc.2_linux_x64.zip' --pattern 'SHA512-SUMS.txt'
+            cd /tmp/redot-rc2
+            grep '  Redot_v26.3-rc.2_linux_x64.zip$' SHA512-SUMS.txt | sha512sum -c -
+            unzip -q Redot_v26.3-rc.2_linux_x64.zip -d editor
+          ) > download.log 2>&1; then
+            cat download.log
+            python3 -c 'from pathlib import Path; s=Path("download.log").read_text(errors="replace")[-6000:]; print("::error title=Redot download::" + s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))'
+            exit 1
+          fi
+          cat download.log
       - name: Compile scripts with Redot and test secret validation
         shell: bash
         run: |
