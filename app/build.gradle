@@ -1,0 +1,25 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'ru.aurora.filemanager'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'ru.aurora.filemanager'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.1'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+}
+
+dependencies {
+    implementation 'com.github.mwiede:jsch:0.2.21'
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+    implementation 'commons-net:commons-net:3.11.1'
+    implementation 'com.squareup.okhttp3:okhttp:3.14.9'
+    implementation 'com.hierynomus:smbj:0.13.0'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'com.squareup.okhttp3:mockwebserver:3.14.9'
+}

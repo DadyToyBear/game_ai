@@ -1,0 +1,84 @@
+package ru.aurora.filemanager;
+
+import android.content.Context;
+import android.net.Uri;
+import android.util.Base64;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+import fi.iki.elonen.NanoHTTPD;
+import java.lang.reflect.Proxy;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import static org.junit.Assert.*;
+
+@RunWith(AndroidJUnit4.class)
+public class LocalAccountsTest {
+    private static NanoHTTPD.IHTTPSession request(String authorization,NanoHTTPD.Method method,String path){
+        Map<String,String> headers=new HashMap<>();if(authorization!=null)headers.put("authorization",authorization);
+        return (NanoHTTPD.IHTTPSession)Proxy.newProxyInstance(NanoHTTPD.IHTTPSession.class.getClassLoader(),new Class[]{NanoHTTPD.IHTTPSession.class},(proxy,called,args)->{
+            if(called.getName().equals("getHeaders"))return headers;
+            if(called.getName().equals("getMethod"))return method;
+            if(called.getName().equals("getUri"))return path;
+            return null;
+        });
+    }
+    @Test public void accountLifecycleAndServerAuthorization() throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();LocalAccounts accounts=new LocalAccounts(context);
+        String user="test_"+UUID.randomUUID().toString().replace("-","");char[] password="unique test password".toCharArray();
+        try{
+            accounts.add(user,password);assertTrue(new LocalAccounts(context).verify(user,password));assertFalse(accounts.verify(user,"incorrect password".toCharArray()));
+            String saved=context.getSharedPreferences("server_accounts",Context.MODE_PRIVATE).getString("accounts","");assertFalse(saved.contains(new String(password)));
+            Uri tree=Uri.parse("content://test.provider/tree/root");
+            WebFilesServer authenticated=new WebFilesServer(context,tree,0,false,true,context.getCacheDir());
+            String header="Basic "+Base64.encodeToString((user+":"+new String(password)).getBytes(StandardCharsets.UTF_8),Base64.NO_WRAP);
+            try(NanoHTTPD.Response denied=authenticated.serve(request(null,NanoHTTPD.Method.GET,"/missing"))){assertEquals(401,denied.getStatus().getRequestStatus());}
+            try(NanoHTTPD.Response allowed=authenticated.serve(request(header,NanoHTTPD.Method.GET,"/missing"))){assertEquals(404,allowed.getStatus().getRequestStatus());}
+            WebFilesServer anonymous=new WebFilesServer(context,tree,0,true,true,context.getCacheDir());
+            try(NanoHTTPD.Response noWrite=anonymous.serve(request(null,NanoHTTPD.Method.DELETE,"/dav/"))){assertEquals(403,noWrite.getStatus().getRequestStatus());}
+            accounts.remove(user);
+            try(NanoHTTPD.Response revoked=authenticated.serve(request(header,NanoHTTPD.Method.GET,"/missing"))){assertEquals(401,revoked.getStatus().getRequestStatus());}
+        }finally{Arrays.fill(password,'\0');if(accounts.list().contains(user))accounts.remove(user);}
+    }
+    @Test public void perAccountWritePermissionChangesApplyToNextRequest() throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();LocalAccounts accounts=new LocalAccounts(context);
+        String user="test_"+UUID.randomUUID().toString().replace("-","");char[] password="unique test password".toCharArray();
+        try {
+            accounts.add(user,password,false);
+            String header="Basic "+Base64.encodeToString((user+":"+new String(password)).getBytes(StandardCharsets.UTF_8),Base64.NO_WRAP);
+            Uri tree=Uri.parse("content://test.provider/tree/root");
+            WebFilesServer server=new WebFilesServer(context,tree,0,false,true,context.getCacheDir());
+            try(NanoHTTPD.Response response=server.serve(request(header,NanoHTTPD.Method.OPTIONS,"/dav/"))){assertFalse(response.getHeader("allow").contains("PUT"));}
+            try(NanoHTTPD.Response response=server.serve(request(header,NanoHTTPD.Method.DELETE,"/dav/file"))){assertEquals(403,response.getStatus().getRequestStatus());}
+            accounts.setCanWrite(user,true);
+            try(NanoHTTPD.Response response=server.serve(request(header,NanoHTTPD.Method.OPTIONS,"/dav/"))){assertTrue(response.getHeader("allow").contains("PUT"));}
+            WebFilesServer readOnly=new WebFilesServer(context,tree,0,false,false,context.getCacheDir());
+            try(NanoHTTPD.Response response=readOnly.serve(request(header,NanoHTTPD.Method.OPTIONS,"/dav/"))){assertFalse(response.getHeader("allow").contains("PUT"));}
+            accounts.setCanWrite(user,false);
+            try(NanoHTTPD.Response response=server.serve(request(header,NanoHTTPD.Method.DELETE,"/dav/file"))){assertEquals(403,response.getStatus().getRequestStatus());}
+        }finally{Arrays.fill(password,'\0');if(accounts.list().contains(user))accounts.remove(user);}
+    }
+    @Test public void passwordChangePreservesPermissionAndRevokesOldCredentials() throws Exception {
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();LocalAccounts accounts=new LocalAccounts(context);
+        String user="test_"+UUID.randomUUID().toString().replace("-","");char[] oldPassword="old test password".toCharArray(),newPassword="new test password".toCharArray();
+        try {
+            accounts.add(user,oldPassword,false);
+            Uri tree=Uri.parse("content://test.provider/tree/root");WebFilesServer server=new WebFilesServer(context,tree,0,false,true,context.getCacheDir());
+            String oldHeader="Basic "+Base64.encodeToString((user+":"+new String(oldPassword)).getBytes(StandardCharsets.UTF_8),Base64.NO_WRAP);
+            String newHeader="Basic "+Base64.encodeToString((user+":"+new String(newPassword)).getBytes(StandardCharsets.UTF_8),Base64.NO_WRAP);
+            try {accounts.changePassword(user,"short".toCharArray());fail("short password");}catch(java.io.IOException expected){}
+            assertTrue(accounts.verify(user,oldPassword));
+            accounts.changePassword(user,newPassword);
+            assertFalse(accounts.verify(user,oldPassword));assertTrue(accounts.verify(user,newPassword));assertFalse(accounts.canWrite(user));
+            try(NanoHTTPD.Response response=server.serve(request(oldHeader,NanoHTTPD.Method.OPTIONS,"/dav/"))){assertEquals(401,response.getStatus().getRequestStatus());}
+            try(NanoHTTPD.Response response=server.serve(request(newHeader,NanoHTTPD.Method.OPTIONS,"/dav/"))){assertEquals(200,response.getStatus().getRequestStatus());assertFalse(response.getHeader("allow").contains("PUT"));}
+            accounts.remove(user);
+            try {accounts.changePassword(user,newPassword);fail("deleted account");}catch(java.io.IOException expected){}
+        }finally{Arrays.fill(oldPassword,'\0');Arrays.fill(newPassword,'\0');if(accounts.list().contains(user))accounts.remove(user);}
+    }
+    @Test public void rejectsInvalidNamesAndShortPasswords() throws Exception {
+        assertFalse(LocalAccounts.validUsername("name:other"));assertFalse(LocalAccounts.validUsername("bad name"));assertTrue(LocalAccounts.validUsername("user.name-1"));
+        try{LocalAccounts.validatePassword("short".toCharArray());fail("short passwords must fail");}catch(java.io.IOException expected){/* refused */}
+    }
+}
