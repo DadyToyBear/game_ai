@@ -29,6 +29,26 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
+      - name: Wait for an earlier compatible Web build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Avoid a redundant full engine compile when a previous run for the
+          # same patch is already building. A failed run is not reused.
+          expected=$(sha256sum build-patches/fix_web_editor_stop.py | cut -d' ' -f1)
+          gh run list --repo "$GITHUB_REPOSITORY" --branch "$BRANCH" --limit 30 --json databaseId,headSha,status,workflowName > active-runs.json
+          while IFS=$'\t' read -r id sha; do
+            [ -n "$id" ] || continue
+            [ "$id" -lt "$GITHUB_RUN_ID" ] || continue
+            if ! gh api "repos/$GITHUB_REPOSITORY/contents/build-patches/fix_web_editor_stop.py?ref=$sha" --jq .content | base64 -d > active-patch.py; then continue; fi
+            [ "$(sha256sum active-patch.py | cut -d' ' -f1)" = "$expected" ] || continue
+            echo "Waiting for earlier compatible bundle run $id; success is still verified separately."
+            gh run watch "$id" --repo "$GITHUB_REPOSITORY" --exit-status || echo 'Earlier build failed or was cancelled; a fresh build may be required.'
+            break
+          done < <(jq -r '.[] | select(.status != "completed" and .workflowName == "Assemble Redot Web Editor with Local Bridge") | [.databaseId, .headSha] | @tsv' active-runs.json)
       - name: Find a compatible unexpired Web build
         id: source
         env:

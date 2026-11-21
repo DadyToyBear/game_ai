@@ -1,6 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
-  let token = '', active = false, busy = false, timer = null, latest = null, generation = 0;
+  let token = '', active = false, refreshTask = null, timer = null, latest = null, generation = 0;
   let recorder = null, recorded = [], stream = null, recordTimer = null, logsGeneration = 0;
   const canvas = $('screen'), ctx = canvas.getContext('2d');
   const buttons = ['play', 'stop', 'snapshot', 'delete', 'record', 'load-logs', 'delete-logs'];
@@ -19,13 +19,28 @@
   }
   const isGameSource = source => source === 'native-game' || source === 'web-game';
   function clearFrame() { latest = null; ctx.clearRect(0, 0, canvas.width, canvas.height); }
+  function cancelRefresh() {
+    const task = refreshTask;
+    refreshTask = null;
+    if (task) { clearTimeout(task.timeout); task.controller.abort(); }
+  }
   async function refresh() {
-    if (!active || busy) return;
+    if (!active || refreshTask) return;
     const currentGeneration = generation;
-    busy = true;
+    const task = {controller: new AbortController(), timeout: null};
+    refreshTask = task;
+    // Cover both HTTP headers and response body. A stalled bridge must not
+    // prevent polling forever or block a later connection.
+    task.timeout = setTimeout(() => {
+      if (refreshTask !== task) return;
+      refreshTask = null; task.controller.abort();
+      if (active && currentGeneration === generation) {
+        clearFrame(); $('status').textContent = 'Кадр или мост недоступен: время ожидания истекло.';
+      }
+    }, 10000);
     try {
-      const state = await (await request('/api/status')).json();
-      if (!active || currentGeneration !== generation) return;
+      const state = await (await request('/api/status', {signal: task.controller.signal})).json();
+      if (!active || currentGeneration !== generation || refreshTask !== task) return;
       let label = state.editor_connected ? (state.playing ? 'Игра запущена' : 'Редактор подключён, игра остановлена') : 'Редактор не подключён';
       if (state.pending) label += ' · команда ожидает редактор';
       if (state.frame_available && !isGameSource(state.frame_source)) label += ' · кадр от другого источника (не показан)';
@@ -33,16 +48,16 @@
       if (state.frame_available && isGameSource(state.frame_source)) {
         // The frame can change after /status. Validate the label on the same
         // response as the bytes, not only the earlier status response.
-        const response = await request('/api/frame');
-        if (!active || currentGeneration !== generation) return;
+        const response = await request('/api/frame', {signal: task.controller.signal});
+        if (!active || currentGeneration !== generation || refreshTask !== task) return;
         const frameSource = response.headers.get('X-Redot-Source');
         if (!isGameSource(frameSource)) {
           clearFrame(); $('status').textContent = 'Источник кадра не указан; кадр не показан.'; return;
         }
         const blob = await response.blob();
-        if (!active || currentGeneration !== generation) return;
+        if (!active || currentGeneration !== generation || refreshTask !== task) return;
         const image = await createImageBitmap(blob);
-        if (!active || currentGeneration !== generation) { image.close(); return; }
+        if (!active || currentGeneration !== generation || refreshTask !== task) { image.close(); return; }
         if (canvas.width !== image.width || canvas.height !== image.height) {
           canvas.width = image.width; canvas.height = image.height;
         }
@@ -56,12 +71,12 @@
       } else {
         clearFrame();
       }
-    } catch (err) { if (active && currentGeneration === generation) { clearFrame(); $('status').textContent = `Кадр или мост недоступен: ${err.message}`; } }
-    finally { busy = false; }
+    } catch (err) { if (active && currentGeneration === generation && refreshTask === task) { clearFrame(); $('status').textContent = `Кадр или мост недоступен: ${err.message}`; } }
+    finally { clearTimeout(task.timeout); if (refreshTask === task) refreshTask = null; }
   }
   $('connect').onclick = () => {
     if (active) {
-      active = false; generation++; logsGeneration++; clearInterval(timer); if (recorder && recorder.state !== 'inactive') recorder.stop();
+      active = false; generation++; logsGeneration++; clearInterval(timer); cancelRefresh(); if (recorder && recorder.state !== 'inactive') recorder.stop();
       token = ''; clearFrame(); $('logs').textContent = ''; $('token').value = ''; $('token').disabled = false;
       $('connect').textContent = 'Подключить'; $('status').textContent = 'Отключено'; controls(false); return;
     }
@@ -85,7 +100,7 @@
     try {
       await request('/api/frame', {method: 'DELETE'});
       if (!active || current !== generation) return;
-      generation++; clearFrame(); $('status').textContent = 'Кадр удалён из памяти моста. Во время игры новый кадр появится снова.';
+      generation++; cancelRefresh(); clearFrame(); $('status').textContent = 'Кадр удалён из памяти моста. Во время игры новый кадр появится снова.';
     } catch (err) { if (active && current === generation) $('status').textContent = `Не удалось удалить кадр: ${err.message}`; }
   };
   $('load-logs').onclick = async () => {

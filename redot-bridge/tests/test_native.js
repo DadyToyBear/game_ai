@@ -6,7 +6,7 @@ const path = require('node:path');
 (async () => {
   const ids = ['screen', 'token', 'connect', 'status', 'play', 'stop', 'snapshot', 'delete', 'record', 'load-logs', 'delete-logs', 'logs'];
   const els = Object.fromEntries(ids.map(id => [id, {id, disabled: false, value: '', textContent: ''}]));
-  let drawings = 0, clears = 0, frameAvailable = true, tick, frameDeferred = null;
+  let drawings = 0, clears = 0, frameAvailable = true, tick, frameDeferred = null, refreshTimeout;
   let stateSource = 'native-game', responseSource = 'native-game', frameAge = '0.0', commandDeferred = null;
   const recordings = [], tracks = [];
   class FakeRecorder {
@@ -22,7 +22,9 @@ const path = require('node:path');
   const context = {
     document: {getElementById: id => els[id]},
     window: {addEventListener: () => {}},
-    Headers, Blob, URL, MediaRecorder: FakeRecorder, setTimeout, clearTimeout,
+    Headers, Blob, URL, AbortController, MediaRecorder: FakeRecorder,
+    setTimeout: (callback, delay) => { if (delay === 10000) { refreshTimeout = callback; return 0; } return setTimeout(callback, delay); },
+    clearTimeout,
     setInterval: callback => { tick = callback; return 1; }, clearInterval: () => {},
     createImageBitmap: async () => ({width: 4, height: 4, close() {}}),
     fetch: async (url, opts) => {
@@ -82,6 +84,34 @@ const path = require('node:path');
   assert.equal(els.logs.textContent, '', 'disconnect clears visible logs');
   assert.equal(els.token.value, '');
   assert.equal(els.play.disabled, true);
+  // Disconnect an unresolved HTTP response and reconnect before it finishes.
+  // Old work must not keep the new session busy or paint a stale frame.
+  let releaseOldFrame;
+  frameDeferred = new Promise(resolve => { releaseOldFrame = resolve; });
+  els.token.value = 'correct'; els.connect.onclick();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const oldFrameRequest = requests.filter(([url, opts]) => url === '/api/frame' && !opts.method).at(-1);
+  els.connect.onclick();
+  assert.equal(oldFrameRequest[1].signal.aborted, true, 'disconnect aborts the in-flight refresh');
+  frameDeferred = null; const beforeReconnect = drawings;
+  els.token.value = 'correct'; els.connect.onclick();
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(drawings, beforeReconnect + 1, 'a hung old refresh cannot block reconnect');
+  releaseOldFrame(); await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(drawings, beforeReconnect + 1, 'late old frame cannot overwrite new session');
+  // Even a fetch implementation that ignores abort must not prevent retry.
+  let releaseHungFrame;
+  frameDeferred = new Promise(resolve => { releaseHungFrame = resolve; });
+  const hungRefresh = tick(); await new Promise(resolve => setTimeout(resolve, 0));
+  refreshTimeout();
+  assert.match(els.status.textContent, /время ожидания истекло/);
+  frameDeferred = null;
+  const beforeRetry = drawings;
+  await tick();
+  assert.equal(drawings, beforeRetry + 1, 'a timed-out refresh does not block retries');
+  releaseHungFrame(); await hungRefresh;
+  assert.equal(drawings, beforeRetry + 1, 'timed-out response must not overwrite retry');
+  els.connect.onclick();
   // A late command response must not overwrite disconnected UI state.
   frameDeferred = null; els.token.value = 'correct'; els.connect.onclick();
   await new Promise(resolve => setTimeout(resolve, 20));
