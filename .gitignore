@@ -18,3 +18,4 @@ android/keystore.properties
 /tools/
 android/standalone/build/
 android/standalone/tools/smali-driver/*.class
+dist-apk/
