@@ -28,7 +28,8 @@ async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://
     let requests = 0;
     await page.route('https://cloud.example/**', async route => {requests++; await route.fulfill({status:200,headers:{'Access-Control-Allow-Origin':'*','Content-Type':'application/zip'},body:Buffer.from(zipBytes)});});
     await page.locator('#redot-cloud-url').fill('https://cloud.example/project.zip'); await page.locator('#redot-cloud-load').click();
-    await page.waitForFunction(() => document.querySelector('#redot-project-status').textContent.includes('ZIP подготовлен'));
+    await page.waitForFunction(() => /ZIP подготовлен|Не удалось/.test(document.querySelector('#redot-project-status').textContent));
+    assert.match(await page.locator('#redot-project-status').textContent(), /ZIP подготовлен/);
     assert.equal(requests,1); assert.equal(await page.locator('#redot-cloud-url').inputValue(),'');
     assert.deepEqual(await page.locator('#zip-file').evaluate(async el=>Array.from(new Uint8Array(await el.files[0].arrayBuffer()))),zipBytes);
     await page.locator('#redot-cloud-url').fill('http://cloud.example/project.zip'); await page.locator('#redot-cloud-load').click();
