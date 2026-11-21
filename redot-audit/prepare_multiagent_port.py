@@ -20,10 +20,11 @@ MANUAL_ON = re.compile(r'(?m)^on:\n(?:  push:\n(?:    .*\n|      .*\n)*)?  workf
 GUIDE = '''# Redot editor components alongside the multiagent bridge
 
 These files were staged from DadyToyBear/game_ai. Existing dashboard, chat and
-WebFTP components were not replaced. This is NOT an integration of the two
-transports: the editor bridge uses an authenticated local API / optional relay,
-while the existing multiagent system uses WebFTP task/result files and its own
-WebSocket bridge. No tasks are forwarded between them by this overlay.
+WebFTP components were not replaced. `redot-bridge/multiagent_mcp.py` exposes
+chat and editor tools in one MCP stdio connection. This is NOT an integration of
+the two transports: the editor bridge uses an authenticated local API / optional
+relay, while the existing multiagent system uses WebFTP task/result files and its
+own WebSocket bridge. No tasks are forwarded between them by this overlay.
 
 The .github/workflows/redot-*.yml workflows have manual triggers in this overlay
 so they do not refer to the source repository's session branch or automatically
@@ -36,7 +37,9 @@ standard builds, not confirmed Mono. Game frames and snapshots can contain
 private project data. Do not expose the localhost bridge publicly or connect
 it to a public writable task share. Network drives must already be mounted;
 project snapshots are copies, not automatic file synchronization. Web Stop
-and real video streaming are not established by this staging step.
+and real video streaming are not established by this staging step. See the
+combined MCP section of redot-bridge/README.md before enabling chat; never
+connect it to an untrusted or publicly writable task share.
 '''
 
 

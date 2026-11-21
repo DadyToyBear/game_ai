@@ -6,7 +6,9 @@ on:
     paths:
       - '.github/workflows/redot-linux-arm64.yml'
       - 'redot-linux-arm64/**'
+      - 'multiagent-upstream/multiagent-mcp.py'
       - 'redot-audit/native_play_test.py'
+      - 'redot-audit/combined_bundle_test.py'
       - 'redot-audit/native_viewer_test.cjs'
       - 'redot-audit/fedora_launcher_test.py'
       - 'redot-bridge/**'
@@ -68,6 +70,7 @@ jobs:
           set -euo pipefail
           mkdir -p bundle/redot-bridge
           cp redot-bridge/{bridge.py,project_sync.py,relay.py,requirements-relay.txt,make_bundle.py,desktop_launcher.py,README.md} bundle/redot-bridge/
+          python3 redot-bridge/make_bundle.py --copy-multiagent bundle/redot-bridge
           cp -a redot-bridge/{web,addons,relay-deploy} bundle/redot-bridge/
           cp redot-linux-arm64/{README.md,start.sh} bundle/
           printf 'Native editor: official Redot 26.3 RC2 Mono ARM64\nEngine revision: 80d31f765b0ead5551c277704e52bb51c515db1f\nBridge commit: %s\n' "$GITHUB_SHA" > bundle/BUILD-PROVENANCE.txt
@@ -81,11 +84,13 @@ jobs:
           set -euo pipefail
           mkdir test-bundle && tar -xzf redot-fedora-arm64.tar.gz -C test-bundle
           cp -a redot-audit test-bundle/redot-fedora-arm64/redot-audit
+          cp -a redot-bridge/tests test-bundle/redot-fedora-arm64/redot-bridge/tests
           docker run --rm --shm-size=2g -v "$PWD/test-bundle/redot-fedora-arm64:/work" -w /work fedora:44 bash -euxo pipefail -c '
             test "$(uname -m)" = aarch64
             dnf install -y dotnet-sdk-8.0 python3 python3-pillow xorg-x11-server-Xvfb xorg-x11-xauth mesa-dri-drivers libXcursor libXinerama libXi libXrandr libXrender libX11 libXext libxkbcommon fontconfig dbus-libs alsa-lib nodejs npm chromium
             npm install --no-save playwright@1.56.1 pngjs@7.0.0
             bash -n start.sh
+            python3 -m unittest discover -s redot-bridge/tests -p test_multiagent_mcp.py -v
             export CHROMIUM_EXECUTABLE="$(command -v chromium-browser || command -v chromium)"
             test -x "$CHROMIUM_EXECUTABLE"
             xvfb-run -a -s "-screen 0 1280x800x24" python3 redot-audit/native_play_test.py "$(cat editor-path.txt)"

@@ -25,6 +25,8 @@ class BundleTests(unittest.TestCase):
             self.assertTrue((result / 'requirements-relay.txt').is_file())
             self.assertTrue((result / 'relay-deploy/README.md').is_file())
             self.assertTrue((result / 'make_bundle.py').is_file())
+            self.assertTrue((result / 'multiagent_mcp.py').is_file())
+            self.assertTrue((result / 'multiagent_chat.py').is_file())
             self.assertTrue((result / 'web/sync.html').is_file())
             self.assertTrue((result / 'addons/redot_local_bridge/plugin.cfg').is_file())
             self.assertIn('--editor-dir', (root / 'BRIDGE-START.md').read_text())
@@ -34,6 +36,15 @@ class BundleTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 make_bundle.bundle_into(root)
             self.assertEqual((root / 'godot.editor.wasm').read_bytes(), b'test editor')
+
+    def test_copy_multiagent_never_overwrites(self):
+        with tempfile.TemporaryDirectory() as d:
+            target = Path(d)
+            (target / 'multiagent_chat.py').write_text('existing')
+            with self.assertRaises(ValueError):
+                make_bundle.copy_multiagent(target)
+            self.assertEqual((target / 'multiagent_chat.py').read_text(), 'existing')
+            self.assertFalse((target / 'multiagent_mcp.py').exists())
 
     def test_wrong_directory_rejected(self):
         with tempfile.TemporaryDirectory() as d:

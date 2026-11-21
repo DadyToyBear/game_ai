@@ -6,7 +6,9 @@ on:
     paths:
       - '.github/workflows/redot-windows-x64.yml'
       - 'redot-windows-x64/**'
+      - 'multiagent-upstream/multiagent-mcp.py'
       - 'redot-audit/find_windows_editor.py'
+      - 'redot-audit/combined_bundle_test.py'
       - 'redot-audit/windows_launcher_test.py'
       - 'redot-audit/native_play_test.py'
       - 'redot-audit/native_viewer_test.cjs'
@@ -81,6 +83,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force bundle/redot-bridge | Out-Null
           Copy-Item redot-bridge/bridge.py,redot-bridge/project_sync.py,redot-bridge/relay.py,redot-bridge/requirements-relay.txt,redot-bridge/make_bundle.py,redot-bridge/desktop_launcher.py,redot-bridge/README.md bundle/redot-bridge/
+          python redot-bridge/make_bundle.py --copy-multiagent bundle/redot-bridge
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot package combined multiagent MCP' }
           Copy-Item -Recurse redot-bridge/web,redot-bridge/addons,redot-bridge/relay-deploy bundle/redot-bridge/
           Copy-Item redot-windows-x64/README.md,redot-windows-x64/start.cmd bundle/
           "Native editor: official Redot 26.3 RC2 Mono Windows x64`nEngine revision: 80d31f765b0ead5551c277704e52bb51c515db1f`nBridge commit: $env:GITHUB_SHA" | Set-Content -Encoding utf8 bundle/BUILD-PROVENANCE.txt
@@ -114,6 +118,8 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
             npx playwright install chromium
             if ($LASTEXITCODE -ne 0) { throw 'Chromium install failed' }
+            python -m unittest discover -s redot-bridge/tests -p test_multiagent_mcp.py -v
+            if ($LASTEXITCODE -ne 0) { throw 'Combined multiagent MCP tests failed' }
             python -m unittest discover -s redot-bridge/tests -p test_project_sync.py -v > snapshots.log 2>&1
             if ($LASTEXITCODE -ne 0) {
               $s = (Get-Content snapshots.log -Raw)

@@ -7,7 +7,10 @@ on:
       - '.github/workflows/redot-bundle.yml'
       - 'build-patches/**'
       - 'redot-audit/web-editor-play.cjs'
+      - 'redot-audit/combined_bundle_test.py'
       - 'redot-web/**'
+      - 'multiagent-upstream/multiagent-mcp.py'
+      - 'redot-bridge/multiagent_mcp.py'
       - 'redot-bridge/bridge.py'
       - 'redot-bridge/project_sync.py'
       - 'redot-bridge/relay.py'
@@ -145,6 +148,7 @@ jobs:
           cp redot-web/serve.py redot-web/README.md bundle/
           (cd redot-web/plugin-smoke-test && python3 -m zipfile -c ../../bundle/plugin-smoke-test.zip project.godot addons)
           python3 redot-bridge/make_bundle.py bundle
+          python3 redot-audit/combined_bundle_test.py bundle/redot-bridge
       - name: Install Web editor browser test dependencies
         uses: actions/setup-node@v4
         with:

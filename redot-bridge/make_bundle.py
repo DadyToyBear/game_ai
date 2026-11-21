@@ -30,6 +30,32 @@ Snapshots may contain private files. Only .git and .godot directories are exclud
 '''
 
 
+def copy_multiagent(destination):
+    """Copy the combined MCP entry point and one upstream chat implementation."""
+    destination = Path(destination)
+    if not destination.is_dir() or destination.is_symlink():
+        raise ValueError('Multiagent destination must be an existing non-symlink directory')
+    candidates = (SOURCE / 'multiagent_chat.py', SOURCE.parent / 'multiagent-mcp.py',
+                  SOURCE.parent / 'multiagent-upstream/multiagent-mcp.py')
+    chat = next((path for path in candidates if path.is_file()), None)
+    if chat is None:
+        raise ValueError('Multiagent chat source not found')
+    pairs = ((SOURCE / 'multiagent_mcp.py', destination / 'multiagent_mcp.py'),
+             (chat, destination / 'multiagent_chat.py'))
+    if any(target.exists() or target.is_symlink() for _, target in pairs):
+        raise ValueError('Multiagent files already exist; refusing to overwrite')
+    written = []
+    try:
+        for source, target in pairs:
+            with source.open('rb') as src, target.open('xb') as out:
+                written.append(target)
+                shutil.copyfileobj(src, out)
+    except Exception:
+        for target in written:
+            target.unlink(missing_ok=True)
+        raise
+
+
 def bundle_into(editor_dir):
     root = Path(editor_dir)
     if root.is_symlink() or not root.is_dir():
@@ -47,6 +73,7 @@ def bundle_into(editor_dir):
             shutil.copy2(SOURCE / name, stage / name)
         for name in ('web', 'addons', 'relay-deploy'):
             shutil.copytree(SOURCE / name, stage / name)
+        copy_multiagent(stage)
         stage.rename(destination)
         try:
             with guide.open('x', encoding='utf-8') as f:
@@ -61,8 +88,14 @@ def bundle_into(editor_dir):
 
 
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == '--copy-multiagent':
+        try:
+            copy_multiagent(sys.argv[2])
+        except (ValueError, OSError) as exc:
+            raise SystemExit(str(exc)) from exc
+        return
     if len(sys.argv) != 2:
-        raise SystemExit('Usage: python make_bundle.py <unpacked-editor-directory>')
+        raise SystemExit('Usage: python make_bundle.py <unpacked-editor-directory> | --copy-multiagent <destination>')
     try:
         result = bundle_into(sys.argv[1])
     except (ValueError, OSError) as exc:

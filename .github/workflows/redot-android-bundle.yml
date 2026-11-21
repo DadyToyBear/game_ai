@@ -6,6 +6,10 @@ on:
     paths:
       - '.github/workflows/redot-android-bundle.yml'
       - 'redot-android/**'
+      - 'redot-audit/combined_bundle_test.py'
+      - 'multiagent-upstream/multiagent-mcp.py'
+      - 'redot-bridge/multiagent_mcp.py'
+      - 'redot-bridge/make_bundle.py'
       - 'redot-bridge/addons/redot_android_mcp/**'
       - 'redot-bridge/bridge.py'
       - 'redot-bridge/project_sync.py'
@@ -123,6 +127,8 @@ jobs:
           set -euo pipefail
           cp -a redot-bridge/addons/redot_android_mcp artifact/addons/
           cp redot-bridge/bridge.py redot-bridge/project_sync.py redot-bridge/relay.py redot-bridge/requirements-relay.txt artifact/
+          python3 redot-bridge/make_bundle.py --copy-multiagent artifact
+          python3 redot-audit/combined_bundle_test.py artifact
           cp -a redot-bridge/web artifact/web
           cp -a redot-bridge/relay-deploy artifact/relay-deploy
           cp redot-android/README.md artifact/README.md
