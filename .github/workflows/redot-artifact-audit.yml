@@ -21,13 +21,10 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Download successful RC2 Web editor build
-        uses: actions/download-artifact@v4
-        with:
-          name: redot-26.3-rc2-web-editor
-          run-id: 44878548484
-          path: web-editor
-          github-token: ${{ github.token }}
+      - name: Download a recent successful RC2 Web bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash redot-audit/download_latest_bundle.sh 'Assemble Redot Web Editor with Local Bridge' redot-web-editor-with-local-bridge web-editor
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -107,13 +104,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Download successful Android bundle
-        uses: actions/download-artifact@v4
-        with:
-          name: redot-26.3-rc2-android-latest-bridge
-          run-id: 44904841519
-          path: android-package
-          github-token: ${{ github.token }}
+      - name: Download a recent successful Android bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash redot-audit/download_latest_bundle.sh 'Assemble Android editor and latest bridge' redot-26.3-rc2-android-latest-bridge android-package
       - name: Inspect manifest, ABIs and signature
         shell: bash
         run: |
