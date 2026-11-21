@@ -121,15 +121,25 @@ def main():
     # Import Existing Project, with Edit Now checked. The plugin can only
     # report success once the editor opens this specific source directory.
     adb('shell', 'input', 'tap', '739', '507')
-    deadline = time.monotonic() + 180
-    logs = ''
-    while time.monotonic() < deadline:
-        time.sleep(3)
-        logs = adb('logcat', '-d', '-s', 'redot:V', 'godot:V', 'Godot:V', '*:S', check=False).stdout.decode(errors='replace')
-        if 'ANDROID_IMPORT_EDITOR_READY /storage/emulated/0/RedotImport/' in logs:
-            break
-    else:
-        raise RuntimeError('Imported Android project did not open and report its source path')
+    def wait_for_plugin(seconds):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            time.sleep(3)
+            logs = adb('logcat', '-d', '-s', 'redot:V', 'godot:V', 'Godot:V', '*:S', check=False).stdout.decode(errors='replace')
+            if re.search(r'ANDROID_IMPORT_EDITOR_READY /storage/emulated/0/RedotImport/?(?:\s|$)', logs):
+                return True
+        return False
+
+    if not wait_for_plugin(90):
+        # Diagnostic only: bypass the project manager restart with a fresh
+        # explicit intent. Even if this works, the import flow must still fail.
+        adb('shell', 'am', 'force-stop', pkg)
+        launched = adb('shell', 'am', 'start', '-n', pkg + '/org.godotengine.editor.GodotEditor',
+                       '--esa', 'command_line_params', '--path,/storage/emulated/0/RedotImport,--editor', check=False)
+        notice('Android direct launch diagnostic', launched.stdout.decode(errors='replace') + launched.stderr.decode(errors='replace'))
+        direct = wait_for_plugin(150)
+        notice('Android direct project launch', 'EditorPlugin marker found' if direct else 'EditorPlugin marker not found')
+        raise RuntimeError('Project manager import did not open editor automatically' + ('; direct intent opened it' if direct else '; direct intent also failed'))
     scene = adb('shell', 'cat', '/sdcard/RedotImport/scenes/main.tscn').stdout.decode()
     if scene != '[gd_scene format=3]\n[node name="Main" type="Node2D"]\n':
         raise RuntimeError('Source project scene changed or is missing')
@@ -159,6 +169,9 @@ if __name__ == '__main__':
             logs = adb('logcat', '-d', '--pid', EDITOR_PID, check=False).stdout.decode(errors='replace')
             relevant = [line for line in logs.splitlines() if re.search(r'godot|redot|vulkan|opengl|egl|error|fatal|crash|render|denied', line, re.I)]
             notice('Android editor logs', ' | '.join(relevant[-25:])[-3800:].replace('%', '%25'))
+        logs_all = adb('logcat', '-d', check=False).stdout.decode(errors='replace')
+        relevant = [line for line in logs_all.splitlines() if re.search(r'ANDROID_IMPORT_EDITOR_READY|BaseGodotEditor|GodotActivity|ProcessPhoenix|ActivityTaskManager|FATAL EXCEPTION|not allowed to start', line, re.I)]
+        notice('Android restart diagnostics', ' | '.join(relevant[-25:])[-3800:].replace('%', '%25'))
         logs = adb('logcat', '-b', 'crash', '-d', check=False).stdout.decode(errors='replace')
         if logs.strip():
             notice('Android crash logs', logs[-3600:].replace('%', '%25'))
