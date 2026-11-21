@@ -27,6 +27,7 @@ public class MainActivity extends Activity {
     private boolean mediaStopped;
     private Object mediaToken;
     private WebFilesServer webServer;
+    private VncClient vncClient;private Runnable vncUiReset;
     private Entry clipboard; private boolean cut;
     private KeySshUi keySshUi;private android.os.CancellationSignal keySshCancel;
     private static final class KeySshUi {Uri key;String savedId;TextView status;boolean saving;}
@@ -79,7 +80,7 @@ public class MainActivity extends Activity {
     private TextView text(String s, int size) { TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(Color.rgb(28,38,55)); return t; }
     private Button button(String label, Runnable action) { Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setOnClickListener(v -> action.run()); return b; }
     private void layout(String title) {
-        stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelHash();cancelZip();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;bookmarksView=null;textViewToken=null;textUi=null;
+        stopVnc();vncUiReset=null;stopInteractiveSsh();shellUiReset=null;cancelScan();cancelSearch();cancelHash();cancelZip();cancelKeySsh();keySshUi=null;cancelVideo();videoUi=null;pendingVideo=null;trashView=null;accountsView=null;bookmarksView=null;textViewToken=null;textUi=null;
         stopMedia();mediaToken=null;mediaScreen=false;canvas=null;
         sftpUi=null; pendingSftp=null; ftpUi=null; pendingFtp=null; davUi=null; pendingDav=null; smbUi=null; pendingSmb=null; tunnelUi=null; reverseTunnelUi=null;
         fileScreen="Файлы".equals(title);searchScreenVisible=false;propertiesVisible=false;bookmarkScreenVisible=false;zipScreenVisible=false;
@@ -109,10 +110,11 @@ public class MainActivity extends Activity {
         body.addView(button("SSH — проброс порта", this::tunnelScreen));
         body.addView(button("SSH — обратный проброс порта", this::reverseTunnelScreen));
         body.addView(button("Web-доступ к файлам", this::webScreen));
+        body.addView(button("Удалённый рабочий стол · VNC", this::vncScreen));
         body.addView(button("Paint — рисование", this::paintScreen));
         body.addView(button("Видео — обрезка MP4", this::videoEditorScreen));
         body.addView(button("Проверка сети · ping", this::pingScreen));
-        body.addView(button("О приложении", () -> { layout("О приложении"); note("Независимый файловый менеджер. Для доступа к файлам выберите папку в системном диалоге Android.\n\nSSH, SFTP, FTP/FTPS и WebDAV доступны в ограниченных версиях. Видеоредактор пока умеет только обрезать MP4; удалённый рабочий стол не реализован."); body.addView(button("Назад",this::home)); }));
+        body.addView(button("О приложении", () -> { layout("О приложении"); note("Независимый файловый менеджер. Для доступа к файлам выберите папку в системном диалоге Android.\n\nSSH, SFTP, FTP/FTPS и WebDAV доступны в ограниченных версиях. Видеоредактор пока умеет только обрезать MP4; удалённый рабочий стол доступен как ограниченный VNC-клиент."); body.addView(button("Назад",this::home)); }));
     }
     @Override protected void onActivityResult(int req,int result,Intent data) {
         super.onActivityResult(req,result,data);
@@ -838,6 +840,58 @@ public class MainActivity extends Activity {
         });
         body.addView(button("Назад",this::home));
     }
+    private void stopVnc(){VncClient client=vncClient;vncClient=null;if(client!=null)client.stop();}
+    private void vncScreen(){
+        layout("Удалённый рабочий стол · VNC");
+        note("Подключение к уже запущенному VNC-серверу (RFB 3.8). Нужны разрешение владельца и настройки сервера. Поддерживаются обычный пароль VNC или явно разрешённый вход без пароля, только raw-картинка и управление левой кнопкой.");
+        note("VNC не шифрует изображение, ввод и пароль; проверка подлинности сервера отсутствует. Используйте доверенную сеть или проверенный SSH-туннель к серверу, не выставляйте VNC в интернет. Для Android нужен отдельный сервер с разрешением на трансляцию и управление.");
+        EditText host=field("Адрес VNC (для SSH-туннеля 127.0.0.1)",false),port=field("Порт VNC (5900)",false),password=field("Пароль VNC: 1–8 ASCII-символов",true);host.setText("127.0.0.1");
+        CheckBox noPassword=new CheckBox(this);noPassword.setText("Разрешить вход без пароля, если сервер его предлагает");body.addView(noPassword);
+        TextView status=text("Не подключено",15);body.addView(status);VncView display=new VncView(this);body.addView(display,new LinearLayout.LayoutParams(-1,dp(300)));
+        EditText input=field("Текст для отправки (только ASCII)",false);
+        Button connect=button("Подключиться",()->{}),disconnect=button("Отключиться",()->{}),send=button("Отправить текст",()->{});disconnect.setEnabled(false);send.setEnabled(false);
+        body.addView(connect);body.addView(disconnect);body.addView(send);
+        LinearLayout keys=new LinearLayout(this);body.addView(keys);Button enter=button("Enter",()->{}),backspace=button("⌫",()->{}),escape=button("Esc",()->{}),tab=button("Tab",()->{});keys.addView(enter);keys.addView(backspace);keys.addView(escape);keys.addView(tab);
+        enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);body.addView(button("Назад",this::home));
+        Runnable disconnected=()->{connect.setEnabled(true);disconnect.setEnabled(false);send.setEnabled(false);enter.setEnabled(false);backspace.setEnabled(false);escape.setEnabled(false);tab.setEnabled(false);display.clear();};
+        vncUiReset=()->{disconnected.run();status.setText("Соединение закрыто при переходе приложения в фон.");};
+        connect.setOnClickListener(v->{
+            if(vncClient!=null)return;String h=host.getText().toString().trim(),secret=password.getText().toString();boolean anonymous=noPassword.isChecked();int number;
+            try{String value=port.getText().toString().trim();number=value.isEmpty()?5900:Integer.parseInt(value);if(h.isEmpty()||h.length()>253||number<1||number>65535||(!secret.isEmpty()&&!VncClient.validPassword(secret))||(secret.isEmpty()&&!anonymous))throw new IllegalArgumentException();}
+            catch(Exception ex){toast("Укажите адрес и порт; пароль VNC — 1–8 ASCII-символов, либо явно разрешите вход без пароля");return;}
+            new AlertDialog.Builder(this).setTitle("Подключиться по VNC?").setMessage("Соединение не шифруется и сервер не проверяется. Используйте доверенный сервер и сеть либо предварительно настроенный SSH-туннель. Управление затрагивает удалённый компьютер.")
+                .setNegativeButton("Отмена",null).setPositiveButton("Подключиться",(d,w)->{
+                    if(vncClient!=null)return;connect.setEnabled(false);disconnect.setEnabled(true);status.setText("Подключение…");password.setText("");
+                    Object frameLock=new Object();final int[][] pending={null};final int[] dimensions={0,0};final boolean[] scheduled={false};VncClient[] reference=new VncClient[1];
+                    VncClient client=new VncClient(new VncClient.Listener(){
+                        public void connected(int width,int height,String name){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;status.setText("Подключено: "+name+" · "+width+" × "+height+". Нажатие — левая кнопка мыши.");send.setEnabled(true);enter.setEnabled(true);backspace.setEnabled(true);escape.setEnabled(true);tab.setEnabled(true);});}
+                        public void frame(int width,int height,int[] pixels){synchronized(frameLock){pending[0]=pixels;dimensions[0]=width;dimensions[1]=height;if(scheduled[0])return;scheduled[0]=true;}
+                            runOnUiThread(()->{int[] frame;int fw,fh;synchronized(frameLock){frame=pending[0];pending[0]=null;fw=dimensions[0];fh=dimensions[1];scheduled[0]=false;}if(vncClient==reference[0]&&!isDestroyed()&&frame!=null)display.updateFrame(fw,fh,frame);});}
+                        public void finished(String reason){runOnUiThread(()->{if(vncClient!=reference[0]||isDestroyed())return;vncClient=null;disconnected.run();status.setText(reason);});}
+                    });reference[0]=client;vncClient=client;display.client=client;client.start(h,number,secret,anonymous);
+                }).show();
+        });
+        disconnect.setOnClickListener(v->{stopVnc();disconnected.run();status.setText("Отключено");});
+        send.setOnClickListener(v->{VncClient client=vncClient;String text=input.getText().toString();if(client!=null&&client.keys(text))input.setText("");else toast("Только ASCII-текст до 256 символов или соединение недоступно");});
+        enter.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff0d);});backspace.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff08);});escape.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff1b);});tab.setOnClickListener(v->{if(vncClient!=null)vncClient.special(0xff09);});
+    }
+    static class VncView extends View {
+        VncClient client;Bitmap frame;int frameWidth,frameHeight,lastX,lastY;boolean down;long lastMove;
+        VncView(Context context){super(context);setBackgroundColor(Color.DKGRAY);}
+        void updateFrame(int width,int height,int[] pixels){try{if(frame==null||frameWidth!=width||frameHeight!=height){if(frame!=null)frame.recycle();frame=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);frameWidth=width;frameHeight=height;}frame.setPixels(pixels,0,width,0,0,width,height);invalidate();}catch(OutOfMemoryError e){VncClient old=client;clear();if(old!=null)old.stop();}}
+        void clear(){client=null;down=false;if(frame!=null){frame.recycle();frame=null;}frameWidth=frameHeight=0;invalidate();}
+        @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);if(frame==null)return;float scale=Math.min((float)getWidth()/frameWidth,(float)getHeight()/frameHeight);float w=frameWidth*scale,h=frameHeight*scale;canvas.drawBitmap(frame,null,new RectF((getWidth()-w)/2,(getHeight()-h)/2,(getWidth()+w)/2,(getHeight()+h)/2),null);}
+        @Override public boolean onTouchEvent(MotionEvent event){
+            if(client==null||frame==null||getWidth()<=0||getHeight()<=0)return false;float scale=Math.min((float)getWidth()/frameWidth,(float)getHeight()/frameHeight);if(scale<=0)return false;
+            float left=(getWidth()-frameWidth*scale)/2,top=(getHeight()-frameHeight*scale)/2;float xx=(event.getX()-left)/scale,yy=(event.getY()-top)/scale;
+            if(event.getAction()==MotionEvent.ACTION_DOWN){if(xx<0||yy<0||xx>=frameWidth||yy>=frameHeight)return false;down=true;getParent().requestDisallowInterceptTouchEvent(true);}
+            if(!down)return false;lastX=Math.max(0,Math.min(frameWidth-1,(int)xx));lastY=Math.max(0,Math.min(frameHeight-1,(int)yy));
+            if(event.getAction()==MotionEvent.ACTION_MOVE){long now=android.os.SystemClock.uptimeMillis();if(now-lastMove>=50){client.pointer(lastX,lastY,true);lastMove=now;}return true;}
+            if(event.getAction()==MotionEvent.ACTION_DOWN){client.pointer(lastX,lastY,true);return true;}
+            if(event.getAction()==MotionEvent.ACTION_UP||event.getAction()==MotionEvent.ACTION_CANCEL){client.pointer(lastX,lastY,false);down=false;getParent().requestDisallowInterceptTouchEvent(false);if(event.getAction()==MotionEvent.ACTION_UP)performClick();return true;}return true;
+        }
+        @Override public boolean performClick(){super.performClick();return true;}
+    }
     private void cancelKeySsh(){if(keySshCancel!=null){keySshCancel.cancel();keySshCancel=null;}}
     private void sshKeyScreen(){
         layout("SSH · команда с ключом");note("Выберите закрытый ключ из файла или сохранённых. Добавленные ключи зашифрованы Android Keystore в данных приложения, без биометрической проверки; парольная фраза не сохраняется. Используйте доверенный провайдер. Размер ключа — до 64 КиБ.");
@@ -978,11 +1032,12 @@ public class MainActivity extends Activity {
     }
     private void stopWeb(){if(webServer!=null){webServer.stop();webServer=null;}}
     @Override protected void onStop(){
+        if(vncClient!=null){stopVnc();if(vncUiReset!=null)vncUiReset.run();}
         if(interactiveSsh!=null){stopInteractiveSsh();if(shellUiReset!=null)shellUiReset.run();}
         if(mediaPlayer!=null){mediaPlayer.stopPlayback();mediaStopped=true;if(videoUi!=null)videoUi.previewReady=false;if(mediaController!=null)mediaController.hide();}
         super.onStop();
     }
-    @Override protected void onDestroy(){stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelHash();cancelZip();cancelKeySsh();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}if(reverseTunnel!=null){reverseTunnel.stop();reverseTunnel=null;}super.onDestroy();}
+    @Override protected void onDestroy(){stopVnc();stopInteractiveSsh();mediaToken=null;stopMedia();cancelScan();cancelSearch();cancelHash();cancelZip();cancelKeySsh();cancelVideo();stopWeb();if(sshTunnel!=null){sshTunnel.stop();sshTunnel=null;}if(reverseTunnel!=null){reverseTunnel.stop();reverseTunnel=null;}super.onDestroy();}
     private void pingScreen(){ layout("Проверка сети"); note("ICMP ping: доступность зависит от сети и устройства."); EditText host=new EditText(this); host.setSingleLine(); host.setHint("Адрес или домен"); body.addView(host); TextView result=text("",15); body.addView(button("Проверить",()->{String h=host.getText().toString().trim(); if(!h.matches("[a-zA-Z0-9.:-]{1,253}") || h.startsWith("-")){result.setText("Некорректный адрес");return;} result.setText("Проверка…"); new Thread(()->{String output; try { Process p=new ProcessBuilder("ping","-c","1","-W","3",h).redirectErrorStream(true).start(); ByteArrayOutputStream b=new ByteArrayOutputStream(); try(InputStream in=p.getInputStream()){byte[] buf=new byte[1024];int n;while((n=in.read(buf))!=-1 && b.size()<8192)b.write(buf,0,n);} p.waitFor();output=b.toString("UTF-8"); }catch(Exception ex){output="Ошибка: "+ex.getMessage();} String finalOutput=output;runOnUiThread(()->result.setText(finalOutput));}).start();})); body.addView(result); body.addView(button("Назад",this::home)); }
     private void cancelVideo(){if(videoCancellation!=null){videoCancellation.cancel();videoCancellation=null;}}
     private void videoEditorScreen(){
