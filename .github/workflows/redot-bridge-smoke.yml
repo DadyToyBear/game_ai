@@ -29,6 +29,7 @@ jobs:
             gh release download redot-26.3-rc.2 --repo Redot-Engine/redot-engine --dir /tmp/redot-rc2 \
               --pattern 'Redot_v26.3-rc.2_linux_x64.zip' --pattern 'SHA512-SUMS.txt' || exit 1
             cd /tmp/redot-rc2 || exit 1
+            grep -F 'Redot_v26.3-rc.2_linux_x64.zip' SHA512-SUMS.txt || { cat SHA512-SUMS.txt; exit 1; }
             grep '  Redot_v26.3-rc.2_linux_x64.zip$' SHA512-SUMS.txt | sha512sum -c - || exit 1
             unzip -q Redot_v26.3-rc.2_linux_x64.zip -d editor || exit 1
           ) > download.log 2>&1; then
