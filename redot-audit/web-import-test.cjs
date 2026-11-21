@@ -10,9 +10,12 @@ const secret = 'test-only-secret-012345678901234567890123456789';
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'redot-web-import-'));
 const project = path.join(temp, 'SourceProject');
 fs.mkdirSync(project);
-fs.writeFileSync(path.join(project, 'project.godot'), 'config_version=5\n[application]\nconfig/name="Web Import Verification"\nrun/main_scene="res://scenes/levels/main.tscn"\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n');
+fs.writeFileSync(path.join(project, 'project.godot'), 'config_version=5\n[application]\nconfig/name="Web Import Verification"\nrun/main_scene="res://scenes/levels/main.tscn"\n[editor_plugins]\nenabled=PackedStringArray("res://addons/audit/plugin.cfg")\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n');
 fs.mkdirSync(path.join(project,'scenes','levels'), {recursive:true});
+fs.mkdirSync(path.join(project,'addons','audit'), {recursive:true});
 fs.writeFileSync(path.join(project, 'scenes','levels','main.tscn'), '[gd_scene format=3]\n[node name="Game" type="Node2D"]\n');
+fs.writeFileSync(path.join(project, 'addons','audit','plugin.cfg'), '[plugin]\nname="Import Audit"\ndescription="Test only"\nauthor="test"\nversion="1"\nscript="plugin.gd"\n');
+fs.writeFileSync(path.join(project, 'addons','audit','plugin.gd'), '@tool\nextends EditorPlugin\nfunc _enter_tree() -> void:\n\tJavaScriptBridge.eval("window.__redotImportEditorReady = true")\n');
 const server = spawn('python3', ['redot-bridge/bridge.py','serve','--editor-dir',path.resolve(process.argv[2])], {env:{...process.env,REDOT_BRIDGE_TOKEN:secret},stdio:'ignore'});
 async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:8765/project-open.html')).ok)return;}catch(_){} await new Promise(r=>setTimeout(r,100));} throw Error('Bridge did not start');}
 async function capture(page, label) {
@@ -39,22 +42,29 @@ async function capture(page, label) {
     // Uncheck Edit Now to keep the project manager alive for inspection.
     await page.mouse.click(615,492);
     await page.mouse.click(713,522);
-    await page.waitForTimeout(12000);
-    await capture(page,'WEB_IMPORT_AFTER');
-    const dbs = await page.evaluate(async () => {
-      const list = await indexedDB.databases(), result = [];
-      for (const {name} of list) {
-        const db = await new Promise((resolve,reject)=>{const r=indexedDB.open(name);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-        for (const store of Array.from(db.objectStoreNames)) {
-          const keys = await new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).getAllKeys();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-          result.push({name, store, keys});
-        }
-        db.close();
-      }
-      return result;
-    });
-    console.log(`::warning title=Web import database probe::${JSON.stringify(dbs).slice(0,4000)}`);
-    console.log('::notice title=Web import probe::Captured the state after attempting installation; import not yet asserted.');
-  } catch(e) {console.error(`::error title=Web import::${String(e.stack||e).replace(/%/g,'%25').replace(/\n/g,'%0A')} Browser: ${issues.slice(-8).join(' | ')}`);process.exitCode=1;}
+    await page.waitForFunction(async () => {
+      const db = await new Promise((resolve,reject)=>{const r=indexedDB.open('/home/web_user'); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error);});
+      try {
+        const tx = db.transaction('FILE_DATA'); const store = tx.objectStore('FILE_DATA');
+        const read = key => new Promise((resolve,reject)=>{const r=store.get(key); r.onsuccess=()=>resolve(r.result); r.onerror=()=>reject(r.error);});
+        const [scene, plugin, config] = await Promise.all([
+          read('/home/web_user/preload/scenes/levels/main.tscn'),
+          read('/home/web_user/preload/addons/audit/plugin.gd'),
+          read('/home/web_user/preload/project.godot')]);
+        const text = entry => entry && entry.contents ? new TextDecoder().decode(entry.contents) : '';
+        return text(scene) === '[gd_scene format=3]\n[node name="Game" type="Node2D"]\n' &&
+          text(plugin).includes('__redotImportEditorReady') && text(config).includes('res://scenes/levels/main.tscn');
+      } finally {db.close();}
+    }, null, {timeout:60000});
+    // Launch the imported project. Its test plugin marks the window only when
+    // the actual editor (not the project manager) has loaded the project.
+    await page.mouse.click(1205,115);
+    await page.waitForFunction(() => window.__redotImportEditorReady === true, null, {timeout:120000});
+    assert.equal(fs.readFileSync(path.join(project,'project.godot'),'utf8').includes('Web Import Verification'),true);
+    console.log('::notice title=Real Web project import::RC2 installed nested project files in IndexedDB and opened the imported project in the editor; the test editor plugin ran. Original folder was unchanged (Chromium, software WebGL).');
+  } catch(e) {
+    if(page) { try {await capture(page,'WEB_IMPORT_FAILURE');} catch (_) {} }
+    console.error(`::error title=Web import::${String(e.stack||e).replace(/%/g,'%25').replace(/\n/g,'%0A')} Browser: ${issues.slice(-8).join(' | ')}`);process.exitCode=1;
+  }
   finally {if(browser)await browser.close();server.kill('SIGTERM');fs.rmSync(temp,{recursive:true,force:true});}
 })();

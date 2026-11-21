@@ -110,7 +110,7 @@
       const blob = await action();
       if (editorInput) {
         const transfer = new DataTransfer(); transfer.items.add(new File([blob], 'redot-project.zip', {type:'application/zip'})); editorInput.files = transfer.files;
-        status.textContent = 'ZIP подготовлен. Нажмите Start Redot editor, затем подтвердите Install Project и выберите новую папку назначения.';
+        status.textContent = 'ZIP подготовлен. Нажмите Start Redot editor, затем в Install Project проверьте имя и выберите новую папку. Имя в копии изменится на указанное.';
       } else { download(blob); status.textContent = 'ZIP скачан. В Android Redot импортируйте его в новую папку.'; }
     } catch (e) { status.textContent = `Не удалось подготовить копию: ${e.message}. Для облака нужны прямая ссылка и разрешение CORS.`; }
     finally { folder.disabled = false; button.disabled = false; if (start) start.disabled = wasStartDisabled; }
