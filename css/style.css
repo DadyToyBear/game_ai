@@ -174,9 +174,13 @@ main { flex: 1; padding: 0 16px 28px; }
   border-right: 1px solid var(--line); border-bottom: 1px solid #1c2430; min-width: 108px;
 }
 .cell {
-  height: 26px; border-right: 1px solid #1c2430; border-bottom: 1px solid #1c2430;
+  height: var(--row-h, 26px); border-right: 1px solid #1c2430; border-bottom: 1px solid #1c2430;
   background: #10161f; position: relative; cursor: pointer;
 }
+/* начало блока очередной машины: видно, где кончается один секвенсор */
+.cell.group-start, .grid-label.group-start { border-top: 2px solid #2b3a4f; }
+.grid-label { border-left: 3px solid transparent; }
+.grid-label.active { background: #172030; color: var(--text); }
 .cell.beat { background: #131b26; }
 .cell.bar { border-left: 1px solid #33415a; }
 .cell.on::after {
@@ -223,6 +227,47 @@ main { flex: 1; padding: 0 16px 28px; }
 .note.dragging { cursor: grabbing; z-index: 9; filter: brightness(1.25); }
 .note-grip { position: absolute; right: 1px; top: 1px; bottom: 1px; width: 6px; cursor: ew-resize; background: rgba(0,0,0,.22); border-radius: 3px; }
 .note-vel { position: absolute; left: 2px; bottom: 1px; height: 3px; width: 12px; border-radius: 2px; background: rgba(0,0,0,.5); cursor: ns-resize; }
+
+/* свой секвенсор драм-машины — прямо в её корпусе */
+.drum-lanes { overflow-x: auto; padding: 0 2px 4px; -webkit-overflow-scrolling: touch; }
+.drum-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(18px, 1fr); gap: 2px; align-items: center; }
+.drum-row .drum-name {
+  grid-column: span 1; min-width: 62px; width: 62px; text-align: left; font: inherit;
+  font-size: 10px; color: var(--muted); background: transparent; border: 0; padding: 2px 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
+}
+.drum-row .drum-name:hover { color: var(--text); }
+.drum-tick { font-size: 8px; color: #55657c; text-align: center; height: 12px; }
+.drum-tick.beat { color: #7c8ca3; }
+.drum-step {
+  height: 20px; border-radius: 4px; background: #10161f; border: 1px solid #1b2430; cursor: pointer;
+}
+.drum-step.beat { background: #131b26; }
+.drum-step:hover { border-color: #33415a; }
+.drum-step.on { background: var(--accent2); border-color: transparent; box-shadow: 0 0 6px rgba(255,138,92,.4); }
+
+@media (max-width: 820px) {
+  .drum-step { height: 26px; }
+  .drum-row { grid-auto-columns: minmax(22px, 1fr); gap: 3px; }
+  .drum-row .drum-name { min-width: 54px; width: 54px; font-size: 9.5px; }
+}
+
+/* вертикальные линии сетки и бегунок в ролле */
+.roll-vlines { position: absolute; top: 22px; left: 46px; right: 0; bottom: 0; pointer-events: none; z-index: 5; }
+.roll-vlines .vline { position: absolute; top: 0; bottom: 0; width: 1px; background: #1a2330; }
+.roll-vlines .vline.bar { background: #2a374b; }
+.roll-vlines .vline.first { display: none; }
+.roll-playhead {
+  position: absolute; top: 22px; width: 2px; margin-left: -1px; pointer-events: none; z-index: 7;
+  background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.25));
+  box-shadow: 0 0 8px rgba(255,255,255,.35);
+}
+.roll-playhead.beat { background: linear-gradient(180deg, var(--accent2), rgba(255,138,92,.3)); }
+
+/* панель над роллом: свои настройки у каждой машины */
+.roll-toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 0 0 8px; }
+.roll-toolbar .btn { font-size: 11px; padding: 6px 9px; }
+.drum-info .pill { font-size: 10.5px; }
 
 /* ---------- редактор паттернов ---------- */
 .pat-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -793,6 +838,25 @@ html.touch .grid-scroll, html.touch .roll-scroll, html.touch .seq-scroll { -webk
   .link-meter { display: none; }
   .lcd-name { font-size: 11px; }
   .clip-row { grid-template-columns: 74px 1fr; }
+}
+
+/* Телефон: ролл и сетка — крупнее цели, панель ролла переносится */
+@media (max-width: 820px) {
+  .roll-toolbar { position: sticky; top: 0; z-index: 12; background: rgba(11,17,24,.94);
+    backdrop-filter: blur(6px); padding: 6px 0; margin-bottom: 6px; }
+  .roll-toolbar .btn { min-height: 38px; font-size: 12px; }
+  .roll-scroll { max-height: 46vh; }
+  .roll-key { width: 52px; font-size: 10px; }
+  .grid-label { min-width: 92px; font-size: 10.5px; padding: 4px 6px; }
+  .seq-scroll { max-height: 46vh; }
+  .cell { min-width: 26px; }
+}
+
+@media (max-width: 560px) {
+  .roll-toolbar .btn { flex: 1 1 auto; }
+  .drum-info .pill { display: none; }
+  .editor-head { flex-wrap: wrap; gap: 6px; }
+  .editor-head .hint { display: none; }
 }
 
 /* Планшет в горизонтали: два прибора рядом, крупные пэды */

@@ -63,8 +63,17 @@
       scenes: 'A',    // строка редактора сцен: буква паттерна для каждого такта
       patLen: 64,     // шагов в паттерне (обновляется resizePatterns)
       samples: {},    // padIndex (beatbox) или 'main' (pcmsynth) -> {channels, sampleRate}
+      follow: true,   // пиано-ролл сам подкручивается под играющий такт
+      rollZoom: 1,    // масштаб дорожек пиано-ролла этой машины (0.7 … 1.8)
+      rollCollapsed: false, // свёрнут ли свой секвенсор в стойке
     };
     return t;
+  }
+
+  /* Высота дорожки сетки: мелодическим машинам нужны строки повыше —
+     на телефоне иначе в них не попасть пальцем. */
+  function rowHeightFor(engine) {
+    return engine === 'beatbox' ? 26 : 30;
   }
 
   function emptySong() {
@@ -337,6 +346,11 @@
     const patBar = bar % Math.max(1, song.bars);
     document.querySelectorAll('.cell[data-step="' + local + '"]').forEach((c) => c.classList.add('playing'));
     document.querySelectorAll('.head-cell[data-step="' + local + '"]').forEach((c) => c.classList.add('playhead'));
+    // бегунок в пиано-роллах: у каждой машины свой ролл, ведём все сразу
+    song.tracks.forEach((t, ti) => {
+      if (t.engine === 'beatbox') return;
+      Pattern.paintPlayhead(t, local);
+    });
     document.getElementById('pos').textContent =
       String(bar + 1).padStart(3, '0') + ' : ' + String(Math.floor(local / 4) + 1).padStart(2, '0');
     paintSceneBar(bar, local);
@@ -351,6 +365,7 @@
 
   function clearPlayhead() {
     document.querySelectorAll('.cell.playing, .head-cell.playhead').forEach((c) => c.classList.remove('playing', 'playhead'));
+    song.tracks.forEach((t) => Pattern.paintPlayhead(t, -1));
     state.lastPlayed = -1;
   }
 
@@ -467,24 +482,105 @@
           class: 'btn ghost', text: 'Копия', style: { fontSize: '11px', padding: '6px 9px' },
           onclick: () => { copyPatternDialog(); },
         }),
+        el('button', {
+          class: 'btn ghost', text: 'Клавиши ' + Pattern.zoomLabel(t), style: { fontSize: '11px', padding: '6px 9px' },
+          title: 'Высота дорожек этого синтезатора',
+          onclick: () => { Pattern.cycleZoom(t); renderMachine(); renderSeq(); },
+        }),
+        el('button', {
+          class: 'btn ghost', text: t.rollCollapsed ? 'Развернуть' : 'Свернуть', style: { fontSize: '11px', padding: '6px 9px' },
+          title: 'Убрать свой секвенсор, чтобы стойка была компактнее',
+          onclick: () => { t.rollCollapsed = !t.rollCollapsed; renderMachine(); },
+        }),
         el('div', { class: 'spacer' }),
-        el('span', { class: 'hint', text: 'пиано-ролл: тяните ноты, край — длина, точка — громкость' }),
+        el('span', { class: 'hint', text: t.rollCollapsed ? 'свой секвенсор свёрнут' : 'свой секвенсор: тяните ноты, край — длина, точка — громкость' }),
       ]);
-      const rollHost = el('div', { class: 'machine-roll' });
-      Pattern.mount(rollHost, t, {
-        onChange: () => refreshSeqMiniState(),
-        onPreview: (midi, v) => liveNoteOn(midi, v),
-      });
       machine.appendChild(patHead);
-      machine.appendChild(rollHost);
+      if (!t.rollCollapsed) {
+        const rollHost = el('div', { class: 'machine-roll' });
+        machine.appendChild(rollHost);
+        Pattern.mount(rollHost, t, {
+          onChange: () => refreshSeqMiniState(),
+          onPreview: (midi, v) => liveNoteOn(midi, v),
+        });
+      }
     }
 
     if (t.engine === 'beatbox') {
-      machine.appendChild(el('div', { class: 'machine-head', style: { borderTop: '1px solid var(--line)', borderBottom: 'none', paddingTop: '10px', paddingBottom: '10px' } }, [
-        el('span', { class: 'hint', text: 'Клавиши A S D F G H J K играют по подушкам. Свои WAV: PCMSynth/BeatBox — через «Свои сэмплы».' }),
-      ]));
+      // у драм-машины свой секвенсор: шаги по каждой подушке прямо в корпусе
+      Pattern.ensureTrack(t);
+      const drumHead = el('div', { class: 'machine-head', style: { borderTop: '1px solid var(--line)', paddingTop: '10px', paddingBottom: '8px' } }, [
+        el('span', { class: 'hint', text: 'Свой секвенсор' }),
+        el('div', { class: 'pat-slots' }, [0, 1, 2, 3].map((i) =>
+          el('button', {
+            class: 'pat-slot' + (t.patIndex === i ? ' active' : '') + (t.used.indexOf(i) >= 0 ? ' used' : ''),
+            text: 'ABCD'[i],
+            onclick: () => { t.patIndex = i; Pattern.markUsed(t); renderMachine(); renderSeq(); },
+          })
+        )),
+        el('div', { class: 'spacer' }),
+        el('span', { class: 'hint', text: 'клик по шагу — удар · клавиши A S D F G H J K · свои WAV — в «Своих сэмплах»' }),
+      ]);
+      const drumBox = el('div', { class: 'drum-lanes' });
+      machine.appendChild(drumHead);
+      machine.appendChild(drumBox);
+      setTimeout(() => drumLanes(drumBox, t), 0);
     }
     wrap.appendChild(machine);
+  }
+
+  /* Дорожки драм-машины: 8 подушек × шаги паттерна, всё в её корпусе. */
+  function drumLanes(host, t) {
+    host.innerHTML = '';
+    const pat = Pattern.pattern(t);
+    const steps = t.patLen;
+    const row = el('div', { class: 'drum-row' }, [el('span', { class: 'drum-name', text: 'подушки' })]);
+    for (let s = 0; s < steps; s++) {
+      row.appendChild(el('span', {
+        class: 'drum-tick' + (s % 4 === 0 ? ' beat' : ''),
+        text: s % 4 === 0 ? String(s / 4 + 1) : '',
+      }));
+    }
+    host.appendChild(row);
+
+    ENG.beatbox.pads.forEach((name, pad) => {
+      const line = el('div', { class: 'drum-row' }, [
+        el('button', {
+          class: 'drum-name',
+          text: name,
+          title: 'Прослушать подушку',
+          onclick: () => { ensureAudio(); liveDrum(pad); },
+        }),
+      ]);
+      for (let s = 0; s < steps; s++) {
+        const on = (pat.pads || []).some((e) => e.at === s && e.p === pad);
+        const cell = el('div', {
+          class: 'drum-step' + (on ? ' on' : '') + (s % 4 === 0 ? ' beat' : ''),
+          'data-pad': pad, 'data-step': s,
+          onclick: () => {
+            const arr = pat.pads || (pat.pads = []);
+            const i = arr.findIndex((e) => e.at === s && e.p === pad);
+            if (i >= 0) arr.splice(i, 1); else { arr.push({ at: s, p: pad }); ensureAudio(); liveDrum(pad); }
+            Pattern.markUsed(t);
+            cell.classList.toggle('on', i < 0);
+            renderSeqGridOnly();
+          },
+        });
+        line.appendChild(cell);
+      }
+      host.appendChild(line);
+    });
+  }
+
+  function renderSeqGridOnly() {
+    const grid = document.getElementById('seqGrid');
+    if (!grid) return;
+    grid.querySelectorAll('.cell[data-track]').forEach((c) => {
+      const row = { ti: Number(c.dataset.track), pad: c.dataset.pad === '' ? null : Number(c.dataset.pad), beatbox: c.dataset.pad !== '' };
+      const on = cellOn(row, Number(c.dataset.step));
+      c.classList.toggle('on', on);
+      c.classList.toggle('strong', on && Number(c.dataset.step) % 4 === 0);
+    });
   }
 
   function resetParams() {
@@ -770,6 +866,9 @@
     grid.innerHTML = '';
     state.lastPlayed = -1;
     grid.style.gridTemplateColumns = '108px repeat(' + steps + ', minmax(22px, 1fr))';
+    // высота строк: мелодическим машинам — выше, чтобы попадать пальцем
+    grid.style.setProperty('--row-h', rowHeightFor(t.engine) + 'px');
+    grid.style.setProperty('--accent-track', ENG[t.engine].accent);
 
     grid.appendChild(el('div', { class: 'cell head-cell', style: { background: '#0f141c', cursor: 'default' } }));
     for (let s = 0; s < steps; s++) {
@@ -781,21 +880,34 @@
         : []));
     }
 
+    let prevTi = -1;
     gridRows().forEach((row) => {
-      const label = el('div', { class: 'grid-label' }, [
-        el('span', { class: 'nm', text: row.label, title: row.sub }),
+      // каждая машина — отдельный блок со своей рамкой и своим цветом
+      const tr = song.tracks[row.ti];
+      const firstOfTrack = row.ti !== prevTi;
+      prevTi = row.ti;
+      const label = el('div', {
+        class: 'grid-label' + (firstOfTrack ? ' group-start' : '')
+          + (row.ti === state.activeTrack ? ' active' : ''),
+        style: { borderLeftColor: ENG[tr.engine].accent },
+        title: firstOfTrack ? tr.name + ' — свой секвенсор, паттерн ' + 'ABCD'[tr.patIndex] : row.sub,
+      }, [
+        el('span', { class: 'nm', text: row.label }),
         row.beatbox ? null : el('button', {
           class: 'btn ghost mute-mini', text: 'M',
           onclick: (e) => {
             e.stopPropagation();
-            const tr = song.tracks[row.ti];
             tr.mute = !tr.mute;
             refreshChannels();
             renderAll();
           },
         }),
       ]);
-      label.addEventListener('click', () => { state.activeTrack = row.ti; renderAll(); });
+      label.addEventListener('click', () => {
+        if (state.activeTrack === row.ti) return;
+        state.activeTrack = row.ti;
+        renderAll();
+      });
       grid.appendChild(label);
 
       for (let s = 0; s < steps; s++) {
@@ -805,6 +917,7 @@
         if (s % song.steps === 0 && s > 0) cls.push('bar');
         if (on) cls.push('on');
         if (on && s % 4 === 0) cls.push('strong');
+        if (firstOfTrack) cls.push('group-start');
         const c = el('div', { class: cls.join(' '), 'data-step': s, 'data-track': row.ti, 'data-pad': row.pad == null ? '' : row.pad });
         c.addEventListener('click', (e) => {
           e.preventDefault();
@@ -851,24 +964,136 @@
     if (!t) return;
 
     const head = el('div', { class: 'editor-head' }, [
-      el('h4', { text: 'Пиано-ролл — ' + t.name + ' · паттерн ' + 'ABCD'[t.patIndex] }),
+      el('h4', { text: 'Свой секвенсор — ' + t.name + ' · паттерн ' + 'ABCD'[t.patIndex] }),
       el('span', { class: 'hint', text: 'Клик по пустому месту — новая нота · тяните ноту, чтобы двигать · за правый край — длина · жёлтая точка — громкость · правый клик — удалить' }),
     ]);
     panel.appendChild(head);
 
     if (t.engine === 'beatbox') {
-      panel.appendChild(el('div', {
-        class: 'hint',
-        style: { padding: '10px', border: '1px dashed var(--line)', borderRadius: '12px' },
-        text: 'У драм-машины пиано-ролл не нужен: удар = шаг. Используйте сетку выше — она и есть редактор паттерна. Пиано-ролл включается для мелодических машин.',
-      }));
+      panel.appendChild(drumNotesInfo(t));
       return;
     }
 
-    Pattern.mount(panel, t, {
+    panel.appendChild(rollToolbar(t, () => { renderSeq(); }));
+    // ролл живёт в отдельном контейнере: Pattern.mount очищает свой host
+    // и иначе стирал бы заголовок и панель кнопок
+    const rollHost = el('div', { class: 'roll-host' });
+    panel.appendChild(rollHost);
+    Pattern.mount(rollHost, t, {
       onChange: () => refreshSeqMiniState(),
       onPreview: (midi, v) => liveNoteOn(midi, v),
     });
+  }
+
+  /* Панель над роллом: масштаб дорожек и следование за транспортом.
+     Настройки индивидуальные — у каждого синтезатора свои. */
+  function rollToolbar(t, rerender) {
+    const zoomBtn = el('button', {
+      class: 'btn ghost mini',
+      title: 'Высота дорожек: удобнее попадать пальцем по ноте',
+      text: 'Клавиши ' + Pattern.zoomLabel(t),
+      onclick: () => {
+        Pattern.cycleZoom(t);
+        rerender();
+      },
+    });
+    const followBtn = el('button', {
+      class: 'btn ghost mini' + (t.follow ? ' on' : ''),
+      title: 'Ролл сам прокручивается к играющему такту',
+      text: t.follow ? 'Следовать: вкл' : 'Следовать: выкл',
+      onclick: () => {
+        t.follow = !t.follow;
+        followBtn.classList.toggle('on', t.follow);
+        followBtn.textContent = t.follow ? 'Следовать: вкл' : 'Следовать: выкл';
+      },
+    });
+    return el('div', { class: 'roll-toolbar' }, [
+      zoomBtn,
+      followBtn,
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Удвоить: скопировать ноты на второй такт паттерна',
+        text: '×2',
+        onclick: () => { doubleNotes(t); rerender(); },
+      }),
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Сдвинуть ноты на один шаг вперёд',
+        text: 'Сдвиг +1',
+        onclick: () => { shiftNotes(t, 1); rerender(); },
+      }),
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Сдвинуть ноты на один шаг назад',
+        text: 'Сдвиг −1',
+        onclick: () => { shiftNotes(t, -1); rerender(); },
+      }),
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Транспонировать вверх на октаву',
+        text: '+12',
+        onclick: () => { transposeNotes(t, 12); rerender(); },
+      }),
+      el('button', {
+        class: 'btn ghost mini',
+        title: 'Транспонировать вниз на октаву',
+        text: '−12',
+        onclick: () => { transposeNotes(t, -12); rerender(); },
+      }),
+    ]);
+  }
+
+  /* У драм-машины свой секвенсор — это сетка по подушкам; показываем,
+     что в паттерне реально записано, чтобы не было ощущения «пустого места». */
+  function drumNotesInfo(t) {
+    const pat = Pattern.pattern(t);
+    const hits = (pat.pads || []).length;
+    const pads = ENG.beatbox.pads;
+    const perPad = pads.map((p, i) => ({
+      name: p,
+      n: (pat.pads || []).filter((e) => e.p === i).length,
+    })).filter((x) => x.n);
+    return el('div', { class: 'roll-toolbar drum-info' }, [
+      el('span', { class: 'hint', text: hits ? 'Ударов в паттерне: ' + hits : 'Паттерн пуст — кликайте по сетке выше' }),
+    ].concat(perPad.map((x) => el('span', { class: 'pill', text: x.name + ' ×' + x.n }))));
+  }
+
+  /* ---------- операции над нотами машины ---------- */
+  function doubleNotes(t) {
+    const pat = Pattern.pattern(t);
+    const len = t.patLen;
+    const half = Math.floor(len / 2);
+    const copy = pat.notes.filter((n) => n.at + Pattern.notelen(n) <= half)
+      .map((n) => ({ at: n.at + half, m: n.m, len: n.len, v: n.v }));
+    if (!copy.length) { UI.toast('Нечего удваивать: в первой половине паттерна нет нот'); return; }
+    pat.notes = pat.notes.concat(copy);
+    Pattern.markUsed(t);
+    Pattern.refresh(t);
+    UI.toast('Ноты первого такта скопированы во второй (' + copy.length + ')');
+  }
+
+  function shiftNotes(t, dir) {
+    const pat = Pattern.pattern(t);
+    const len = t.patLen;
+    let moved = 0;
+    pat.notes.forEach((n) => {
+      const at = n.at + dir;
+      if (at >= 0 && at < len) { n.at = at; moved++; }
+    });
+    if (!moved) { UI.toast('Сдвигать некуда'); return; }
+    Pattern.markUsed(t);
+    Pattern.refresh(t);
+    UI.toast('Ноты сдвинуты на ' + (dir > 0 ? '+1' : '−1') + ' шаг');
+  }
+
+  function transposeNotes(t, semis) {
+    const pat = Pattern.pattern(t);
+    if (!pat.notes.length) { UI.toast('В паттерне нет нот'); return; }
+    pat.notes.forEach((n) => {
+      n.m = Math.max(Pattern.ROLL_LO, Math.min(Pattern.ROLL_HI, n.m + semis));
+    });
+    Pattern.refresh(t);
+    UI.toast('Транспонировано на ' + (semis > 0 ? '+' : '') + semis + ' полутонов');
   }
 
   /* Обновляет «горящие» ячейки сетки, не перерисовывая ролл */
@@ -1687,6 +1912,8 @@
         id: t.id, engine: t.engine, name: t.name, vol: t.vol, pan: t.pan,
         delay: t.delay, reverb: t.reverb, mute: t.mute, params: t.params,
         bank: t.bank, patIndex: t.patIndex, used: t.used, scenes: t.scenes,
+        // вид своего секвенсора: у каждой машины свой масштаб и следование
+        follow: t.follow, rollZoom: t.rollZoom, rollCollapsed: t.rollCollapsed,
       })),
     }));
   }
@@ -1863,6 +2090,10 @@
         nt.patIndex = t.patIndex || 0;
         nt.used = Array.isArray(t.used) && t.used.length ? t.used.slice() : [nt.patIndex];
         nt.scenes = typeof t.scenes === 'string' ? t.scenes : 'A'.repeat(song.arrangeBars);
+        // настройки вида, свои у каждой машины
+        nt.follow = t.follow !== false;
+        nt.rollZoom = Number(t.rollZoom) > 0 ? UI.clamp(Number(t.rollZoom), 0.7, 1.8) : 1;
+        nt.rollCollapsed = !!t.rollCollapsed;
         return nt;
       }),
     };
@@ -2211,10 +2442,7 @@
         const p = document.querySelector('.pad[data-pad="' + pad + '"]');
         if (p) { p.classList.add('on'); setTimeout(() => p.classList.remove('on'), 120); }
         if (state.recording && state.playing) {
-          const st = state.currentStep;
-          const arr = t.pat[st] || (t.pat[st] = []);
-          if (arr.indexOf(pad) < 0) arr.push(pad);
-          renderSeq();
+          recordPad(t, pad);
         }
         return;
       }
@@ -2225,13 +2453,20 @@
         liveNoteOn(midi);
         markKey(midi, true);
         if (state.recording && state.playing) {
-          const st = state.currentStep;
-          const arr = t.notes[st] || (t.notes[st] = []);
-          if (arr.indexOf(midi) < 0) arr.push(midi);
-          renderSeq();
+          recordNote(t, midi);
         }
       }
     });
+    // [ и ] переключают машину: у каждой свой секвенсор
+    window.addEventListener('keydown', (e) => {
+      if (e.target && e.target.matches && e.target.matches('input, select, textarea')) return;
+      if (e.key !== '[' && e.key !== ']') return;
+      const dir = e.key === ']' ? 1 : -1;
+      state.activeTrack = (state.activeTrack + dir + song.tracks.length) % song.tracks.length;
+      renderAll();
+      UI.toast('Машина: ' + song.tracks[state.activeTrack].name);
+    });
+
     window.addEventListener('keyup', (e) => {
       const k = e.key.toLowerCase();
       held.delete(k);
@@ -2296,10 +2531,16 @@
       el('p', {}, ['Транспорт: ', el('b', { text: 'Space' }), ' — играть/стоп. BPM и число шагов меняются на лету, «Аранжировка» задаёт длину сцены в тактах.']),
       el('h4', { style: { margin: '10px 0 4px' }, text: 'Паттерны (A–D) на каждую машину' }),
       el('p', { class: 'muted', text: 'У каждой машины свой банк из четырёх паттернов. В стойке над пиано-роллом есть слоты A/B/C/D и кнопка «Копия» (A→B и т. п.). Внизу вкладки «Редактор паттернов» — блоки банка и строка «Сцены»: буквы в клетках показывают, какой паттерн играет в каком такте аранжировки.' }),
+      el('h4', { style: { margin: '10px 0 4px' }, text: 'Свой секвенсор у каждой машины' }),
+      el('p', { class: 'muted', text: 'У каждого синтезатора — собственный пиано-ролл со своим банком A/B/C/D, а у драм-машины свой секвенсор по подушкам (прямо в её корпусе, вкладка «Стойка»). Ролл есть и в корпусе машины, и на вкладке «Секвенсор».' }),
       el('h4', { style: { margin: '10px 0 4px' }, text: 'Пиано-ролл' }),
-      el('p', { class: 'muted', text: 'Клик по пустому месту — новая нота. Тяните ноту, чтобы двигать её по времени и высоте; за правый край — длина в шагах; жёлтая точка слева внизу — громкость (velocity). Правый клик по ноте — удалить. Ролл есть и в стойке машины, и на вкладке «Редактор паттернов».' }),
+      el('p', { class: 'muted', text: 'Клик по пустому месту — новая нота. Тяните ноту, чтобы двигать её по времени и высоте; за правый край — длина в шагах; жёлтая точка слева внизу — громкость (velocity). Правый клик по ноте — удалить. Светлая линия — играющий шаг (бегунок).' }),
+      el('h4', { style: { margin: '10px 0 4px' }, text: 'Настройки своего секвенсора' }),
+      el('p', { class: 'muted', text: 'Над роллом: «Клавиши» меняет высоту дорожек (удобнее попадать пальцем), «Следовать» прокручивает ролл к играющему такту, «×2» дублирует ноты во второй такт, «Сдвиг ±1» двигает их по шагам, «±12» транспонирует на октаву. Настройки индивидуальные и сохраняются вместе с проектом. В стойке ролл можно свернуть кнопкой «Свернуть».' }),
       el('h4', { style: { margin: '10px 0 4px' }, text: 'Редактор паттернов' }),
-      el('p', { class: 'muted', text: 'Квадратная сетка — это шаговый редактор паттерна: клик включает/выключает ноту или удар в шаге, правый клик удаляет. Для драм-машины сетка сразу разложена по 8 каналам.' }),
+      el('p', { class: 'muted', text: 'Квадратная сетка — это шаговый редактор паттерна: клик включает/выключает ноту или удар в шаге, правый клик удаляет. Блоки разных машин отделены линией и своим цветом, у мелодических машин дорожки выше — по ним проще попадать пальцем. У драм-машины сетка разложена по 8 каналам.' }),
+      el('h4', { style: { margin: '10px 0 4px' }, text: 'Клавиатура и телефон' }),
+      el('p', { class: 'muted', text: 'Space — играть/стоп, [ и ] — переключить машину (её секвенсор появляется на вкладке «Секвенсор»), A S D F G H J K — подушки драм-машины. На телефоне сетку и ролл можно тянуть пальцем, ноты и шаги увеличены под палец.' }),
       el('h4', { style: { margin: '10px 0 4px' }, text: 'MIDI и запись' }),
       el('p', { class: 'muted', text: 'Кнопка MIDI включает Web MIDI: ноты играют на выбранной машине, CC1 крутит срез фильтра, при включённой записи (●) ноты/удары пишутся в активный паттерн в реальном времени.' }),
       el('h4', { style: { margin: '10px 0 4px' }, text: 'Kaoss-модули' }),
@@ -2362,6 +2603,8 @@
     collectSamples,
     kaossSnapshot,
     renderProjectList,
+    serialize,
+    loadProject,
     patternSteps: () => patternSteps(),
     arrangeSteps: () => arrangeSteps(),
   };

@@ -92,10 +92,18 @@
   };
 
   // ---------- пиано-ролл ----------
+  // CELL_H — высота дорожки при масштабе 1. Масштаб дорожки хранится в самой
+  // машине (track.rollZoom), чтобы у каждого синтезатора был свой размер.
   const CELL_H = 15;
   const CELL_W = 24;
   const ROLL_LO = 24;
   const ROLL_HI = 96;
+  const ZOOMS = [0.7, 1, 1.35, 1.8];
+  const cellH = (track) => Math.round(CELL_H * (track && track.rollZoom ? track.rollZoom : 1));
+  const nextZoom = (z) => {
+    for (let i = 0; i < ZOOMS.length; i++) if (ZOOMS[i] > z + 0.001) return ZOOMS[i];
+    return ZOOMS[0];
+  };
 
   let drag = null;
   const mounts = [];   // {host, track, opts}
@@ -111,6 +119,7 @@
     const pat = P.pattern(track);
     const total = track.patLen;
     const accent = (window.ENGINES[track.engine] || {}).accent || '#4ee1c1';
+    const ch = cellH(track);   // своя высота дорожки у каждой машины
 
     const head = el('div', { class: 'roll-ruler' }, [
       el('div', { class: 'roll-key', text: '' }),
@@ -124,13 +133,13 @@
     }
     inner.appendChild(head);
 
-    const rows = el('div', { class: 'roll-rows', style: { height: (ROLL_HI - ROLL_LO + 1) * CELL_H + 'px' } });
+    const rows = el('div', { class: 'roll-rows', style: { height: (ROLL_HI - ROLL_LO + 1) * ch + 'px' } });
 
     // горизонтальная сетка и подписи клавиш
     for (let m = ROLL_HI; m >= ROLL_LO; m--) {
       const row = el('div', {
         class: 'roll-row' + (isBlack(m) ? ' blackrow' : ''),
-        style: { height: CELL_H + 'px', top: (ROLL_HI - m) * CELL_H + 'px' },
+        style: { height: ch + 'px', top: (ROLL_HI - m) * ch + 'px' },
       });
       row.appendChild(el('div', { class: 'roll-key' + (isBlack(m) ? ' blackkey' : ''), text: noteName(m) }));
       for (let s = 0; s < total; s++) {
@@ -143,26 +152,40 @@
       rows.appendChild(row);
     }
 
+    // вертикальные линии сетки: их видно и поверх пустых строк, и поверх нот
+    const vlines = el('div', { class: 'roll-vlines' }, []);
+    for (let s = 0; s <= total; s++) {
+      if (s % 4 !== 0) continue;
+      vlines.appendChild(el('div', {
+        class: 'vline' + (s % 16 === 0 ? ' bar' : '') + (s === 0 ? ' first' : ''),
+        style: { left: s * CELL_W + 'px' },
+      }));
+    }
+
+    // бегунок: показывает, какой шаг паттерна звучит прямо сейчас
+    const playhead = el('div', { class: 'roll-playhead', 'data-step': '-1' });
+    playhead.style.display = 'none';
+
     // слой нот
     const layer = el('div', {
       class: 'note-layer',
       style: {
         left: '46px', right: '0', top: '22px',
-        height: (ROLL_HI - ROLL_LO + 1) * CELL_H + 'px',
+        height: (ROLL_HI - ROLL_LO + 1) * ch + 'px',
       },
       onpointerdown: (e) => {
         if (e.target !== layer) return;
         e.preventDefault();
         const r = layer.getBoundingClientRect();
         const step = Math.floor((e.clientX - r.left) / CELL_W);
-        const midi = ROLL_HI - Math.floor((e.clientY - r.top) / CELL_H);
+        const midi = ROLL_HI - Math.floor((e.clientY - r.top) / ch);
         if (step < 0 || step >= total) return;
         addNote(track, midi, step, accent, opts);
       },
     });
 
     pat.notes.forEach((n, idx) => {
-      const top = (ROLL_HI - n.m) * CELL_H;
+      const top = (ROLL_HI - n.m) * ch;
       const len = P.notelen(n);
       const note = el('div', {
         class: 'note' + (n.m < 0 ? '' : ''),
@@ -170,7 +193,7 @@
           left: n.at * CELL_W + 1 + 'px',
           top: top + 1 + 'px',
           width: len * CELL_W - 2 + 'px',
-          height: CELL_H - 2 + 'px',
+          height: ch - 2 + 'px',
           background: 'linear-gradient(180deg,' + accent + ',' + shade(accent, -28) + ')',
           opacity: 0.5 + 0.5 * (n.v != null ? n.v : 0.85),
         },
@@ -193,14 +216,14 @@
       note.addEventListener('pointermove', (e) => {
         if (!drag || drag.el !== note) return;
         const dStep = Math.round((e.clientX - drag.startX) / CELL_W);
-        const dRow = Math.round((e.clientY - drag.startY) / CELL_H);
+        const dRow = Math.round((e.clientY - drag.startY) / ch);
         const n2 = pat.notes[drag.idx];
         if (!n2) return;
         if (drag.mode === 'move') {
           n2.at = clamp(drag.at0 + dStep, 0, total - P.notelen(n2));
           n2.m = clamp(drag.m0 - dRow, ROLL_LO, ROLL_HI);
           note.style.left = n2.at * CELL_W + 1 + 'px';
-          note.style.top = (ROLL_HI - n2.m) * CELL_H + 1 + 'px';
+          note.style.top = (ROLL_HI - n2.m) * ch + 1 + 'px';
         } else {
           n2.len = clamp(drag.len0 + dStep, 1, total - n2.at);
           note.style.width = P.notelen(n2) * CELL_W - 2 + 'px';
@@ -244,11 +267,50 @@
       layer.appendChild(note);
     });
 
-    const scroller = el('div', { class: 'roll-scroll' }, [el('div', { class: 'roll-stage', style: { width: 46 + total * CELL_W + 'px' } }, [rows, layer])]);
+    const scroller = el('div', { class: 'roll-scroll' }, [el('div', { class: 'roll-stage', style: { width: 46 + total * CELL_W + 'px' } }, [rows, vlines, layer, playhead])]);
     inner.appendChild(scroller);
     root.appendChild(inner);
     return root;
   };
+
+  /* Ставит бегунок на нужный шаг во всех роллах этой машины.
+     Вызывается из transport-цикла: если шаг не изменился — ничего не делает. */
+  P.paintPlayhead = function (track, step) {
+    for (let i = 0; i < mounts.length; i++) {
+      const m = mounts[i];
+      if (!m.host.isConnected || m.track !== track) continue;
+      const head = m.root && m.root.querySelector('.roll-playhead');
+      if (!head) continue;
+      if (head.dataset.step === String(step)) continue;
+      head.dataset.step = String(step);
+      if (step < 0) { head.style.display = 'none'; continue; }
+      head.style.display = 'block';
+      head.style.left = step * CELL_W + 'px';
+      head.classList.toggle('beat', step % 4 === 0);
+      // ролл сам едет вслед за играющим тактом, если машина это разрешила
+      if (track.follow) follow(m, step);
+    }
+  };
+
+  function follow(rec, step) {
+    const sc = rec.root && rec.root.querySelector('.roll-scroll');
+    if (!sc) return;
+    const x = step * CELL_W;
+    const left = sc.scrollLeft;
+    const w = sc.clientWidth || 0;
+    if (!w) return;                       // контейнер ещё не отрисован
+    if (x < left + 40 || x > left + w - 60) {
+      sc.scrollLeft = Math.max(0, x - w / 2);
+    }
+  }
+
+  /* Масштаб дорожек машины: 0.7 → 1 → 1.35 → 1.8 → 0.7 */
+  P.cycleZoom = function (track) {
+    track.rollZoom = nextZoom(track.rollZoom || 1);
+    P.refresh(track);
+    return track.rollZoom;
+  };
+  P.zoomLabel = (track) => Math.round((track.rollZoom || 1) * 100) + '%';
 
   function addNote(track, midi, step, accent, opts) {
     const pat = P.pattern(track);
@@ -282,7 +344,7 @@
         const pat = P.pattern(track);
         const ms = pat.notes.map((n) => n.m);
         const center = ms.length ? Math.round(ms.reduce((a, b) => a + b, 0) / ms.length) : 60;
-        sc.scrollTop = Math.max(0, (ROLL_HI - center) * CELL_H - 80);
+        sc.scrollTop = Math.max(0, (ROLL_HI - center) * cellH(track) - 80);
       }
       sc.addEventListener('scroll', () => { host.__scroll = { left: sc.scrollLeft, top: sc.scrollTop }; });
     }
