@@ -6,8 +6,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const secret = 'test-only-secret-012345678901234567890123456789';
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'redot-web-import-'));
+const mode = process.argv[3] || 'folder';
+if (!['folder', 'registry'].includes(mode)) throw Error('Expected folder or registry mode');
 const project = path.join(temp, 'SourceProject');
 fs.mkdirSync(project);
 fs.writeFileSync(path.join(project, 'project.godot'), 'config_version=5\n[application]\nconfig/name="Web Import Verification"\nrun/main_scene="res://scenes/levels/main.tscn"\n[editor_plugins]\nenabled=PackedStringArray("res://addons/audit/plugin.cfg")\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n');
@@ -16,6 +19,19 @@ fs.mkdirSync(path.join(project,'addons','audit'), {recursive:true});
 fs.writeFileSync(path.join(project, 'scenes','levels','main.tscn'), '[gd_scene format=3]\n[node name="Game" type="Node2D"]\n');
 fs.writeFileSync(path.join(project, 'addons','audit','plugin.cfg'), '[plugin]\nname="Import Audit"\ndescription="Test only"\nauthor="test"\nversion="1"\nscript="plugin.gd"\n');
 fs.writeFileSync(path.join(project, 'addons','audit','plugin.gd'), '@tool\nextends EditorPlugin\nfunc _enter_tree() -> void:\n\tJavaScriptBridge.eval("window.__redotImportEditorReady = true")\n');
+function treeDigest(dir) {
+  const records = [];
+  function walk(root, prefix='') {
+    for (const entry of fs.readdirSync(root, {withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))) {
+      const rel = prefix + entry.name, full = path.join(root,entry.name);
+      if (entry.isDirectory()) {records.push(`dir:${rel}`); walk(full, rel+'/');}
+      else if (entry.isFile()) records.push(`file:${rel}:${crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex')}`);
+      else throw Error('Unexpected source file type');
+    }
+  }
+  walk(dir); return records;
+}
+const original = treeDigest(project);
 const server = spawn('python3', ['redot-bridge/bridge.py','serve','--editor-dir',path.resolve(process.argv[2])], {env:{...process.env,REDOT_BRIDGE_TOKEN:secret},stdio:'ignore'});
 async function waitServer() {for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:8765/project-open.html')).ok)return;}catch(_){} await new Promise(r=>setTimeout(r,100));} throw Error('Bridge did not start');}
 async function capture(page, label) {
@@ -31,7 +47,17 @@ async function capture(page, label) {
     page.on('console', m=>{if(m.type()==='error') issues.push(m.text());});
     await page.goto('http://127.0.0.1:8765/editor/godot.editor.html', {waitUntil:'load'});
     await page.locator('#welcome-modal-dismiss').click();
-    await page.locator('#redot-folder').setInputFiles(project);
+    if (mode === 'folder') {
+      await page.locator('#redot-folder').setInputFiles(project);
+    } else {
+      await page.locator('summary').filter({hasText:'сетевые диски'}).click();
+      await page.locator('#reg-token').fill(secret); await page.locator('#reg-connect').click();
+      await page.waitForFunction(()=>document.querySelector('#reg-status').textContent.includes('Мост подключён'));
+      await page.locator('#reg-path').fill(project); await page.locator('#reg-add').click();
+      await page.waitForFunction(()=>document.querySelector('#reg-status').textContent.includes('Папка добавлена'));
+      page.on('dialog', dialog => dialog.accept());
+      await page.locator('#reg-use').click();
+    }
     await page.waitForFunction(()=>document.querySelector('#zip-file').files.length === 1);
     await page.locator('#startButton').click();
     await page.waitForFunction(()=>{const n=document.querySelector('#status-notice'); if(n && n.style.display!=='none' && n.textContent.trim()) throw Error(n.textContent); const t=document.querySelector('#tab-editor'); return t && getComputedStyle(t).display!=='none';},null,{timeout:120000});
@@ -60,8 +86,8 @@ async function capture(page, label) {
     // the actual editor (not the project manager) has loaded the project.
     await page.mouse.click(1205,115);
     await page.waitForFunction(() => window.__redotImportEditorReady === true, null, {timeout:120000});
-    assert.equal(fs.readFileSync(path.join(project,'project.godot'),'utf8').includes('Web Import Verification'),true);
-    console.log('::notice title=Real Web project import::RC2 installed nested project files in IndexedDB and opened the imported project in the editor; the test editor plugin ran. Original folder was unchanged (Chromium, software WebGL).');
+    assert.deepEqual(treeDigest(project), original, 'The original project directory changed');
+    console.log(`::notice title=Real Web project import::RC2 installed a ${mode} snapshot including nested files in IndexedDB and opened it in the editor; the test editor plugin ran. Original folder was not modified (Chromium, software WebGL).`);
   } catch(e) {
     if(page) { try {await capture(page,'WEB_IMPORT_FAILURE');} catch (_) {} }
     console.error(`::error title=Web import::${String(e.stack||e).replace(/%/g,'%25').replace(/\n/g,'%0A')} Browser: ${issues.slice(-8).join(' | ')}`);process.exitCode=1;

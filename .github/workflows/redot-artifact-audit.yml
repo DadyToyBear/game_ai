@@ -38,8 +38,10 @@ jobs:
         run: node redot-audit/browser-smoke.cjs web-editor
       - name: Run a real Web game and inspect the captured frame
         run: node redot-audit/web-game-smoke.cjs web-editor
-      - name: Import and open a nested project in the real Web editor
-        run: node redot-audit/web-import-test.cjs web-editor
+      - name: Import and open nested projects in the real Web editor
+        run: |
+          node redot-audit/web-import-test.cjs web-editor folder
+          node redot-audit/web-import-test.cjs web-editor registry
 
   mounted-drive:
     runs-on: ubuntu-24.04
