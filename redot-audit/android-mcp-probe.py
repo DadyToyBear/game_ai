@@ -26,6 +26,8 @@ import bridge
 
 TOKEN = 'android-ci-only-0123456789abcdef0123456789abcdef0123456789'
 PKG = 'org.godotengine.editor.v4.debug'
+DID_INSTALL = False
+DID_REVERSE = False
 PROJECT = '''config_version=5
 [application]
 config/name="Android MCP Audit"
@@ -41,7 +43,13 @@ renderer/rendering_method.mobile="gl_compatibility"
 AUDIT_PLUGIN = '''@tool
 extends EditorPlugin
 var elapsed := 1.0
+var announced := false
 func _process(delta: float) -> void:
+    if not announced:
+        print("ANDROID_MCP_EDITOR_TEST_WAITING")
+        announced = true
+    if not FileAccess.file_exists("res://ci_allow_connect.txt"):
+        return
     elapsed += delta
     if elapsed < 1.0:
         return
@@ -61,6 +69,7 @@ func _process(delta: float) -> void:
         queue.append_array(item.get_children())
 ''' % TOKEN
 GAME_SCRIPT = '''extends ColorRect
+var announced := false
 func _ready() -> void:
     print("ANDROID_MCP_GAME_STARTED")
 func _process(_delta: float) -> void:
@@ -70,6 +79,11 @@ func _process(_delta: float) -> void:
     var dialog: ConfirmationDialog = capture.get("_dialog")
     var secret_field: LineEdit = capture.get("_token_input")
     if dialog == null or secret_field == null:
+        return
+    if not announced:
+        print("ANDROID_MCP_CAPTURE_TEST_WAITING")
+        announced = true
+    if not FileAccess.file_exists("res://ci_allow_capture.txt"):
         return
     secret_field.text = "%s"
     dialog.hide()
@@ -112,20 +126,31 @@ def logs():
 
 
 def main(store):
+    global DID_INSTALL, DID_REVERSE
     apks = list(PACKAGE.rglob('android_editor-android-debug.apk'))
     if len(apks) != 1:
         raise RuntimeError('Expected one debug editor APK')
     abi = adb('shell', 'getprop', 'ro.product.cpu.abilist').stdout.decode().strip()
-    if 'arm64-v8a' not in abi:
-        raise RuntimeError('Emulator has no ARM64 translation')
+    emulator = adb('shell', 'getprop', 'ro.kernel.qemu').stdout.decode().strip()
+    if emulator != '1' or 'x86_64' not in abi or 'arm64-v8a' not in abi:
+        raise RuntimeError('This destructive CI probe requires an x86_64 emulator with ARM64 translation')
     notice('Android MCP emulator', 'API 35 x86_64 emulator with ARM64 translation and swangle; not a physical device.')
-    adb('install', '--abi', 'arm64-v8a', '-r', str(apks[0]), timeout=180)
+    if adb('shell', 'pm', 'path', PKG, check=False).stdout.strip():
+        raise RuntimeError('Editor is already installed; refusing to replace it')
+    adb('install', '--abi', 'arm64-v8a', str(apks[0]), timeout=180)
+    DID_INSTALL = True
     adb('shell', 'wm', 'size', '1280x800')
     adb('shell', 'wm', 'density', '160')
     adb('shell', 'appops', 'set', PKG, 'MANAGE_EXTERNAL_STORAGE', 'allow', check=False)
+    existing_reverses = adb('reverse', '--list').stdout.decode(errors='replace')
+    if re.search(r'\btcp:8765\b', existing_reverses):
+        raise RuntimeError('An adb reverse mapping already uses port 8765; refusing to replace it')
     adb('reverse', 'tcp:8765', 'tcp:8765')
+    DID_REVERSE = True
     adb('logcat', '-G', '16M', check=False)
     adb('logcat', '-c')
+    if adb('shell', 'test', '-e', '/sdcard/RedotMCPAudit', check=False).returncode == 0:
+        raise RuntimeError('Test project path already exists; refusing to overwrite it')
     with tempfile.TemporaryDirectory() as directory:
         project = Path(directory) / 'RedotMCPAudit'
         project.mkdir()
@@ -139,7 +164,12 @@ def main(store):
         adb('push', str(project), '/sdcard/', timeout=90)
     launched = adb('shell', 'am', 'start', '-n', PKG + '/org.godotengine.editor.GodotEditor', '--esa', 'command_line_params', '--path,/storage/emulated/0/RedotMCPAudit,--editor')
     notice('Android editor launch', launched.stdout.decode(errors='replace'))
-    wait('test plugin requesting connect', lambda: 'ANDROID_MCP_TEST_REQUESTED' in logs(), 180)
+    wait('test editor plugin ready', lambda: 'ANDROID_MCP_EDITOR_TEST_WAITING' in logs(), 180)
+    time.sleep(4)
+    if store.status()['editor_connected'] or store.get_logs()['entries']:
+        raise RuntimeError('Editor connected or shared logs without the opt-in test trigger')
+    adb('shell', 'touch', '/sdcard/RedotMCPAudit/ci_allow_connect.txt')
+    wait('test plugin requesting connect', lambda: 'ANDROID_MCP_TEST_REQUESTED' in logs(), 90)
     notice('Android MCP connection request', 'Disposable test helper invoked the real add-on connect handler; UI input was not tested.')
     wait('Android editor heartbeat at local bridge', lambda: store.status()['editor_connected'], 120)
     if store.status()['playing']:
@@ -149,6 +179,11 @@ def main(store):
     wait('Android test game process', lambda: 'ANDROID_MCP_GAME_STARTED' in logs(), 180)
     notice('Android MCP Play', 'The test game reported its own ready marker after MCP Play.')
     wait('editor Play state', lambda: store.status()['playing'] is True, 90)
+    wait('test game awaiting capture permission', lambda: 'ANDROID_MCP_CAPTURE_TEST_WAITING' in logs(), 90)
+    time.sleep(4)
+    if store.get() is not None or store.get_logs()['entries']:
+        raise RuntimeError('Game sent a frame or logs before the opt-in test trigger')
+    adb('shell', 'touch', '/sdcard/RedotMCPAudit/ci_allow_capture.txt')
     wait('test game requesting capture', lambda: 'ANDROID_MCP_CAPTURE_TEST_REQUESTED' in logs(), 90)
     def valid_frame():
         if not store.status()['frame_available']:
@@ -196,9 +231,14 @@ if __name__ == '__main__':
     try:
         main(store)
     except Exception as exc:
-        failure_diagnostics(exc)
+        if DID_INSTALL:
+            failure_diagnostics(exc)
+        else:
+            print('::error title=Android MCP probe::' + str(exc).replace('%', '%25'), file=sys.stderr, flush=True)
         raise
     finally:
-        adb('reverse', '--remove', 'tcp:8765', check=False)
-        adb('shell', 'am', 'force-stop', PKG, check=False)
+        if DID_REVERSE:
+            adb('reverse', '--remove', 'tcp:8765', check=False)
+        if DID_INSTALL:
+            adb('shell', 'am', 'force-stop', PKG, check=False)
         server.shutdown(); server.server_close(); worker.join()
