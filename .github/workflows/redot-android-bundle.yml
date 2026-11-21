@@ -41,7 +41,9 @@ jobs:
             [ -n "$id" ] || continue
             workflow_path=redot-android-editor.yml
             if [ "$workflow" = 'Assemble Android editor and latest bridge' ]; then workflow_path=redot-android-bundle.yml; fi
-            if ! gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$workflow_path?ref=$sha" --jq .content | base64 -d | grep -q "ref: $expected"; then continue; fi
+            # Consume the entire stream: grep -q can close the pipe early,
+            # making base64 fail with SIGPIPE under pipefail on valid sources.
+            if ! gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$workflow_path?ref=$sha" --jq .content | base64 -d | grep -F "ref: $expected" >/dev/null; then continue; fi
             # A successful bundle also contains the APKs. Reuse it when a
             # build-only artifact has expired or fallen outside the run list.
             for name in redot-26.3-rc2-android-arm64-and-usb-mcp redot-26.3-rc2-android-latest-bridge; do
