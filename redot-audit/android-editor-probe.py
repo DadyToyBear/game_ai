@@ -104,7 +104,7 @@ def main():
         (project / 'scenes').mkdir(); (project / 'scenes/main.tscn').write_text('[gd_scene format=3]\n[node name="Main" type="Node2D"]\n')
         (project / 'addons/audit').mkdir(parents=True)
         (project / 'addons/audit/plugin.cfg').write_text('[plugin]\nname="Android Import Audit"\ndescription="test only"\nauthor="test"\nversion="1"\nscript="plugin.gd"\n')
-        (project / 'addons/audit/plugin.gd').write_text('@tool\nextends EditorPlugin\nfunc _enter_tree() -> void:\n\tprint("ANDROID_IMPORT_EDITOR_READY")\n')
+        (project / 'addons/audit/plugin.gd').write_text('@tool\nextends EditorPlugin\nfunc _enter_tree() -> void:\n\tprint("ANDROID_IMPORT_EDITOR_READY " + ProjectSettings.globalize_path("res://"))\n')
         adb('push', str(project), '/sdcard/', timeout=90)
     # Open Import in the project manager to investigate the local-folder flow.
     dismiss_unrelated_anr()
@@ -118,13 +118,28 @@ def main():
     time.sleep(3)
     adb('shell', 'input', 'tap', '816', '672')
     time.sleep(5)
+    # Import Existing Project, with Edit Now checked. The plugin can only
+    # report success once the editor opens this specific source directory.
+    adb('shell', 'input', 'tap', '739', '507')
+    deadline = time.monotonic() + 180
+    logs = ''
+    while time.monotonic() < deadline:
+        time.sleep(3)
+        logs = adb('logcat', '-d', '-s', 'redot:V', 'godot:V', 'Godot:V', '*:S', check=False).stdout.decode(errors='replace')
+        if 'ANDROID_IMPORT_EDITOR_READY /storage/emulated/0/RedotImport/' in logs:
+            break
+    else:
+        raise RuntimeError('Imported Android project did not open and report its source path')
+    scene = adb('shell', 'cat', '/sdcard/RedotImport/scenes/main.tscn').stdout.decode()
+    if scene != '[gd_scene format=3]\n[node name="Main" type="Node2D"]\n':
+        raise RuntimeError('Source project scene changed or is missing')
     image = Image.open(io.BytesIO(adb('exec-out', 'screencap', '-p').stdout)).convert('RGB')
     image.thumbnail((960, 600))
     buf = io.BytesIO(); image.save(buf, format='JPEG', quality=18)
     data = base64.b64encode(buf.getvalue()).decode('ascii')
     for i in range(0, min(len(data), 35000), 3500):
         print(f'::notice title=ANDROID_PROBE_{i//3500:02d}::{data[i:i+3500]}')
-    notice('Android runtime probe', 'Process remained alive on an ARM-translating emulator. A process/screenshot alone does not prove project import, editor functionality, or real-device behavior.')
+    notice('Android local project import', 'The real Android editor imported a local folder and its test EditorPlugin reported the original project path; a nested scene remained intact. Android 15 x86 emulator, ARM translation, software graphics; not a physical-device, MCP or network-drive test.')
 
 
 if __name__ == '__main__':
