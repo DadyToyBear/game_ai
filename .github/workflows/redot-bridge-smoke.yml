@@ -7,6 +7,7 @@ on:
       - '.github/workflows/redot-bridge-smoke.yml'
       - 'redot-bridge/**'
       - 'redot-audit/workspace_browser_test.cjs'
+      - 'redot-audit/chat_dashboard_browser_test.cjs'
   workflow_dispatch:
 
 permissions:
@@ -36,6 +37,7 @@ jobs:
       - run: npm install --no-save playwright@1.56.1
       - run: npx playwright install --with-deps chromium
       - run: node redot-audit/workspace_browser_test.cjs
+      - run: node redot-audit/chat_dashboard_browser_test.cjs
 
   redot-smoke:
     runs-on: ubuntu-24.04
