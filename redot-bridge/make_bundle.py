@@ -42,8 +42,10 @@ def copy_multiagent(destination):
         raise ValueError('Multiagent chat source not found')
     pairs = ((SOURCE / 'multiagent_mcp.py', destination / 'multiagent_mcp.py'),
              (SOURCE / 'task_transport.py', destination / 'task_transport.py'),
+             (SOURCE / 'agent_presence.py', destination / 'agent_presence.py'),
              (SOURCE / 'prepare_dashboard.py', destination / 'prepare_dashboard.py'),
              (SOURCE / 'dashboard_chat_patch.js', destination / 'dashboard_chat_patch.js'),
+             (SOURCE / 'dashboard_presence_patch.js', destination / 'dashboard_presence_patch.js'),
              (chat, destination / 'multiagent_chat.py'),
              (SOURCE / 'opencode.multiagent.example.json', destination / 'opencode.multiagent.example.json'))
     if any(target.exists() or target.is_symlink() for _, target in pairs):

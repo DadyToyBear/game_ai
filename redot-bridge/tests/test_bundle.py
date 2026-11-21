@@ -27,6 +27,8 @@ class BundleTests(unittest.TestCase):
             self.assertTrue((result / 'make_bundle.py').is_file())
             self.assertTrue((result / 'multiagent_mcp.py').is_file())
             self.assertTrue((result / 'task_transport.py').is_file())
+            self.assertTrue((result / 'agent_presence.py').is_file())
+            self.assertTrue((result / 'dashboard_presence_patch.js').is_file())
             self.assertTrue((result / 'prepare_dashboard.py').is_file())
             self.assertTrue((result / 'dashboard_chat_patch.js').is_file())
             self.assertTrue((result / 'multiagent_chat.py').is_file())

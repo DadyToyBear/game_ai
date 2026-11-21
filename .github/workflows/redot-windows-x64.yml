@@ -136,6 +136,15 @@ jobs:
               throw 'Signed task transport tests failed'
             }
             Get-Content task.log
+            python -m unittest discover -s redot-bridge/tests -p test_agent_presence.py -v > presence.log 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              $s = Get-Content presence.log -Raw
+              if ($s.Length -gt 3500) { $s = $s.Substring($s.Length - 3500) }
+              $s = $s.Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+              Write-Output "::error title=Windows agent presence::$s"
+              throw 'Agent presence tests failed'
+            }
+            Get-Content presence.log
             python -m unittest discover -s redot-bridge/tests -p test_project_sync.py -v > snapshots.log 2>&1
             if ($LASTEXITCODE -ne 0) {
               $s = (Get-Content snapshots.log -Raw)

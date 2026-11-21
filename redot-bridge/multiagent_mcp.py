@@ -18,6 +18,7 @@ import urllib.parse
 import urllib.request
 
 import bridge
+import agent_presence
 import task_transport
 from task_transport import chat_share
 
@@ -67,7 +68,8 @@ def load_chat(script):
                                     request=SimpleNamespace(Request=urllib.request.Request, urlopen=chat_open))
     names = [entry['name'] for entry in module.TOOLS]
     editor_names = [entry['name'] for entry in bridge.tools()]
-    if len(set(names)) != len(names) or set(names).intersection(editor_names):
+    reserved = set(editor_names) | {'webftp_task_submit', 'webftp_task_result', 'chat_presence_update', 'chat_presence_read'}
+    if len(set(names)) != len(names) or set(names).intersection(reserved):
         raise ValueError('Chat and editor tool names conflict')
     return module
 
@@ -80,7 +82,15 @@ TASK_TOOLS = [
 ]
 
 
-def response(message, url, token, chat, task_client=None, task_secret=''):
+PRESENCE_TOOLS = [
+    {'name': 'chat_presence_update', 'description': 'Write one self-reported heartbeat. Does not prove the agent is healthy.',
+     'inputSchema': {'type': 'object', 'properties': {'agent': {'type': 'string', 'pattern': '^[a-z0-9][a-z0-9_-]{0,63}$'}, 'status': {'type': 'string', 'maxLength': 200}}, 'required': ['agent'], 'additionalProperties': False}},
+    {'name': 'chat_presence_read', 'description': 'Read one unauthenticated heartbeat. Unknown can mean missing, invalid or unreachable.',
+     'inputSchema': {'type': 'object', 'properties': {'agent': {'type': 'string', 'pattern': '^[a-z0-9][a-z0-9_-]{0,63}$'}}, 'required': ['agent'], 'additionalProperties': False}},
+]
+
+
+def response(message, url, token, chat, task_client=None, task_secret='', presence_client=None):
     if not isinstance(message, dict) or message.get('jsonrpc') != '2.0':
         return {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32600, 'message': 'Invalid Request'}}
     if 'id' not in message:
@@ -89,7 +99,7 @@ def response(message, url, token, chat, task_client=None, task_secret=''):
     if method == 'initialize':
         return {'jsonrpc': '2.0', 'id': rid, 'result': {'protocolVersion': '2025-03-26', 'capabilities': {'tools': {}}, 'serverInfo': {'name': 'redot-multiagent-editor', 'version': '0.1.0'}}}
     if method == 'tools/list':
-        return {'jsonrpc': '2.0', 'id': rid, 'result': {'tools': bridge.tools() + chat.TOOLS + (TASK_TOOLS if task_client else [])}}
+        return {'jsonrpc': '2.0', 'id': rid, 'result': {'tools': bridge.tools() + chat.TOOLS + (TASK_TOOLS if task_client else []) + (PRESENCE_TOOLS if presence_client else [])}}
     if method == 'tools/call':
         params = message.get('params')
         if task_client and isinstance(params, dict) and params.get('name') in ('webftp_task_submit', 'webftp_task_result'):
@@ -108,6 +118,18 @@ def response(message, url, token, chat, task_client=None, task_secret=''):
                         raise ValueError('Invalid result content')
             except (ValueError, OSError, TypeError, RecursionError):
                 payload = {'content': [{'type': 'text', 'text': 'Signed task or result unavailable or invalid; execution is unknown.'}], 'isError': True}
+            return {'jsonrpc': '2.0', 'id': rid, 'result': payload}
+        if presence_client and isinstance(params, dict) and params.get('name') in ('chat_presence_update', 'chat_presence_read'):
+            arguments = params.get('arguments', {})
+            name = params['name']
+            allowed = {'agent', 'status'} if name == 'chat_presence_update' else {'agent'}
+            if not isinstance(arguments, dict) or 'agent' not in arguments or not set(arguments) <= allowed:
+                return {'jsonrpc': '2.0', 'id': rid, 'error': {'code': -32602, 'message': 'Invalid tool arguments'}}
+            try:
+                result = agent_presence.write(presence_client, arguments['agent'], arguments.get('status', '')) if name == 'chat_presence_update' else agent_presence.read(presence_client, arguments['agent'])
+                payload = {'content': [{'type': 'text', 'text': json.dumps(result, ensure_ascii=True)}]}
+            except (ValueError, OSError, TypeError, RecursionError):
+                payload = {'content': [{'type': 'text', 'text': 'Heartbeat unavailable or invalid.'}], 'isError': True}
             return {'jsonrpc': '2.0', 'id': rid, 'result': payload}
         if isinstance(params, dict) and params.get('name') in {item['name'] for item in chat.TOOLS}:
             arguments = params.get('arguments', {})
@@ -155,11 +177,12 @@ def main():
             if not task_transport.valid_secret(task_secret) or hmac.compare_digest(task_secret, token):
                 raise ValueError('REDOT_TASK_SECRET must be random and distinct from REDOT_BRIDGE_TOKEN')
             task_client = task_transport.WebFTP(share, os.environ.get('WEBFTP_BEARER', ''))
+        presence_client = task_transport.WebFTP(share, os.environ.get('WEBFTP_BEARER', '')) if os.environ.get('REDOT_PRESENCE_ENABLED') == '1' else None
     except (ValueError, OSError, ImportError, KeyError) as exc:
         parser.error(str(exc))
     for line in sys.stdin:
         try:
-            reply = response(json.loads(line), url, token, chat, task_client, task_secret)
+            reply = response(json.loads(line), url, token, chat, task_client, task_secret, presence_client)
         except json.JSONDecodeError:
             reply = {'jsonrpc': '2.0', 'id': None, 'error': {'code': -32700, 'message': 'Parse error'}}
         if reply is not None:

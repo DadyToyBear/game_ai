@@ -30,6 +30,8 @@ async function readFiles(names) {
   return rows.filter(Boolean);
 }
 async function chatRefresh(){
+  if (!document.body.classList.contains('chat-mode')) return;
+  refreshPresence();
   if(chatBusy)return; chatBusy=true;
   const generation = chatGeneration;
   try {

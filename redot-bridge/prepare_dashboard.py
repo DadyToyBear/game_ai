@@ -38,6 +38,14 @@ def generate(source, output):
     if text.count(marker) != 1:
         raise ValueError('Chat UI anchor mismatch')
     text = text.replace(marker, extra + marker)
+    text = text.replace('<h3>🤖 Агенты (модели)</h3>', '<h3>🤖 Агенты · heartbeat не подтверждает работу</h3>')
+    old_live = "document.getElementById('tab-live').onclick=()=>{setLiveMode(true);document.body.classList.remove('chat-mode');document.getElementById('tab-chat').classList.remove('active');};"
+    if text.count(old_live) != 1:
+        raise ValueError('Live tab anchor mismatch')
+    text = text.replace(old_live, "document.getElementById('tab-live').onclick=()=>{setLiveMode(true);chatMode(false);};")
+    start, end = text.index('function buildAgentList(){'), text.index('async function chatList(prefixes){')
+    presence = (Path(__file__).resolve().parent / 'dashboard_presence_patch.js').read_text(encoding='utf-8')
+    text = text[:start] + presence + '\n' + text[end:]
     start, end = text.index('async function chatList(prefixes){'), text.index('async function postChat(kind,payload,name){')
     replacement = (Path(__file__).resolve().parent / 'dashboard_chat_patch.js').read_text(encoding='utf-8')
     text = text[:start] + replacement + '\n' + text[end:]

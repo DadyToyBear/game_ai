@@ -18,6 +18,10 @@ const files = {
   'assign-as1.json': JSON.stringify({agent:'or-ling',method:'read_script',ts:'2026-11-21T12:34:58Z'}),
   'result-zzz.json': JSON.stringify({result:'private test result'}),
   'event-zzz.json': JSON.stringify({kind:'build_completed'}),
+  'agent-or-ling-heartbeat.json': JSON.stringify({agent:'or-ling',ts:new Date().toISOString(),status:'тест <img src=x onerror=alert(1)>',alive:true}),
+  'agent-chat-zai-heartbeat.json': JSON.stringify({agent:'chat-zai',ts:new Date(Date.now()-6*60*1000).toISOString(),status:'',alive:true}),
+  'agent-or-gemma-26-heartbeat.json': JSON.stringify({agent:'or-gemma-26',ts:new Date(Date.now()-16*60*1000).toISOString(),status:'',alive:true}),
+  'agent-redot-cli-heartbeat.json': JSON.stringify({agent:'other',ts:new Date().toISOString(),status:'',alive:true}),
 };
 const names = [...Array.from({length:21645}, (_,i)=>'task-'+String(i).padStart(6,'0')+'.json'), ...Object.keys(files).filter(n=>n!=='chat-index.json')];
 const requested = [];
@@ -46,6 +50,13 @@ const server = http.createServer((req,res)=>{
     assert.equal(await page.locator('#room-feed img').count(),0,'chat text must not execute as HTML');
     assert.match(await page.locator('#room-feed').textContent(),/Назначение or-ling/);
     await page.locator('#dm-feed').getByText('Личное').waitFor({timeout:5000});
+    const presence = id => page.locator(`.agent-item[data-id="${id}"] .presence`);
+    await presence('or-ling').filter({hasText:'Недавний сигнал'}).waitFor({timeout:5000});
+    assert.match(await presence('chat-zai').textContent(),/Сигнал устарел/);
+    assert.match(await presence('or-gemma-26').textContent(),/давно не обновлялся/);
+    assert.match(await presence('redot-cli').textContent(),/Нет достоверных данных/);
+    assert.match(await presence('or-ling').textContent(),/<img src=x/);
+    assert.equal(await page.locator('#agent-list img').count(),0,'heartbeat status must not execute as HTML');
     assert.ok(!requested.some(x=>/^(task|result|event)-/.test(x)), 'MCP traffic must not be fetched by default');
     assert.equal(await page.locator('#chat-mcp-feed').isHidden(),true);
     await page.locator('#chat-show-mcp').check();

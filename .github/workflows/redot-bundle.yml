@@ -12,6 +12,8 @@ on:
       - 'multiagent-upstream/multiagent-mcp.py'
       - 'redot-bridge/multiagent_mcp.py'
       - 'redot-bridge/task_transport.py'
+      - 'redot-bridge/agent_presence.py'
+      - 'redot-bridge/dashboard_presence_patch.js'
       - 'redot-bridge/prepare_dashboard.py'
       - 'redot-bridge/dashboard_chat_patch.js'
       - 'redot-bridge/opencode.multiagent.example.json'
