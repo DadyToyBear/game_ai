@@ -48,18 +48,25 @@ jobs:
             if ! grep -Fq "ref: $expected" old-workflow.yml || ! grep -Fq 'version: 4.0.11' old-workflow.yml || ! grep -Fq 'scons platform=web target=editor threads=yes' old-workflow.yml; then continue; fi
             if ! gh api "repos/$GITHUB_REPOSITORY/contents/build-patches/fix_tinyexr.py?ref=$sha" --jq .content | base64 -d > old-patch.py; then continue; fi
             [ "$(sha256sum old-patch.py | cut -d' ' -f1)" = "$patch_hash" ] || continue
-            available=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts" --jq '[.artifacts[] | select(.name == "redot-26.3-rc2-web-editor" and .expired == false)] | length')
-            [ "$available" -eq 1 ] || continue
-            mkdir -p "source-$id"
-            if ! gh run download "$id" --repo "$GITHUB_REPOSITORY" --name redot-26.3-rc2-web-editor --dir "source-$id"; then continue; fi
-            valid=true
-            for file in godot.editor.html godot.editor.js godot.editor.wasm service.worker.js; do [ -s "source-$id/$file" ] || valid=false; done
-            [ "$valid" = true ] || continue
-            mkdir -p bundle
-            cp -a "source-$id/." bundle/
-            printf 'Engine revision: %s\nWeb build run: %s\nWeb build commit: %s\nBridge commit: %s\n' "$expected" "$id" "$sha" "$GITHUB_SHA" > bundle/BUILD-PROVENANCE.txt
-            found=true
-            break
+            # A completed bundle also contains the editor. Reuse it if the
+            # original build-only artifact is outside the run list or expired.
+            for name in redot-26.3-rc2-web-editor redot-web-editor-with-local-bridge; do
+              available=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts" --jq "[.artifacts[] | select(.name == \"$name\" and .expired == false)] | length")
+              [ "$available" -eq 1 ] || continue
+              rm -rf "source-$id"; mkdir -p "source-$id"
+              if ! gh run download "$id" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "source-$id"; then continue; fi
+              valid=true
+              for file in godot.editor.html godot.editor.js godot.editor.wasm service.worker.js; do [ -s "source-$id/$file" ] || valid=false; done
+              [ "$valid" = true ] || continue
+              # Replace the old bridge rather than embedding a stale duplicate.
+              rm -rf "source-$id/redot-bridge" "source-$id/BRIDGE-START.md"
+              mkdir -p bundle
+              cp -a "source-$id/." bundle/
+              printf 'Engine revision: %s\nWeb source run: %s\nWeb source artifact: %s\nWeb source commit: %s\nBridge commit: %s\n' "$expected" "$id" "$name" "$sha" "$GITHUB_SHA" > bundle/BUILD-PROVENANCE.txt
+              found=true
+              break
+            done
+            if [ "$found" = true ]; then break; fi
           done < <(jq -r '.[] | select(.status == "completed" and .conclusion == "success" and (.workflowName == "Build Redot 26.3 RC2 Web Editor" or .workflowName == "Assemble Redot Web Editor with Local Bridge")) | [.databaseId, .headSha, .workflowName] | @tsv' runs.json)
           echo "found=$found" >> "$GITHUB_OUTPUT"
           if [ "$found" = false ]; then echo 'No compatible unexpired Web build: a fresh build will be made.'; fi
