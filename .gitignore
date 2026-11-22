@@ -1,0 +1,21 @@
+node_modules/
+www/
+dist/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+# ключи подписи никогда не попадают в репозиторий
+*.jks
+*.keystore
+android/keystore.properties
+.DS_Store
+# локальный Android-тулчейн и артефакты сборки без Gradle
+/tools/
+android/standalone/build/
+android/standalone/tools/smali-driver/*.class
+dist-apk/

@@ -1,0 +1,97 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace "com.ministudio.app"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.ministudio.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // версия берётся из -PmsVersionCode=… / -PmsVersionName=… (CI) или по умолчанию
+        versionCode Integer.parseInt(project.findProperty('msVersionCode') ?: '1')
+        versionName (project.findProperty('msVersionName') ?: "1.0.1")
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        androidResources {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    /* Подпись release-сборки.
+       Ключ берётся из android/keystore.properties (в git не попадает) или из переменных
+       окружения MS_KEYSTORE / MS_KEYSTORE_PASSWORD / MS_KEY_ALIAS / MS_KEY_PASSWORD. */
+    def keystoreProps = new Properties()
+    def keystoreFile = rootProject.file('keystore.properties')
+    if (keystoreFile.exists()) {
+        keystoreFile.withInputStream { keystoreProps.load(it) }
+    }
+    def ksStore = System.getenv('MS_KEYSTORE') ?: keystoreProps.getProperty('storeFile')
+    def ksStorePass = System.getenv('MS_KEYSTORE_PASSWORD') ?: keystoreProps.getProperty('storePassword')
+    def ksAlias = System.getenv('MS_KEY_ALIAS') ?: keystoreProps.getProperty('keyAlias')
+    def ksKeyPass = System.getenv('MS_KEY_PASSWORD') ?: keystoreProps.getProperty('keyPassword')
+
+    signingConfigs {
+        release {
+            if (ksStore && ksStorePass) {
+                storeFile file(ksStore)
+                storePassword ksStorePass
+                keyAlias ksAlias ?: 'ministudio'
+                keyPassword ksKeyPass ?: ksStorePass
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (ksStore && ksStorePass) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+    }
+
+    // Имя файла сборки без суффиксов — удобнее для релизов
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            outputFileName = "mini-studio-${variant.buildType.name}-${variant.versionName}.apk"
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
