@@ -1,0 +1,28 @@
+name: Web editor Play and game capture probe
+
+# Each Web bundle now runs this probe before publication. The standalone
+# diagnostic is manual so it cannot race a new build and test an old bundle.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  web-editor-game:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download a recent verified Web editor bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash redot-audit/download_latest_bundle.sh 'Assemble Redot Web Editor with Local Bridge' redot-web-editor-with-local-bridge web-editor
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.56.1 pngjs@7.0.0
+      - run: npx playwright install --with-deps chromium
+      - name: Launch a test project from the real editor
+        run: node redot-audit/web-editor-play.cjs web-editor

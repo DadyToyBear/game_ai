@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MCP Bridge Dashboard</title>
+<style>
+:root {
+  --bg: #131214;
+  --panel: #1c1b1f;
+  --panel-2: #222124;
+  --border: #333136;
+  --text: #eae6df;
+  --muted: #928d87;
+  --accent: #d4764e;
+  --accent-hi: #e8a06f;
+  --ok: #6ec07a;
+  --err: #d65656;
+  --warn: #d4a14e;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+header {
+  background: linear-gradient(180deg, #1f1d22 0%, #18171a 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+header h1 .accent { color: var(--accent-hi); }
+header .share-url {
+  font-family: var(--mono);
+  color: var(--muted);
+  font-size: 12px;
+  background: var(--panel);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+header .refresh-ctrl {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+select, button, input[type="text"], textarea {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+.btn {
+  background: var(--accent);
+  color: #170f0b;
+  font-weight: 600;
+  border: 0;
+  cursor: pointer;
+  padding: 7px 14px;
+  border-radius: 5px;
+}
+.btn:hover { background: var(--accent-hi); }
+.btn.sec { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+.btn.sec:hover { background: #2a282c; }
+
+main {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 14px;
+  padding: 14px 22px;
+}
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+section h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Status cards row */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px 22px 0;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.card .label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.card .value {
+  font-size: 16px;
+  font-weight: 600;
+}
+.card .value.ok { color: var(--ok); }
+.card .value.err { color: var(--err); }
+.card .value.warn { color: var(--warn); }
+.card .sub { color: var(--muted); font-size: 11px; margin-top: 2px; font-family: var(--mono); }
+
+/* Activity feed */
+.feed {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.entry {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0;
+}
+.entry:last-child { border-bottom: 0; }
+.entry .head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.entry .ts { color: var(--muted); flex: 0 0 auto; }
+.entry .method { color: var(--accent-hi); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry .status {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.entry .status.ok { background: rgba(110,192,122,0.15); color: var(--ok); }
+.entry .status.err { background: rgba(214,86,86,0.15); color: var(--err); }
+.entry .status.pending { background: rgba(212,161,78,0.15); color: var(--warn); }
+.entry .body {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--bg);
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+}
+.entry.expanded .body { display: block; }
+.entry .head { cursor: pointer; }
+.entry .head:hover { background: var(--panel-2); }
+
+/* Action panel */
+.field {
+  margin-bottom: 10px;
+}
+.field label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.field input, .field textarea, .field select {
+  width: 100%;
+}
+.field textarea {
+  min-height: 80px;
+  font-family: var(--mono);
+  resize: vertical;
+}
+.action-result {
+  margin-top: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+}
+.action-result.show { display: block; }
+.action-result.ok { border-color: var(--ok); }
+.action-result.err { border-color: var(--err); }
+
+.quick-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.quick-buttons button {
+  font-size: 11px;
+  padding: 5px 8px;
+  text-align: left;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.quick-buttons button:hover { border-color: var(--accent); color: var(--accent-hi); }
+
+/* Downloads */
+.downloads {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 6px;
+}
+.downloads a {
+  display: block;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  text-decoration: none;
+  font-size: 12px;
+}
+.downloads a:hover { border-color: var(--accent); color: var(--accent-hi); }
+.downloads a .size {
+  color: var(--muted);
+  font-size: 10px;
+  display: block;
+}
+
+.empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 10px 14px;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.err { border-color: var(--err); color: var(--err); }
+.toast.ok { border-color: var(--ok); color: var(--ok); }
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<style>
+/* ZAI Live tab */
+.tabbtn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 13px;border-radius:7px;cursor:pointer;font-weight:600}
+.tabbtn.active{background:var(--accent);border-color:var(--accent);color:#170f0b}
+body.live-mode .cards, body.live-mode main, body.live-mode #screen-card { display:none }
+#live-panel{display:none;padding:10px 16px}
+body.live-mode #live-panel{display:block}
+.live-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;height:calc(100vh - 150px)}
+.live-box{background:var(--panel);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.live-box h3{margin:0;padding:9px 12px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);border-bottom:1px solid var(--border)}
+.live-box iframe{flex:1;width:100%;border:0;background:#111}
+.live-controls{display:flex;gap:6px;flex-wrap:wrap;padding:8px;border-bottom:1px solid var(--border)}
+.live-controls button{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px}
+.live-controls button:hover{border-color:var(--accent)}
+#liveFrame{width:100%;flex:1;min-height:180px;object-fit:contain;background:#000;border:0}
+#liveLogs{flex:1;min-height:120px;margin:0;padding:8px;background:#0d0d0f;color:#9fe6a0;font:11px/1.4 monospace;overflow:auto;white-space:pre-wrap}
+.live-status{padding:4px 10px;font-size:11px;color:var(--muted)}
+</style>
+
+<style>
+/* ZAI Chat tab */
+body.chat-mode .cards, body.chat-mode main, body.chat-mode #screen-card, body.chat-mode #live-panel { display:none }
+#chat-panel{display:none;padding:10px 16px;height:calc(100vh - 110px)}
+body.chat-mode #chat-panel{display:block}
+.chat-grid{display:grid;grid-template-columns:230px 1fr 300px;gap:10px;height:100%}
+.chat-col{background:var(--panel);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.chat-col h3{margin:0;padding:9px 11px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);border-bottom:1px solid var(--border)}
+.chat-scroll{flex:1;overflow:auto;padding:8px}
+.chat-msg{border:1px solid var(--border);border-radius:7px;padding:7px 9px;margin-bottom:6px;background:#17171a;font-size:12px}
+.chat-msg .who{font-weight:700;color:var(--accent)}
+.chat-msg .time{float:right;color:var(--muted);font-size:10px}
+.chat-msg.dm{border-left:3px solid #6c63ff}
+.chat-msg.task{border-left:3px solid #6ee7a0}
+.chat-input{display:flex;gap:6px;padding:8px;border-top:1px solid var(--border)}
+.chat-input input,.chat-input select,.chat-input textarea{flex:1;min-width:0;background:#0d0d0f;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px;font:12px system-ui}
+.chat-input button{background:var(--accent);border:0;border-radius:6px;color:#170f0b;font-weight:700;cursor:pointer;padding:7px 12px}
+.agent-item{padding:7px 9px;border:1px solid var(--border);border-radius:6px;margin-bottom:5px;cursor:pointer;font-size:12px}
+.agent-item:hover{border-color:var(--accent)}
+.agent-item.active{background:#232027;border-color:var(--accent)}
+.agent-item small{display:block;color:var(--muted);font-size:10px}
+.chat-tools{display:flex;gap:5px;flex-wrap:wrap;padding:7px;border-bottom:1px solid var(--border)}
+.chat-tools button{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:5px;padding:5px 8px;cursor:pointer;font-size:11px}
+.chat-tools button:hover{border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MCP Bridge <span class="accent">Dashboard</span></h1>
+  <span class="share-url" id="share-url">…</span>
+  <button class="tabbtn active" id="tab-dash">📊 Dashboard</button><button class="tabbtn" id="tab-live">🎮 Live</button><button class="tabbtn" id="tab-chat">💬 Чат</button>
+  <div class="refresh-ctrl">
+    <select id="refresh-interval">
+      <option value="3000">3s</option>
+      <option value="5000" selected>5s</option>
+      <option value="10000">10s</option>
+      <option value="0">manual</option>
+    </select>
+    <button class="btn sec" id="refresh-now">↻ Now</button>
+  </div>
+</header>
+
+<div class="cards">
+  <div class="card">
+    <div class="label">Bridge status</div>
+    <div class="value" id="card-bridge">…</div>
+    <div class="sub" id="card-bridge-sub"></div>
+  </div>
+  <div class="card">
+    <div class="label">Godot connection</div>
+    <div class="value" id="card-godot">…</div>
+    <div class="sub" id="card-godot-sub"></div>
+  </div>
+  <div class="card">
+    <div class="label">Pending tasks</div>
+    <div class="value" id="card-pending">…</div>
+    <div class="sub" id="card-pending-sub"></div>
+  </div>
+  <div class="card">
+    <div class="label">Total calls</div>
+    <div class="value" id="card-total">…</div>
+    <div class="sub" id="card-total-sub"></div>
+  </div>
+</div>
+
+<div class="card" id="screen-card" style="margin:0 16px 8px;padding:10px">
+  <div class="label" style="margin-bottom:6px">📺 Live экран Redot <span id="screen-stat" style="float:right;text-transform:none;color:var(--muted)"></span></div>
+  <img id="screen-stream" src="" alt="live screen" style="width:100%;max-height:360px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#000;display:block">
+</div>
+
+
+<div id="live-panel">
+  <div class="live-grid">
+    <div class="live-box">
+      <h3>🖥️ Web Editor — Корона и знамя <a href="https://91.77.164.54:8099/godot.editor.html" target="_blank" style="float:right;color:var(--muted);font-size:11px">открыть ↗</a></h3>
+      <div class="live-status" style="border-bottom:1px solid var(--border)">Самоподписанный сертификат: примите предупреждение браузера (Дополнительно → Продолжить) или откройте редактор отдельной вкладкой.</div>
+      <iframe id="liveEditor" src="about:blank"></iframe>
+    </div>
+    <div class="live-box">
+      <h3>🎮 Игра в реальном времени + логи</h3>
+      <div class="live-controls">
+        <button id="lv-play">▶ Play</button>
+        <button id="lv-stop">■ Stop</button>
+        <button id="lv-shot">📸 Скриншот</button>
+        <button id="lv-auto">🔄 Авто: ВКЛ</button>
+        <button id="lv-log">📋 Логи</button>
+      </div>
+      <img id="liveFrame" alt="live game frame">
+      <div class="live-status" id="lv-status">Готово</div>
+      <pre id="liveLogs">Логи появятся здесь</pre>
+    </div>
+  </div>
+</div>
+
+
+<div id="chat-panel">
+  <div class="chat-grid">
+    <div class="chat-col">
+      <h3>🤖 Агенты (модели)</h3>
+      <div class="chat-scroll" id="agent-list"></div>
+      <div class="chat-tools">
+        <button id="chat-prompt">📋 Промпт для агентов</button>
+        <button id="chat-refresh">↻ Обновить</button>
+      </div>
+    </div>
+    <div class="chat-col">
+      <h3>🏠 Общая комната <span id="chat-count" style="float:right;color:var(--muted);font-size:10px;text-transform:none"></span></h3>
+      <div class="chat-scroll" id="room-feed"></div>
+      <div class="chat-input">
+        <input id="chat-from" placeholder="Ваше имя (например, opencode-1)" value="opencode-1">
+        <input id="chat-text" placeholder="Сообщение в комнату…">
+        <button id="chat-send">Отправить</button>
+      </div>
+    </div>
+    <div class="chat-col">
+      <h3>✉️ Личные сообщения <span id="dm-with" style="float:right;color:var(--muted);font-size:10px;text-transform:none"></span></h3>
+      <div class="chat-scroll" id="dm-feed"></div>
+      <h3 style="border-top:1px solid var(--border)">📌 Выдать задание</h3>
+      <div class="chat-input" style="flex-wrap:wrap;border-top:0">
+        <select id="task-agent" style="flex:1 1 100%"></select>
+        <input id="task-method" placeholder="метод MCP (например get_editor_errors)" style="flex:1 1 100%">
+        <input id="task-params" placeholder='{"param":"value"}' value="{}" style="flex:1 1 100%">
+        <button id="task-send" style="flex:1 1 100%">Назначить</button>
+      </div>
+      <div class="chat-input">
+        <input id="dm-text" placeholder="Личное сообщение…">
+        <button id="dm-send">✉</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main>
+  <section>
+    <h2>Activity feed <span style="float:right;font-weight:normal;color:var(--muted);font-size:11px;text-transform:none;letter-spacing:0;">click row to expand</span></h2>
+    <div class="feed" id="feed">
+      <div class="empty">Loading…</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Send test call</h2>
+    <div class="quick-buttons">
+      <button data-method="get_project_info" data-params="{}">get_project_info</button>
+      <button data-method="tools/list" data-params="{}">tools/list</button>
+      <button data-method="get_scene_tree" data-params="{}">get_scene_tree</button>
+      <button data-method="get_filesystem_tree" data-params='{"filter":"*.tscn"}'>filesystem *.tscn</button>
+      <button data-method="get_editor_errors" data-params="{}">get_editor_errors</button>
+      <button data-method="ping" data-params="{}">ping bridge</button>
+    </div>
+    <div class="field">
+      <label>Method</label>
+      <input type="text" id="method-input" placeholder="e.g. get_project_info" value="get_project_info">
+    </div>
+    <div class="field">
+      <label>Params (JSON)</label>
+      <textarea id="params-input">{}</textarea>
+    </div>
+    <button class="btn" id="send-btn">Send →</button>
+    <button class="btn sec" id="clear-pending-btn" style="margin-left:6px;">Clear pending</button>
+    <div class="action-result" id="action-result"></div>
+  </section>
+
+  <section>
+    <h2>Downloads</h2>
+    <div class="downloads" id="downloads">
+      <div class="empty">Loading file list…</div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Config — derive share URL from current location so dashboard works on any share
+// ---------------------------------------------------------------------------
+const SHARE_URL = window.location.href.split('?')[0].replace(/\/dashboard\.html$/, '').replace(/\/$/, '');
+const TOKEN = (SHARE_URL.match(/\/s\/([a-f0-9]+)/) || [,''])[1];
+document.getElementById('share-url').textContent = SHARE_URL;
+
+const TASK_PREFIX = 'task-';
+const RESULT_PREFIX = 'result-';
+const EVENT_PREFIX = 'event-';
+const HEARTBEAT_NAME = 'bridge-heartbeat.json';
+const TASK_RE = /^task-(.+)\.json$/;
+const RESULT_RE = /^result-(.+)\.json$/;
+
+// ---------------------------------------------------------------------------
+// WebFTP client (browser-side, same-origin)
+// ---------------------------------------------------------------------------
+async function listNames() {
+  const r = await fetch(`${SHARE_URL}/`, { cache: 'no-store' });
+  const html = await r.text();
+  // Parse <a href="/s/<token>/<name>?view=1"> or without ?view=1
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const names = new Set();
+  doc.querySelectorAll('a[href^="/s/"]').forEach(a => {
+    const m = a.getAttribute('href').match(/^\/s\/[a-f0-9]+\/([^?]+)/);
+    if (m) names.add(decodeURIComponent(m[1]));
+  });
+  return [...names];
+}
+
+async function fetchFile(name) {
+  // Try plain file first, then folder/file
+  for (const url of [`${SHARE_URL}/${encodeURIComponent(name)}?view=1`,
+                     `${SHARE_URL}/${encodeURIComponent(name)}/file?view=1`]) {
+    try {
+      const r = await fetch(url, { cache: 'no-store' });
+      if (r.ok) return await r.text();
+    } catch (e) {}
+  }
+  return null;
+}
+
+async function uploadFile(name, content) {
+  const url = `${SHARE_URL}/?name=${encodeURIComponent(name)}`;
+  const r = await fetch(url, { method: 'PUT', headers:{'Content-Type':'application/json; charset=utf-8'}, body: content });
+  const body = await r.text();
+  return body.includes('"ok":true') || body.includes('"ok": true');
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let refreshTimer = null;
+let lastTotal = 0;
+
+function showToast(msg, kind = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + kind;
+  setTimeout(() => { el.className = 'toast ' + kind; }, 2500);
+}
+
+function timeAgo(iso) {
+  if (!iso) return '—';
+  const t = new Date(iso).getTime();
+  const sec = Math.floor((Date.now() - t) / 1000);
+  if (sec < 5) return 'just now';
+  if (sec < 60) return sec + 's ago';
+  if (sec < 3600) return Math.floor(sec/60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec/3600) + 'h ago';
+  return Math.floor(sec/86400) + 'd ago';
+}
+
+function fmtTs(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString();
+}
+
+// ---------------------------------------------------------------------------
+// Main refresh
+// ---------------------------------------------------------------------------
+async function refresh() {
+  try {
+    const names = await listNames();
+    const tasks = names.filter(n => TASK_RE.test(n));
+    const results = names.filter(n => RESULT_RE.test(n));
+    const events = names.filter(n => n.startsWith(EVENT_PREFIX));
+
+    // Build pairs by id
+    const resultIds = new Set(results.map(n => n.match(RESULT_RE)[1]));
+    const pending = tasks.filter(n => !resultIds.has(n.match(TASK_RE)[1]));
+    const completed = tasks.filter(n => resultIds.has(n.match(TASK_RE)[1]));
+
+    // Heartbeat
+    let heartbeat = null;
+    if (names.includes(HEARTBEAT_NAME)) {
+      const hbText = await fetchFile(HEARTBEAT_NAME);
+      try { heartbeat = JSON.parse(hbText); } catch (e) {}
+    }
+
+    // Update status cards
+    updateCards(heartbeat, pending, completed, tasks.length);
+
+    // Update activity feed (most recent first)
+    await updateFeed(tasks, results, events, resultIds);
+
+    // Update downloads
+    updateDownloads(names);
+  } catch (e) {
+    console.error(e);
+    showToast('Refresh failed: ' + e.message, 'err');
+  }
+}
+
+function updateCards(hb, pending, completed, total) {
+  // Bridge alive = heartbeat within last 60s
+  const bridgeEl = document.getElementById('card-bridge');
+  const bridgeSub = document.getElementById('card-bridge-sub');
+  if (!hb) {
+    bridgeEl.textContent = 'OFFLINE';
+    bridgeEl.className = 'value err';
+    bridgeSub.textContent = 'no heartbeat — bridge.py not running';
+  } else {
+    const ageMs = Date.now() - new Date(hb.ts).getTime();
+    if (ageMs < 60000) {
+      bridgeEl.textContent = 'ALIVE';
+      bridgeEl.className = 'value ok';
+      bridgeSub.textContent = `beat ${timeAgo(hb.ts)}`;
+    } else {
+      bridgeEl.textContent = 'STALE';
+      bridgeEl.className = 'value warn';
+      bridgeSub.textContent = `last beat ${timeAgo(hb.ts)}`;
+    }
+  }
+
+  // Godot connected
+  const godotEl = document.getElementById('card-godot');
+  const godotSub = document.getElementById('card-godot-sub');
+  if (hb && hb.godot_connected) {
+    godotEl.textContent = 'CONNECTED';
+    godotEl.className = 'value ok';
+    godotSub.textContent = hb.godot_remote || '127.0.0.1';
+  } else {
+    godotEl.textContent = 'DISCONNECTED';
+    godotEl.className = (hb) ? 'value err' : 'value warn';
+    godotSub.textContent = hb ? 'enable Godot MCP addon' : '—';
+  }
+
+  // Pending
+  const pendEl = document.getElementById('card-pending');
+  const pendSub = document.getElementById('card-pending-sub');
+  pendEl.textContent = pending.length;
+  pendEl.className = 'value ' + (pending.length === 0 ? 'ok' : 'warn');
+  pendSub.textContent = pending.length === 0 ? 'all caught up' : pending.map(n => n.match(TASK_RE)[1].slice(0,8)).join(', ').slice(0,40);
+
+  // Total
+  const totEl = document.getElementById('card-total');
+  const totSub = document.getElementById('card-total-sub');
+  totEl.textContent = total;
+  totEl.className = 'value';
+  totSub.textContent = `${completed.length} done, ${pending.length} pending`;
+  lastTotal = total;
+}
+
+async function updateFeed(tasks, results, events, resultIds) {
+  // Build entries: {id, taskName, resultName?, ts, method, args, result, status}
+  const entries = [];
+  for (const tn of tasks) {
+    const id = tn.match(TASK_RE)[1];
+    const entry = { id, taskName: tn };
+    // Fetch task content to get method and ts
+    try {
+      const text = await fetchFile(tn);
+      const obj = JSON.parse(text);
+      entry.method = obj.method || '?';
+      entry.args = obj.params || {};
+      entry.taskId = obj.id;
+    } catch (e) {
+      entry.method = '?';
+      entry.args = {};
+    }
+    // Fetch result if exists
+    if (resultIds.has(id)) {
+      entry.resultName = RESULT_PREFIX + id + '.json';
+      try {
+        const text = await fetchFile(entry.resultName);
+        const obj = JSON.parse(text);
+        entry.result = obj;
+        entry.status = obj.error ? 'err' : 'ok';
+      } catch (e) {
+        entry.status = 'err';
+        entry.result = { error: 'parse failed: ' + e.message };
+      }
+    } else {
+      entry.status = 'pending';
+    }
+    entries.push(entry);
+  }
+  // Sort: pending first (most recent), then by some order
+  // We don't have task timestamps from the file itself, so use id (uuid hex) — not great
+  // Better: use the result's response order. For now sort by status then name desc.
+  entries.sort((a, b) => {
+    if (a.status === 'pending' && b.status !== 'pending') return -1;
+    if (b.status === 'pending' && a.status !== 'pending') return 1;
+    return b.id.localeCompare(a.id);
+  });
+
+  const feedEl = document.getElementById('feed');
+  if (entries.length === 0) {
+    feedEl.innerHTML = '<div class="empty">No tasks yet. Send a test call →</div>';
+    return;
+  }
+  feedEl.innerHTML = entries.slice(0, 50).map(e => `
+    <div class="entry" data-id="${e.id}">
+      <div class="head">
+        <span class="ts">${e.id.slice(0,8)}</span>
+        <span class="method">${escapeHtml(e.method)}</span>
+        <span class="status ${e.status}">${e.status === 'pending' ? 'pending' : e.status}</span>
+      </div>
+      <div class="body">${escapeHtml(JSON.stringify({ args: e.args, result: e.result }, null, 2))}</div>
+    </div>
+  `).join('');
+  // Click to expand
+  feedEl.querySelectorAll('.entry').forEach(el => {
+    el.querySelector('.head').onclick = () => el.classList.toggle('expanded');
+  });
+}
+
+function updateDownloads(names) {
+  const interesting = ['bridge.py', 'mcp_call.py', 'README.md', 'mcp-bridge.zip'];
+  const el = document.getElementById('downloads');
+  const items = interesting.filter(n => names.includes(n));
+  if (items.length === 0) {
+    el.innerHTML = '<div class="empty">No files yet</div>';
+    return;
+  }
+  el.innerHTML = items.map(n => `
+    <a href="${SHARE_URL}/${encodeURIComponent(n)}?view=1" download>
+      ⬇ ${escapeHtml(n)}
+    </a>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------------------------------------------------------------------------
+// Send a test call
+// ---------------------------------------------------------------------------
+async function sendCall() {
+  const method = document.getElementById('method-input').value.trim();
+  const paramsText = document.getElementById('params-input').value.trim();
+  const resultEl = document.getElementById('action-result');
+  if (!method) {
+    showToast('Enter a method name', 'err');
+    return;
+  }
+  let params = {};
+  try {
+    params = JSON.parse(paramsText || '{}');
+  } catch (e) {
+    showToast('Params JSON invalid: ' + e.message, 'err');
+    return;
+  }
+
+  const id = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)).replace(/-/g,'').slice(0,12);
+  const task = { jsonrpc: '2.0', id, method };
+  if (Object.keys(params).length > 0 || paramsText !== '{}') task.params = params;
+
+  resultEl.className = 'action-result show';
+  resultEl.textContent = 'Uploading task-' + id + '.json …';
+
+  const ok = await uploadFile('task-' + id + '.json', JSON.stringify(task));
+  if (!ok) {
+    resultEl.className = 'action-result show err';
+    resultEl.textContent = 'Upload failed';
+    return;
+  }
+  resultEl.textContent = 'Sent. Waiting for result-' + id + '.json …';
+
+  // Poll for result
+  const deadline = Date.now() + 60000;
+  const poll = async () => {
+    if (Date.now() > deadline) {
+      resultEl.className = 'action-result show err';
+      resultEl.textContent = '⏱ Timed out after 60s';
+      return;
+    }
+    const text = await fetchFile('result-' + id + '.json');
+    if (text) {
+      try {
+        const obj = JSON.parse(text);
+        const isError = !!obj.error;
+        resultEl.className = 'action-result show ' + (isError ? 'err' : 'ok');
+        resultEl.textContent = JSON.stringify(obj, null, 2);
+        showToast(isError ? 'Error response' : 'Got response', isError ? 'err' : 'ok');
+        setTimeout(refresh, 500);
+      } catch (e) {
+        resultEl.className = 'action-result show err';
+        resultEl.textContent = 'Bad JSON: ' + e.message;
+      }
+    } else {
+      setTimeout(poll, 800);
+    }
+  };
+  setTimeout(poll, 800);
+}
+
+// ---------------------------------------------------------------------------
+// Wiring
+// ---------------------------------------------------------------------------
+document.getElementById('refresh-now').onclick = refresh;
+document.getElementById('refresh-interval').onchange = (e) => {
+  if (refreshTimer) clearInterval(refreshTimer);
+  const ms = parseInt(e.target.value);
+  if (ms > 0) {
+    refreshTimer = setInterval(refresh, ms);
+  }
+};
+document.getElementById('send-btn').onclick = sendCall;
+
+document.querySelectorAll('.quick-buttons button').forEach(btn => {
+  btn.onclick = () => {
+    document.getElementById('method-input').value = btn.dataset.method;
+    document.getElementById('params-input').value = btn.dataset.params;
+    sendCall();
+  };
+});
+
+document.getElementById('clear-pending-btn').onclick = async () => {
+  // Re-upload pending tasks as already-answered with a "cleared" marker
+  // WebFTP doesn't support DELETE, so we just upload empty result files
+  const names = await listNames();
+  const tasks = names.filter(n => TASK_RE.test(n));
+  const results = new Set(names.filter(n => RESULT_RE.test(n)).map(n => n.match(RESULT_RE)[1]));
+  const pending = tasks.filter(n => !results.has(n.match(TASK_RE)[1]));
+  let cleared = 0;
+  for (const tn of pending) {
+    const id = tn.match(TASK_RE)[1];
+    const ok = await uploadFile('result-' + id + '.json', JSON.stringify({
+      jsonrpc: '2.0', id,
+      error: { code: -32000, message: 'Cleared via dashboard' }
+    }));
+    if (ok) cleared++;
+  }
+  showToast(`Cleared ${cleared}/${pending.length} pending tasks`, cleared === pending.length ? 'ok' : 'err');
+  setTimeout(refresh, 300);
+};
+
+
+// ---------------------------------------------------------------------------
+// ZAI Live tab: editor + game stream + logs via MCP bridge (task/result files)
+// ---------------------------------------------------------------------------
+const EDITOR_URL = 'https://91.77.164.54:8099/godot.editor.html';
+let liveAuto = true, liveBusy = false, liveTimer = null;
+
+function setLiveMode(on){
+  document.body.classList.toggle('live-mode', on);
+  document.getElementById('tab-dash').classList.toggle('active', !on);
+  document.getElementById('tab-live').classList.toggle('active', on);
+  if(on && !document.getElementById('liveEditor').src.startsWith('http')) {
+    document.getElementById('liveEditor').src = EDITOR_URL;
+  }
+  if(on && !liveTimer) liveTimer = setInterval(liveTick, 3000);
+  if(!on && liveTimer){ clearInterval(liveTimer); liveTimer = null; }
+}
+
+async function mcpCall(method, params, timeoutMs=25000){
+  const id = 'lv' + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'').slice(0,12) : Math.random().toString(36).slice(2));
+  const task = { jsonrpc:'2.0', id, method };
+  if(params && Object.keys(params).length) task.params = params;
+  const ok = await uploadFile('task-'+id+'.json', JSON.stringify(task));
+  if(!ok) throw new Error('upload failed');
+  const deadline = Date.now() + timeoutMs;
+  while(Date.now() < deadline){
+    const text = await fetchFile('result-'+id+'.json');
+    if(text){
+      try{ return JSON.parse(text); }catch(e){ throw new Error('bad result JSON'); }
+    }
+    await new Promise(r=>setTimeout(r,700));
+  }
+  throw new Error('timeout');
+}
+
+function findImage(obj){
+  if(!obj) return null;
+  if(typeof obj === 'string'){
+    if(obj.startsWith('data:image')) return obj;
+    if(obj.length > 1000 && /^[A-Za-z0-9+/=]+$/.test(obj.slice(0,200))) return 'data:image/png;base64,'+obj;
+    return null;
+  }
+  if(Array.isArray(obj)){ for(const v of obj){const r=findImage(v); if(r) return r;} return null; }
+  if(typeof obj === 'object'){ for(const k of Object.keys(obj)){const r=findImage(obj[k]); if(r) return r;} }
+  return null;
+}
+
+async function liveTick(){
+  if(!liveAuto || liveBusy || !document.body.classList.contains('live-mode')) return;
+  liveBusy = true;
+  try{
+    const r = await mcpCall('get_game_screenshot', {}, 20000);
+    if(r.error){ document.getElementById('lv-status').textContent = '⚠ '+(r.error.message||'error'); }
+    else{
+      const img = findImage(r.result !== undefined ? r.result : r);
+      if(img){ document.getElementById('liveFrame').src = img; document.getElementById('lv-status').textContent = '● live ' + new Date().toLocaleTimeString(); }
+      else document.getElementById('lv-status').textContent = 'кадр без изображения';
+    }
+  }catch(e){ document.getElementById('lv-status').textContent = '⚠ '+e.message; }
+  liveBusy = false;
+}
+
+
+document.getElementById('lv-play').onclick = async ()=>{
+  document.getElementById('lv-status').textContent='Play…';
+  try{ const r=await mcpCall('play_scene',{mode:'main'}); document.getElementById('lv-status').textContent='Play: '+JSON.stringify(r.result||r.error||r).slice(0,120); }
+  catch(e){ document.getElementById('lv-status').textContent=e.message; }
+};
+document.getElementById('lv-stop').onclick = async ()=>{
+  try{ const r=await mcpCall('stop_scene',{}); document.getElementById('lv-status').textContent='Stop: '+JSON.stringify(r.result||r.error||r).slice(0,120); }
+  catch(e){ document.getElementById('lv-status').textContent=e.message; }
+};
+document.getElementById('lv-shot').onclick = async ()=>{
+  liveBusy=true; document.getElementById('lv-status').textContent='Снимок…';
+  try{
+    const r=await mcpCall('get_game_screenshot',{});
+    const img=findImage(r.result!==undefined?r.result:r);
+    if(img){ document.getElementById('liveFrame').src=img; document.getElementById('lv-status').textContent='📸 '+new Date().toLocaleTimeString(); }
+    else document.getElementById('lv-status').textContent='нет изображения: '+JSON.stringify(r).slice(0,120);
+  }catch(e){ document.getElementById('lv-status').textContent=e.message; }
+  liveBusy=false;
+};
+document.getElementById('lv-auto').onclick = (e)=>{
+  liveAuto=!liveAuto; e.target.textContent='🔄 Авто: '+(liveAuto?'ВКЛ':'ВЫКЛ');
+};
+document.getElementById('lv-log').onclick = async ()=>{
+  const el=document.getElementById('liveLogs'); el.textContent='Загрузка логов…';
+  try{
+    const [e1,e2]=await Promise.all([mcpCall('get_editor_errors',{}),mcpCall('get_output_log',{})]);
+    el.textContent='=== ERRORЫ ===\n'+JSON.stringify(e1.result!==undefined?e1.result:e1.error,null,2)+'\n\n=== OUTPUT ===\n'+JSON.stringify(e2.result!==undefined?e2.result:e2.error,null,2);
+  }catch(err){ el.textContent='Ошибка: '+err.message; }
+};
+
+
+// ---------------------------------------------------------------------------
+// ZAI Chat: room + DM + task assignment via WebFTP files
+// ---------------------------------------------------------------------------
+const AGENTS = [
+  {id:'opencode-ling', name:'OpenCode · Ling 3.2 Flash', model:'openrouter/inclusionai/ling-3.2-flash:free'},
+  {id:'opencode-gemma', name:'OpenCode · Gemma 4 31B', model:'openrouter/google/gemma-4-31b-it:free'},
+  {id:'or-ling', name:'OpenRouter · Ling 3.2 Flash', model:'inclusionai/ling-3.2-flash:free'},
+  {id:'or-ernie', name:'OpenRouter · ERNIE 5.5 Flash', model:'baidu/ernie-5.5-flash-preview:free'},
+  {id:'or-nemotron-super', name:'OpenRouter · Nemotron Super VL', model:'nvidia/nemotron-3.5-super-vl:free'},
+  {id:'or-nemotron-light', name:'OpenRouter · Nemotron Lightning', model:'nvidia/nemotron-3.5-lightning:free'},
+  {id:'or-gemma-26', name:'OpenRouter · Gemma 4 26B', model:'google/gemma-4-26b-a4b-it:free'},
+  {id:'or-gemma-31', name:'OpenRouter · Gemma 4 31B', model:'google/gemma-4-31b-it:free'},
+  {id:'redot-cli', name:'Redot CLI', model:'redot / godot headless'},
+  {id:'chat-zai', name:'chat.z.ai', model:'облачный агент'}
+];
+let selectedAgent = AGENTS[2].id, chatBusy = false, chatTimer = null;
+
+function chatMode(on){
+  document.body.classList.toggle('chat-mode', on);
+  ['tab-dash','tab-live','tab-chat'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById(on?'tab-chat':(document.body.classList.contains('live-mode')?'tab-live':'tab-dash')).classList.add('active');
+  if(on){ buildAgentList(); chatRefresh(); if(!chatTimer) chatTimer=setInterval(chatRefresh,3000); }
+  else if(chatTimer){ clearInterval(chatTimer); chatTimer=null; }
+}
+function buildAgentList(){
+  const el=document.getElementById('agent-list');
+  el.innerHTML=AGENTS.map(a=>`<div class="agent-item ${a.id===selectedAgent?'active':''}" data-id="${a.id}">${a.name}<small>${a.model}</small></div>`).join('');
+  el.querySelectorAll('.agent-item').forEach(x=>x.onclick=()=>{selectedAgent=x.dataset.id;document.getElementById('dm-with').textContent='с '+selectedAgent;buildAgentList();chatRefresh();});
+  const sel=document.getElementById('task-agent');
+  sel.innerHTML=AGENTS.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+  sel.value=selectedAgent;
+  document.getElementById('dm-with').textContent='с '+selectedAgent;
+}
+async function chatList(prefixes){
+  try{
+    const r=await fetch(`${SHARE_URL}/?json=1`,{cache:'no-store'});
+    const j=await r.json();
+    return (j.items||[]).filter(i=>i.type==='file'&&prefixes.some(p=>i.name.startsWith(p))).map(i=>i.name);
+  }catch(e){return [];}
+}
+async function chatRead(name){ return await fetchFile(name); }
+function chatStamp(){ return new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,14)+'-'+Math.random().toString(36).slice(2,7); }
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function chatRefresh(){
+  if(chatBusy)return; chatBusy=true;
+  try{
+    let names=[];
+    const idxRaw=await fetchFile('chat-index.json');
+    if(idxRaw){ try{ names=JSON.parse(idxRaw); }catch(e){} }
+    if(!names.length) names=await chatList(['chat-','dm-','assign-']);
+    const room=[],dm=[],tasks=[];
+    for(const n of names.slice(-120)){
+      const raw=await chatRead(n); if(!raw)continue;
+      let m; try{m=JSON.parse(raw);}catch(e){continue;}
+      if(n.startsWith('chat-'))room.push(m);
+      else if(n.startsWith('dm-'))dm.push(m);
+      else if(n.startsWith('assign-'))tasks.push(m);
+    }
+    room.sort((a,b)=>String(a.ts||'').localeCompare(String(b.ts||'')));
+    dm.sort((a,b)=>String(a.ts||'').localeCompare(String(b.ts||'')));
+    const me=document.getElementById('chat-from').value.trim();
+    const rf=document.getElementById('room-feed');
+    rf.innerHTML=room.slice(-60).map(m=>`<div class="chat-msg"><span class="time">${esc((m.ts||'').slice(11,19))}</span><span class="who">${esc(m.from||'?')}</span>: ${esc(m.text||'')}</div>`).join('')||'<div style="color:var(--muted);font-size:12px">Сообщений пока нет</div>';
+    rf.scrollTop=rf.scrollHeight;
+    document.getElementById('chat-count').textContent=room.length+' сообщ. / '+tasks.length+' задач';
+    const df=document.getElementById('dm-feed');
+    const mine=dm.filter(m=>(m.from===me&&m.to===selectedAgent)||(m.to===me&&m.from===selectedAgent));
+    df.innerHTML=mine.slice(-40).map(m=>`<div class="chat-msg dm"><span class="time">${esc((m.ts||'').slice(11,19))}</span><span class="who">${esc(m.from)}</span> → ${esc(m.to)}: ${esc(m.text||'')}</div>`).join('')||'<div style="color:var(--muted);font-size:12px">ЛС пуста</div>';
+    df.scrollTop=df.scrollHeight;
+  }catch(e){}finally{chatBusy=false;}
+}
+async function postChat(kind,payload,name){
+  const ok=await uploadFile(name,JSON.stringify(Object.assign({kind,kindTs:new Date().toISOString(),ts:new Date().toISOString()},payload)));
+  if(ok){
+    let arr=[]; const ir=await fetchFile('chat-index.json');
+    if(ir){try{arr=JSON.parse(ir);}catch(e){}}
+    if(!Array.isArray(arr))arr=[];
+    if(arr.indexOf(name)<0)arr.push(name);
+    await uploadFile('chat-index.json',JSON.stringify(arr.slice(-500)));
+    chatRefresh();
+  } else showToast('Не удалось записать файл','err');
+}
+document.getElementById('chat-send').onclick=async()=>{
+  const from=document.getElementById('chat-from').value.trim()||'agent';
+  const text=document.getElementById('chat-text').value.trim(); if(!text)return;
+  await postChat('room',{from,text},'chat-'+chatStamp()+'.json');
+  document.getElementById('chat-text').value='';
+};
+document.getElementById('dm-send').onclick=async()=>{
+  const from=document.getElementById('chat-from').value.trim()||'agent';
+  const text=document.getElementById('dm-text').value.trim(); if(!text)return;
+  await postChat('dm',{from,to:selectedAgent,text},'dm-'+from+'-'+selectedAgent+'-'+chatStamp()+'.json');
+  document.getElementById('dm-text').value='';
+};
+document.getElementById('task-send').onclick=async()=>{
+  const agent=document.getElementById('task-agent').value;
+  const method=document.getElementById('task-method').value.trim(); if(!method)return;
+  let params={}; try{params=JSON.parse(document.getElementById('task-params').value||'{}');}catch(e){showToast('Плохой JSON','err');return;}
+  const id='as'+chatStamp();
+  await postChat('assign',{id,agent,method,params,from:document.getElementById('chat-from').value.trim()||'agent'},'assign-'+id+'.json');
+  await uploadFile('task-'+id+'.json',JSON.stringify({jsonrpc:'2.0',id,method,params,agent}));
+  showToast('Задание назначено: '+agent,'ok');
+};
+document.getElementById('chat-refresh').onclick=chatRefresh;
+document.getElementById('chat-prompt').onclick=()=>{
+  const txt='Подключись к мультиагентскому чату через WebFTP-шару ${WEBFTP_SHARE} .\n'+
+    '1) Прочитай CHAT_PROTOCOL.md на шаре (?view=1).\n'+
+    '2) Пиши сообщения в комнату файлом chat-<время>.json и личные — dm-<от>-<кому>-<время>.json через HTTP PUT ?name=... .\n'+
+    '3) Бери задания из assign-*.json и task-*.json, отвечай result-<id>.json.\n'+
+    '4) Отвечай хотя бы одному агенту в копмнате и одному в ЛС перед завершением.';
+  navigator.clipboard.writeText(txt).then(()=>showToast('Промпт скопирован','ok'),()=>showToast('Не скопировалось','err'));
+};
+document.getElementById('tab-chat').onclick=()=>chatMode(true);
+document.getElementById('tab-dash').onclick=()=>{setLiveMode(false);chatMode(false);};
+document.getElementById('tab-live').onclick=()=>{setLiveMode(true);document.body.classList.remove('chat-mode');document.getElementById('tab-chat').classList.remove('active');};
+
+// Start auto-refresh
+const initialInterval = parseInt(document.getElementById('refresh-interval').value);
+if (initialInterval > 0) refreshTimer = setInterval(refresh, initialInterval);
+refresh();
+</script>
+
+</body>
+</html>

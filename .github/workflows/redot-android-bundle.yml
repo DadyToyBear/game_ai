@@ -1,0 +1,148 @@
+name: Assemble Android editor and latest bridge
+
+on:
+  push:
+    branches: [arena/b84b9c4f-game-ai]
+    paths:
+      - '.github/workflows/redot-android-bundle.yml'
+      - 'redot-android/**'
+      - 'redot-audit/combined_bundle_test.py'
+      - 'multiagent-upstream/multiagent-mcp.py'
+      - 'redot-bridge/multiagent_mcp.py'
+      - 'redot-bridge/task_transport.py'
+      - 'redot-bridge/agent_presence.py'
+      - 'redot-bridge/dashboard_presence_patch.js'
+      - 'redot-bridge/prepare_dashboard.py'
+      - 'redot-bridge/dashboard_chat_patch.js'
+      - 'redot-bridge/dashboard_assignment_patch.js'
+      - 'redot-bridge/opencode.multiagent.example.json'
+      - 'redot-bridge/make_bundle.py'
+      - 'redot-bridge/addons/redot_android_mcp/**'
+      - 'redot-bridge/bridge.py'
+      - 'redot-bridge/project_sync.py'
+      - 'redot-bridge/relay.py'
+      - 'redot-bridge/requirements-relay.txt'
+      - 'redot-bridge/relay-deploy/**'
+      - 'redot-bridge/web/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find a successful, unexpired RC2 Android build
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=80d31f765b0ead5551c277704e52bb51c515db1f
+          mkdir -p artifact/addons
+          gh run list --repo "$GITHUB_REPOSITORY" --branch "$BRANCH" --limit 100 --json databaseId,headSha,status,conclusion,workflowName > runs.json
+          found=false
+          while IFS=$'\t' read -r id sha workflow; do
+            [ -n "$id" ] || continue
+            workflow_path=redot-android-editor.yml
+            if [ "$workflow" = 'Assemble Android editor and latest bridge' ]; then workflow_path=redot-android-bundle.yml; fi
+            # Consume the entire stream: grep -q can close the pipe early,
+            # making base64 fail with SIGPIPE under pipefail on valid sources.
+            if ! gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$workflow_path?ref=$sha" --jq .content | base64 -d | grep -F "ref: $expected" >/dev/null; then continue; fi
+            # A successful bundle also contains the APKs. Reuse it when a
+            # build-only artifact has expired or fallen outside the run list.
+            for name in redot-26.3-rc2-android-arm64-and-usb-mcp redot-26.3-rc2-android-latest-bridge; do
+              available=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts" --jq "[.artifacts[] | select(.name == \"$name\" and .expired == false)] | length")
+              if [ "$available" -ne 1 ]; then continue; fi
+              rm -rf "source-$id"; mkdir -p "source-$id"
+              if ! gh run download "$id" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "source-$id"; then continue; fi
+              mapfile -t apks < <(find "source-$id" -maxdepth 1 -type f -name 'android_editor-android-*.apk' -size +0c)
+              [ "${#apks[@]}" -gt 0 ] || continue
+              cp "${apks[@]}" artifact/
+              printf 'Engine revision: %s\nAPK source run: %s\nAPK source artifact: %s\nAPK source commit: %s\nBridge commit: %s\n' "$expected" "$id" "$name" "$sha" "$GITHUB_SHA" > artifact/BUILD-PROVENANCE.txt
+              found=true
+              break
+            done
+            if [ "$found" = true ]; then break; fi
+          done < <(jq -r '.[] | select(.status == "completed" and .conclusion == "success" and (.workflowName == "Build Redot RC2 Android Editor" or .workflowName == "Assemble Android editor and latest bridge")) | [.databaseId, .headSha, .workflowName] | @tsv' runs.json)
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+          if [ "$found" = false ]; then echo 'No compatible unexpired Android build: a fresh build will be made.'; fi
+      - name: Checkout Redot RC2 for fallback build
+        if: steps.source.outputs.found == 'false'
+        uses: actions/checkout@v4
+        with:
+          repository: Redot-Engine/redot-engine
+          ref: 80d31f765b0ead5551c277704e52bb51c515db1f
+          path: engine
+          persist-credentials: false
+      - name: Install Java for fallback build
+        if: steps.source.outputs.found == 'false'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Python for fallback build
+        if: steps.source.outputs.found == 'false'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Android dependencies for fallback build
+        if: steps.source.outputs.found == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C engine rev-parse HEAD)" = 80d31f765b0ead5551c277704e52bb51c515db1f
+          python -m pip install 'scons==4.10.1'
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.1.0' 'ndk;29.0.14206865' 'platform-tools'
+      - name: Download Swappy for fallback build
+        if: steps.source.outputs.found == 'false'
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
+        with:
+          repo: godotengine/godot-swappy
+          version: tags/from-source-2025-01-31
+          file: godot-swappy.7z
+          target: swappy/godot-swappy.7z
+      - name: Build fresh RC2 Android editor
+        if: steps.source.outputs.found == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          7za x -y swappy/godot-swappy.7z -o"$GITHUB_WORKSPACE/engine/thirdparty/swappy-frame-pacing"
+          (cd engine && python -m SCons platform=android arch=arm64 target=editor production=yes debug_symbols=no -j2)
+          (cd engine/platform/android/java && ./gradlew generateGodotEditor --no-daemon)
+          mapfile -t apks < <(find engine/bin/android_editor_builds -maxdepth 1 -type f -name 'android_editor-android-*.apk' -size +0c)
+          if [ "${#apks[@]}" -eq 0 ]; then echo '::error::No Android editor APK was produced' >&2; exit 1; fi
+          cp "${apks[@]}" artifact/
+          printf 'Engine revision: %s\nAPK build: fresh in run %s\nBridge commit: %s\n' 80d31f765b0ead5551c277704e52bb51c515db1f "$GITHUB_RUN_ID" "$GITHUB_SHA" > artifact/BUILD-PROVENANCE.txt
+      - name: Preserve fresh APK for future bundles
+        if: steps.source.outputs.found == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: redot-26.3-rc2-android-arm64-and-usb-mcp
+          path: artifact/android_editor-android-*.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Add current bridge and addon
+        run: |
+          set -euo pipefail
+          cp -a redot-bridge/addons/redot_android_mcp artifact/addons/
+          cp redot-bridge/bridge.py redot-bridge/project_sync.py redot-bridge/relay.py redot-bridge/requirements-relay.txt artifact/
+          python3 redot-bridge/make_bundle.py --copy-multiagent artifact
+          python3 redot-audit/combined_bundle_test.py artifact
+          cp -a redot-bridge/web artifact/web
+          cp -a redot-bridge/relay-deploy artifact/relay-deploy
+          cp redot-android/README.md artifact/README.md
+          cp redot-bridge/README.md artifact/BRIDGE-README.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: redot-26.3-rc2-android-latest-bridge
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 14
