@@ -26,6 +26,9 @@ class DashboardPatchTests(unittest.TestCase):
             self.assertIn('id="chat-show-mcp"', content)
             self.assertIn("const AGENT_PREFIXES = ['chat-', 'dm-', 'assign-']", content)
             self.assertIn("document.getElementById('lv-play').onclick", content)
+            for marker in ('id="task-allow-empty"', 'id="call-allow-empty"', 'Clear pending (disabled)',
+                           'matched responses', "obj.error ? 'err' : 'received'", 'completion not verified'):
+                self.assertIn(marker, content)
             with self.assertRaises(ValueError): patch.generate(SOURCE, output)
             self.assertEqual(output.read_text(encoding='utf8'), content)
 

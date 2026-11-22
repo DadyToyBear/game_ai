@@ -107,6 +107,34 @@ class CombinedMcpTest(unittest.TestCase):
         self.assertEqual(replies[1]['id'], 5)
         self.assertIn('tools', replies[1]['result'])
 
+    def test_assign_requires_explicit_params_and_preserves_exact_payload(self):
+        def call(i, arguments):
+            return {'jsonrpc':'2.0','id':i,'method':'tools/call','params':{'name':'chat_assign','arguments':arguments}}
+        cases = [
+            {'agent':'opencode-1','method':'read_script'},
+            {'agent':'opencode-1','method':'read_script','params':{}},
+            {'agent':'opencode-1','method':'read_script','params':[]},
+            {'agent':'opencode-1','method':'read_script','params':{},'allow_empty_params':'yes'},
+            {'agent':'','method':'read_script','params':{'path':'res://main.gd'}},
+        ]
+        msgs = [{'jsonrpc':'2.0','id':0,'method':'tools/list'}] + [call(i+1, x) for i,x in enumerate(cases)]
+        msgs += [call(10, {'agent':'opencode-1','method':'read_script','params':{'path':'res://main.gd','task':'Проверить ввод'}}),
+                 call(11, {'agent':'opencode-2','method':'get_editor_errors','params':{},'allow_empty_params':True})]
+        process = self.run_mcp(msgs)
+        self.assertEqual(process.returncode,0,process.stderr)
+        replies = [json.loads(line) for line in process.stdout.splitlines()]
+        schema = next(t['inputSchema'] for t in replies[0]['result']['tools'] if t['name'] == 'chat_assign')
+        self.assertIn('params',schema['required']); self.assertIn('allow_empty_params',schema['properties'])
+        self.assertEqual([r['error']['code'] for r in replies[1:6]],[-32602]*5)
+        self.assertEqual(len(Share.files),4, 'invalid assignments must not write to the share')
+        for reply, expected in zip(replies[6:], [{'path':'res://main.gd','task':'Проверить ввод'}, {}]):
+            result = json.loads(reply['result']['content'][0]['text'])
+            self.assertTrue(result['ok']); self.assertIn('neither a result file nor a confirmation',result['notice'])
+            assignment = json.loads(Share.files['assign-'+result['id']+'.json'])
+            task = json.loads(Share.files['task-'+result['id']+'.json'])
+            self.assertEqual(assignment['params'], expected); self.assertEqual(task['params'], expected)
+            self.assertNotIn('allow_empty_params',assignment); self.assertNotIn('allow_empty_params',task)
+
     def test_insecure_share_is_rejected_without_request(self):
         env = dict(self.env, WEBFTP_SHARE='http://example.com/s/private')
         process = self.run_mcp([], env)

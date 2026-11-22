@@ -31,6 +31,7 @@ class BundleTests(unittest.TestCase):
             self.assertTrue((result / 'dashboard_presence_patch.js').is_file())
             self.assertTrue((result / 'prepare_dashboard.py').is_file())
             self.assertTrue((result / 'dashboard_chat_patch.js').is_file())
+            self.assertTrue((result / 'dashboard_assignment_patch.js').is_file())
             self.assertTrue((result / 'multiagent_chat.py').is_file())
             self.assertTrue((result / 'opencode.multiagent.example.json').is_file())
             self.assertTrue((result / 'web/sync.html').is_file())

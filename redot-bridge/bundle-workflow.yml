@@ -16,6 +16,7 @@ on:
       - 'redot-bridge/dashboard_presence_patch.js'
       - 'redot-bridge/prepare_dashboard.py'
       - 'redot-bridge/dashboard_chat_patch.js'
+      - 'redot-bridge/dashboard_assignment_patch.js'
       - 'redot-bridge/opencode.multiagent.example.json'
       - 'redot-bridge/bridge.py'
       - 'redot-bridge/project_sync.py'

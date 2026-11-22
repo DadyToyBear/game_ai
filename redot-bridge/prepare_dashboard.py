@@ -49,6 +49,30 @@ def generate(source, output):
     start, end = text.index('async function chatList(prefixes){'), text.index('async function postChat(kind,payload,name){')
     replacement = (Path(__file__).resolve().parent / 'dashboard_chat_patch.js').read_text(encoding='utf-8')
     text = text[:start] + replacement + '\n' + text[end:]
+
+    def replace_once(old, new):
+        nonlocal text
+        if text.count(old) != 1:
+            raise ValueError('Assignment or result display anchor mismatch')
+        text = text.replace(old, new, 1)
+
+    task_field = '''        <input id="task-params" placeholder='{"param":"value"}' value="{}" style="flex:1 1 100%">
+        <button id="task-send" style="flex:1 1 100%">Назначить</button>'''
+    replace_once(task_field, task_field.replace('        <button id="task-send"', '        <label style="flex:1 1 100%"><input type="checkbox" id="task-allow-empty"> Разрешить пустые параметры для метода без аргументов</label>\n        <button id="task-send"') + '\n        <div id="task-notice" role="status" style="flex:1 1 100%"></div>')
+    replace_once('      <textarea id="params-input">{}</textarea>', '      <textarea id="params-input">{}</textarea>\n      <label><input type="checkbox" id="call-allow-empty"> Allow empty parameters for a parameterless method</label>')
+    replace_once('<button class="btn sec" id="clear-pending-btn" style="margin-left:6px;">Clear pending</button>', '<button class="btn sec" id="clear-pending-btn" disabled title="Disabled: this creates fake result files and does not delete tasks" style="margin-left:6px;">Clear pending (disabled)</button>')
+    replace_once('  return body.includes(\'"ok":true\') || body.includes(\'"ok": true\');', '  try { return r.ok && JSON.parse(body).ok === true; } catch (_) { return false; }')
+    replace_once("    chatRefresh();\n  } else showToast('Не удалось записать файл','err');\n}", "    chatRefresh();\n    return true;\n  } else { showToast('Не удалось записать файл','err'); return false; }\n}")
+    start, end = text.index("document.getElementById('task-send').onclick=async()=>{"), text.index("document.getElementById('chat-refresh').onclick=chatRefresh;")
+    assignment = (Path(__file__).resolve().parent / 'dashboard_assignment_patch.js').read_text(encoding='utf-8')
+    text = text[:start] + assignment + '\n' + text[end:]
+    replace_once("    showToast('Params JSON invalid: ' + e.message, 'err');\n    return;\n  }\n\n  const id =", "    showToast('Params JSON invalid: ' + e.message, 'err');\n    return;\n  }\n  if (!params || typeof params !== 'object' || Array.isArray(params)) { showToast('Params must be a JSON object', 'err'); return; }\n  if (!Object.keys(params).length && !document.getElementById('call-allow-empty').checked) { showToast('Confirm an empty parameter object explicitly', 'err'); return; }\n\n  const id =")
+    replace_once("  if (Object.keys(params).length > 0 || paramsText !== '{}') task.params = params;", "  task.params = params;")
+    replace_once("  totSub.textContent = `${completed.length} done, ${pending.length} pending`;", "  totSub.textContent = `${completed.length} matched responses, ${pending.length} unmatched tasks`;")
+    replace_once("  pendSub.textContent = pending.length === 0 ? 'all caught up'", "  pendSub.textContent = pending.length === 0 ? 'no unmatched tasks'")
+    replace_once("        entry.status = obj.error ? 'err' : 'ok';", "        entry.status = obj.error ? 'err' : 'received';")
+    replace_once('.entry .status.pending {', '.entry .status.received { background: rgba(212,161,78,0.15); color: var(--warn); }\n.entry .status.pending {')
+    replace_once("        resultEl.className = 'action-result show ' + (isError ? 'err' : 'ok');\n        resultEl.textContent = JSON.stringify(obj, null, 2);\n        showToast(isError ? 'Error response' : 'Got response', isError ? 'err' : 'ok');", "        resultEl.className = 'action-result show ' + (isError ? 'err' : '');\n        resultEl.textContent = 'Response received; completion not verified.\\n' + JSON.stringify(obj, null, 2);\n        showToast(isError ? 'Error response' : 'Response received; completion not verified', isError ? 'err' : '');")
     # Exclusive create: neither an existing dashboard nor symlink is overwritten.
     with output.open('x', encoding='utf-8', newline='\n') as f:
         f.write(text)

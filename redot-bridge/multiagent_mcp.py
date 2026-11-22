@@ -2,11 +2,13 @@
 """Expose the existing multiagent chat and the local Redot bridge via MCP stdio.
 
 With REDOT_TASK_SECRET configured, optional tools submit authenticated tasks
-for the separately started worker. Legacy chat_assign remains unchanged.
+for the separately started worker. chat_assign keeps the legacy wire format,
+with explicit parameter validation in this combined server.
 """
 from __future__ import annotations
 
 import argparse
+import copy
 import hmac
 import importlib.util
 import json
@@ -82,6 +84,32 @@ TASK_TOOLS = [
 ]
 
 
+def combined_chat_tools(chat):
+    """Describe extra validation without changing the pinned upstream module."""
+    tools = copy.deepcopy(chat.TOOLS)
+    for tool in tools:
+        if tool['name'] == 'chat_assign':
+            tool['description'] += (' Explicit params are required. For a genuinely parameterless method set allow_empty_params=true. '
+                                    'A result file or confirmation is not proof that the requested work was completed.')
+            schema = tool['inputSchema']
+            schema['properties']['allow_empty_params'] = {'type': 'boolean', 'description': 'Explicitly permit {} for a parameterless method.'}
+            schema['required'] = list(dict.fromkeys(schema.get('required', []) + ['params']))
+    return tools
+
+
+def validate_assignment(arguments):
+    if not isinstance(arguments, dict):
+        raise ValueError('Assignment arguments must be an object')
+    agent, method, params = arguments.get('agent'), arguments.get('method'), arguments.get('params')
+    allow_empty = arguments.get('allow_empty_params', False)
+    if (not isinstance(agent, str) or not agent.strip() or not isinstance(method, str) or not method.strip() or
+            not isinstance(params, dict) or type(allow_empty) is not bool):
+        raise ValueError('Specify a nonempty agent, method and explicit params object')
+    if not params and not allow_empty:
+        raise ValueError('Empty params require allow_empty_params=true for genuinely parameterless methods')
+    return {key: value for key, value in arguments.items() if key != 'allow_empty_params'}
+
+
 PRESENCE_TOOLS = [
     {'name': 'chat_presence_update', 'description': 'Write one self-reported heartbeat. Does not prove the agent is healthy.',
      'inputSchema': {'type': 'object', 'properties': {'agent': {'type': 'string', 'pattern': '^[a-z0-9][a-z0-9_-]{0,63}$'}, 'status': {'type': 'string', 'maxLength': 200}}, 'required': ['agent'], 'additionalProperties': False}},
@@ -99,7 +127,7 @@ def response(message, url, token, chat, task_client=None, task_secret='', presen
     if method == 'initialize':
         return {'jsonrpc': '2.0', 'id': rid, 'result': {'protocolVersion': '2025-03-26', 'capabilities': {'tools': {}}, 'serverInfo': {'name': 'redot-multiagent-editor', 'version': '0.1.0'}}}
     if method == 'tools/list':
-        return {'jsonrpc': '2.0', 'id': rid, 'result': {'tools': bridge.tools() + chat.TOOLS + (TASK_TOOLS if task_client else []) + (PRESENCE_TOOLS if presence_client else [])}}
+        return {'jsonrpc': '2.0', 'id': rid, 'result': {'tools': bridge.tools() + combined_chat_tools(chat) + (TASK_TOOLS if task_client else []) + (PRESENCE_TOOLS if presence_client else [])}}
     if method == 'tools/call':
         params = message.get('params')
         if task_client and isinstance(params, dict) and params.get('name') in ('webftp_task_submit', 'webftp_task_result'):
@@ -135,8 +163,15 @@ def response(message, url, token, chat, task_client=None, task_secret='', presen
             arguments = params.get('arguments', {})
             if not isinstance(arguments, dict):
                 return {'jsonrpc': '2.0', 'id': rid, 'error': {'code': -32602, 'message': 'Invalid tool arguments'}}
+            if params['name'] == 'chat_assign':
+                try:
+                    arguments = validate_assignment(arguments)
+                except ValueError as exc:
+                    return {'jsonrpc': '2.0', 'id': rid, 'error': {'code': -32602, 'message': str(exc)}}
             try:
                 result = chat.call(params['name'], arguments)
+                if params['name'] == 'chat_assign' and isinstance(result, dict):
+                    result = dict(result, notice='Submission only; neither a result file nor a confirmation proves completion. Partial writes are possible.')
                 is_error = isinstance(result, dict) and result.get('ok') is False
                 payload = {'content': [{'type': 'text', 'text': json.dumps(result, ensure_ascii=False)}]}
                 if is_error:

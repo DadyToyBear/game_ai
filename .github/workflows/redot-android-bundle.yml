@@ -14,6 +14,7 @@ on:
       - 'redot-bridge/dashboard_presence_patch.js'
       - 'redot-bridge/prepare_dashboard.py'
       - 'redot-bridge/dashboard_chat_patch.js'
+      - 'redot-bridge/dashboard_assignment_patch.js'
       - 'redot-bridge/opencode.multiagent.example.json'
       - 'redot-bridge/make_bundle.py'
       - 'redot-bridge/addons/redot_android_mcp/**'
